@@ -38,3 +38,26 @@ export { CONFIG, type ExpiryMonthOption, type AllowedFileType } from './config';
 
 // 메시지
 export { ERROR_MESSAGES, SUCCESS_MESSAGES } from './messages';
+
+// 라우트
+export {
+  PUBLIC_ROUTES,
+  AUTH_ROUTES,
+  PROTECTED_ROUTES,
+  DEFAULT_REDIRECT,
+  LOGIN_PATH,
+  PENDING_PATH,
+  HOME_PATH,
+} from './routes';
+
+// 네비게이션
+export {
+  MANUFACTURER_NAV_ITEMS,
+  DISTRIBUTOR_NAV_ITEMS,
+  HOSPITAL_NAV_ITEMS,
+  ADMIN_NAV_ITEMS,
+  NAVIGATION_ITEMS,
+  getNavigationItems,
+  type NavigationItem,
+  type IconName,
+} from './navigation';
