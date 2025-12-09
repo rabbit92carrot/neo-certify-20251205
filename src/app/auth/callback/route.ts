@@ -34,13 +34,13 @@ export async function GET(request: NextRequest) {
           .eq('auth_user_id', user.id)
           .single();
 
-        if (org && org.status === 'ACTIVE') {
+        if (org?.status === 'ACTIVE') {
           // 조직 유형별 대시보드로 리다이렉트
           const redirectPath = DEFAULT_REDIRECT[org.type as OrganizationType];
           return NextResponse.redirect(new URL(redirectPath, origin));
         }
 
-        if (org && org.status === 'PENDING_APPROVAL') {
+        if (org?.status === 'PENDING_APPROVAL') {
           // 승인 대기 페이지로 리다이렉트
           return NextResponse.redirect(new URL('/pending', origin));
         }

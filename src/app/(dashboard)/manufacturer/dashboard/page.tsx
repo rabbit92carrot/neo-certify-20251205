@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatCard } from '@/components/shared';
-import { Package, Factory, Truck } from 'lucide-react';
+import { Package, Factory, Truck, Boxes } from 'lucide-react';
+import { getManufacturerDashboardStats } from '@/services/dashboard.service';
 
 export const metadata = {
   title: '대시보드 | 제조사',
@@ -23,12 +24,16 @@ export default async function ManufacturerDashboardPage(): Promise<React.ReactEl
     .eq('auth_user_id', user!.id)
     .single();
 
-  // TODO: Phase 5에서 실제 통계 데이터 조회
-  const stats = {
-    totalInventory: '-',
-    todayProduction: '-',
-    todayShipment: '-',
-  };
+  // 대시보드 통계 조회
+  const statsResult = await getManufacturerDashboardStats(org!.id);
+  const stats = statsResult.success
+    ? statsResult.data!
+    : {
+        totalInventory: 0,
+        todayProduction: 0,
+        todayShipments: 0,
+        activeProducts: 0,
+      };
 
   return (
     <div className="space-y-6">
@@ -48,24 +53,30 @@ export default async function ManufacturerDashboardPage(): Promise<React.ReactEl
       </Card>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="총 재고량"
-          value={stats.totalInventory}
+          value={stats.totalInventory.toLocaleString()}
           icon={Package}
           description="현재 보유 중인 총 재고"
         />
         <StatCard
           title="오늘 생산량"
-          value={stats.todayProduction}
+          value={stats.todayProduction.toLocaleString()}
           icon={Factory}
           description="오늘 등록된 생산 수량"
         />
         <StatCard
           title="오늘 출고량"
-          value={stats.todayShipment}
+          value={stats.todayShipments.toLocaleString()}
           icon={Truck}
           description="오늘 출고된 수량"
+        />
+        <StatCard
+          title="활성 제품"
+          value={stats.activeProducts.toLocaleString()}
+          icon={Boxes}
+          description="등록된 제품 종류"
         />
       </div>
     </div>
