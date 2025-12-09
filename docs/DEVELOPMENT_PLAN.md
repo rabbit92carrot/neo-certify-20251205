@@ -81,21 +81,27 @@ neo-certify/
 
 ## Phase별 개발 계획
 
-### Phase 0: 프로젝트 초기 설정 (현재 세션)
-**예상 시간**: 1 세션
+### Phase 0: 프로젝트 초기 설정 ✅ 완료
+**완료일**: 2025-12-09
 
-- [ ] Next.js 15 프로젝트 생성 (App Router, TypeScript)
-- [ ] 패키지 설치 (shadcn/ui, Tailwind CSS v4, @supabase/ssr)
-- [ ] ESLint/Prettier/TypeScript 엄격 설정
-- [ ] Supabase 프로젝트 연결 및 환경 변수
-- [ ] 기본 디렉토리 구조 생성
-- [ ] shadcn/ui 초기화 및 기본 컴포넌트
+- [x] Next.js 15 프로젝트 생성 (App Router, TypeScript)
+- [x] 패키지 설치 (shadcn/ui, Tailwind CSS v4, @supabase/ssr, Vitest)
+- [x] ESLint/Prettier/TypeScript 엄격 설정
+- [x] Supabase 프로젝트 연결 및 환경 변수
+- [x] 기본 디렉토리 구조 생성
+- [x] shadcn/ui 초기화 및 기본 컴포넌트
 
-**산출물**: 실행 가능한 빈 프로젝트, 개발 환경 완료
+**산출물**:
+- 실행 가능한 Next.js 15 프로젝트
+- Supabase 클라이언트 아키텍처 (client/server/middleware/admin)
+- SSOT 상수 구조 (organization, config, messages, product, history)
+- 유틸리티 함수 + 16개 단위 테스트 통과
+- shadcn/ui 컴포넌트 15개 설치
 
 ---
 
-### Phase 1: 데이터베이스 스키마 (1 세션)
+### Phase 1: 데이터베이스 스키마 ⏳ 다음 진행
+**상태**: 대기 중
 
 - [ ] 11개 엔티티 마이그레이션 SQL 작성
 - [ ] ENUM 타입 정의 (organization_type, status 등)
@@ -302,11 +308,21 @@ neo-certify/
 
 ---
 
-## 다음 단계 (Phase 0 실행)
+## 현재 진행 상황
 
-1. Next.js 15 프로젝트 생성
-2. 필수 패키지 설치
-3. 개발 환경 설정 (ESLint, Prettier, TypeScript)
-4. Supabase 연결
-5. 디렉토리 구조 생성
-6. shadcn/ui 초기화
+| Phase | 상태 | 완료일 |
+|-------|------|--------|
+| Phase 0 | ✅ 완료 | 2025-12-09 |
+| Phase 1 | ⏳ 다음 | - |
+| Phase 2-13 | 대기 | - |
+
+---
+
+## 다음 세션 작업 (Phase 1)
+
+1. Supabase CLI 설정 및 로컬 연결
+2. 11개 엔티티 마이그레이션 SQL 작성
+3. ENUM 타입 정의
+4. RLS 정책 설정
+5. TypeScript 타입 자동 생성
+6. 시드 데이터 작성
