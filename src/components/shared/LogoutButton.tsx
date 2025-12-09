@@ -1,0 +1,52 @@
+'use client';
+
+/**
+ * 로그아웃 버튼 컴포넌트
+ */
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase/client';
+import { LOGIN_PATH } from '@/constants/routes';
+
+interface LogoutButtonProps {
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  className?: string;
+}
+
+export function LogoutButton({
+  variant = 'outline',
+  size = 'default',
+  className,
+}: LogoutButtonProps): React.ReactElement {
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleLogout = async () => {
+    setIsLoading(true);
+    try {
+      await supabase.auth.signOut();
+      router.push(LOGIN_PATH);
+      router.refresh();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      onClick={handleLogout}
+      disabled={isLoading}
+      className={className}
+    >
+      {isLoading ? '로그아웃 중...' : '로그아웃'}
+    </Button>
+  );
+}
