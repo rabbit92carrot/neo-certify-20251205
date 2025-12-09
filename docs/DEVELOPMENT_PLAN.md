@@ -129,50 +129,93 @@ neo-certify/
 
 ---
 
-### Phase 2: 상수 및 타입 정의 ⏳ 다음 진행
-**상태**: 대기 중
+### Phase 2: 상수 및 타입 정의 ✅ 완료
+**완료일**: 2025-12-09
 
 - [x] 조직/제품/상태 상수 정의 (Phase 0에서 완료)
 - [x] 에러/성공 메시지 상수 (Phase 0에서 완료)
 - [x] 설정 값 상수 (Phase 0에서 완료)
-- [ ] Zod 유효성 검사 스키마
-- [ ] API 요청/응답 타입
-- [ ] TypeScript 타입 자동 생성 (Supabase CLI)
+- [x] Zod 유효성 검사 스키마 (7개 파일)
+- [x] API 요청/응답 타입
+- [x] TypeScript 타입 자동 생성 (Supabase CLI)
+
+**산출물**:
+- Zod 스키마 7개 파일 (`src/lib/validations/`)
+  - `common.ts` - 공통 스키마 (전화번호, 사업자번호, 수량, 파일 등)
+  - `auth.ts` - 인증 스키마 (로그인, 회원가입)
+  - `organization.ts` - 조직 스키마 (등록, 수정, 제조사 설정)
+  - `product.ts` - 제품/Lot 스키마
+  - `shipment.ts` - 출고/회수 스키마
+  - `treatment.ts` - 시술 스키마
+  - `index.ts` - 중앙 export
+- API 타입 2개 파일 (`src/types/`)
+  - `api.types.ts` - API 응답, 페이지네이션, 조인 엔티티, 대시보드 통계
+  - `forms.types.ts` - 폼 데이터 타입, 장바구니 상태
 
 **핵심 파일**:
 - `src/types/database.types.ts` - Supabase CLI로 생성
-- `src/lib/validations/*.ts` - Zod 스키마
+- `src/lib/validations/index.ts` - 모든 Zod 스키마 중앙 export
+- `src/types/api.types.ts` - API 응답 표준 타입
 
 ---
 
-### Phase 3: 인증 시스템 (1-2 세션)
+### Phase 3: 인증 시스템 ✅ 완료
+**완료일**: 2025-12-09
 
-- [ ] Supabase Auth 클라이언트 (client/server/middleware)
-- [ ] 미들웨어 (세션 갱신, 권한 체크)
-- [ ] 회원가입 (조직 유형, 사업자번호 검증, 파일 업로드)
-- [ ] 로그인/로그아웃
-- [ ] `useAuth` 훅
-- [ ] 보호된 라우트 레이아웃
+- [x] 라우트 상수 정의 (`src/constants/routes.ts`)
+- [x] 미들웨어 설정 (세션 갱신, 권한 체크)
+- [x] 인증 서비스 (`src/services/auth.service.ts`)
+- [x] Server Actions (회원가입, 로그인, 로그아웃)
+- [x] OAuth 콜백 라우트
+- [x] `useAuth` 훅
+- [x] 로그인 페이지 및 폼 컴포넌트
+- [x] 회원가입 페이지 및 폼 컴포넌트 (조직 유형, 사업자번호 검증, 파일 업로드)
+- [x] 보호된 라우트 레이아웃 ((auth), (dashboard))
+- [x] 대시보드 페이지 (제조사/유통사/병원/관리자)
+- [x] Storage 버킷 마이그레이션 (사업자등록증 업로드)
+
+**산출물**:
+- `middleware.ts` - 세션 갱신 및 권한 체크
+- `src/constants/routes.ts` - 라우트 상수
+- `src/services/auth.service.ts` - 인증 비즈니스 로직
+- `src/hooks/useAuth.ts` - 클라이언트 인증 상태 관리
+- `src/app/(auth)/` - 로그인/회원가입 페이지
+- `src/app/(dashboard)/` - 대시보드 페이지
+- `src/components/forms/` - LoginForm, RegisterForm
+- `src/components/shared/LogoutButton.tsx`
+- `supabase/migrations/00014_create_storage_bucket.sql`
 
 **핵심 파일**:
-- `src/lib/supabase/*.ts`
-- `src/middleware.ts`
-- `src/app/(auth)/*`
+- `middleware.ts` - 미들웨어
+- `src/services/auth.service.ts` - 인증 서비스
+- `src/app/(auth)/actions.ts` - Server Actions
 
 ---
 
-### Phase 4: 공통 레이아웃 및 UI (1 세션)
+### Phase 4: 공통 레이아웃 및 UI ✅ 완료
+**완료일**: 2025-12-09
 
-- [ ] 대시보드 레이아웃 (사이드바, 헤더)
-- [ ] 역할별 네비게이션 메뉴
-- [ ] 데이터 테이블 (무한 스크롤)
-- [ ] 장바구니 컴포넌트
-- [ ] 접기/펼치기 카드
-- [ ] 폼 컴포넌트
+- [x] shadcn/ui 추가 컴포넌트 설치 (collapsible, sheet, tooltip)
+- [x] 네비게이션 상수 정의 (`src/constants/navigation.ts`)
+- [x] 대시보드 레이아웃 (사이드바, 헤더)
+- [x] 역할별 네비게이션 메뉴
+- [x] 데이터 테이블 (무한 스크롤)
+- [x] 장바구니 컴포넌트
+- [x] 접기/펼치기 카드
+- [x] 공통 UI 컴포넌트 (StatCard, PageHeader, LoadingSpinner, EmptyState)
+
+**산출물**:
+- 레이아웃 컴포넌트: `NavItem`, `Sidebar`, `Header`, `DashboardLayout`
+- 공통 컴포넌트: `StatCard`, `PageHeader`, `LoadingSpinner`, `EmptyState`, `DataTable`, `CartDisplay`, `CollapsibleCard`
+- 커스텀 훅: `useInfiniteScroll`, `useCart`
+- 네비게이션 상수: `NAVIGATION_ITEMS` (역할별 메뉴)
 
 **핵심 파일**:
-- `src/components/layout/*`
-- `src/components/shared/*`
+- `src/components/layout/*` - 레이아웃 컴포넌트
+- `src/components/shared/*` - 공통 UI 컴포넌트
+- `src/hooks/useInfiniteScroll.ts` - 무한 스크롤 훅
+- `src/hooks/useCart.ts` - 장바구니 훅
+- `src/constants/navigation.ts` - 네비게이션 상수
 
 ---
 
@@ -329,14 +372,18 @@ neo-certify/
 |-------|------|--------|
 | Phase 0 | ✅ 완료 | 2025-12-09 |
 | Phase 1 | ✅ 완료 | 2025-12-09 |
-| Phase 2 | ⏳ 다음 | - |
-| Phase 3-13 | 대기 | - |
+| Phase 2 | ✅ 완료 | 2025-12-09 |
+| Phase 3 | ✅ 완료 | 2025-12-09 |
+| Phase 4 | ✅ 완료 | 2025-12-09 |
+| Phase 5 | ⏳ 다음 | - |
+| Phase 6-13 | 대기 | - |
 
 ---
 
-## 다음 세션 작업 (Phase 2)
+## 다음 세션 작업 (Phase 5: 제조사 - 제품/생산)
 
-1. 로컬 Supabase 실행 및 마이그레이션 적용
-2. TypeScript 타입 자동 생성 (`npm run gen:types`)
-3. Zod 유효성 검사 스키마 작성
-4. API 요청/응답 타입 정의
+1. 제품 CRUD 페이지
+2. Lot 생산 등록 (자동 번호 생성)
+3. 가상 식별코드 자동 생성
+4. 제조사 설정 페이지
+5. 대시보드 통계
