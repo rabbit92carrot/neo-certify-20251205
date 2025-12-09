@@ -219,13 +219,33 @@ neo-certify/
 
 ---
 
-### Phase 5: 제조사 - 제품/생산 (1-2 세션)
+### Phase 5: 제조사 - 제품/생산 ✅ 완료
+**완료일**: 2025-12-09
 
-- [ ] 제품 CRUD 페이지
-- [ ] Lot 생산 등록 (자동 번호 생성)
-- [ ] 가상 식별코드 자동 생성
-- [ ] 제조사 설정 페이지
-- [ ] 대시보드 통계
+- [x] 제품 CRUD 페이지
+- [x] Lot 생산 등록 (자동 번호 생성)
+- [x] 가상 식별코드 자동 생성 (DB 트리거)
+- [x] 제조사 설정 페이지
+- [x] 대시보드 통계
+
+**산출물**:
+- 서비스 레이어 4개 파일
+  - `src/services/product.service.ts` - 제품 CRUD
+  - `src/services/lot.service.ts` - Lot 생산 등록
+  - `src/services/manufacturer-settings.service.ts` - 제조사 설정
+  - `src/services/dashboard.service.ts` - 대시보드 통계
+- Server Actions: `src/app/(dashboard)/manufacturer/actions.ts`
+- 컴포넌트 5개
+  - `src/components/shared/ProductCard.tsx` - 박스형 제품 선택 UI
+  - `src/components/forms/ProductForm.tsx` - 제품 등록/수정 다이얼로그
+  - `src/components/forms/LotForm.tsx` - Lot 생산 등록 폼
+  - `src/components/forms/ManufacturerSettingsForm.tsx` - 제조사 설정 폼
+  - `src/components/tables/ProductsTable.tsx` - 제품 목록 테이블
+- 페이지 4개
+  - `src/app/(dashboard)/manufacturer/products/page.tsx` - 제품 관리
+  - `src/app/(dashboard)/manufacturer/production/page.tsx` - 생산 등록
+  - `src/app/(dashboard)/manufacturer/settings/page.tsx` - 환경 설정
+  - `src/app/(dashboard)/manufacturer/dashboard/page.tsx` - 대시보드 (수정)
 
 **핵심 파일**:
 - `src/app/(dashboard)/manufacturer/*`
@@ -234,69 +254,84 @@ neo-certify/
 
 ---
 
-### Phase 6: 출고 시스템 (2 세션)
+### Phase 6: 출고 시스템 ✅ 완료
+**완료일**: 2025-12-09
 
-- [ ] 출고 페이지 (장바구니 방식)
-- [ ] FIFO 자동 할당 로직
-- [ ] Lot 선택 옵션 (제조사)
-- [ ] 이관 뭉치 생성
-- [ ] 소유권 즉시 이전
-- [ ] 동시성 처리 (Lock)
-- [ ] Edge Function: `create-shipment`
+- [x] 출고 페이지 (장바구니 방식)
+- [x] FIFO 자동 할당 로직 (DB 함수 `select_fifo_codes`)
+- [x] Lot 선택 옵션 (제조사만)
+- [x] 이관 뭉치 생성
+- [x] 소유권 즉시 이전
+- [x] 동시성 처리 (`FOR UPDATE SKIP LOCKED`)
+- [x] 이관 이력 페이지 (뭉치 단위, 접기/펼치기)
+- [x] 회수 기능 (24시간 제한)
+- [x] 재고 조회 (제품별, Lot별)
+
+**산출물**:
+- 서비스 레이어 2개 파일
+  - `src/services/shipment.service.ts` - 출고 생성, 이력 조회, 회수
+  - `src/services/inventory.service.ts` - 재고 조회
+- Server Actions
+  - `src/app/(dashboard)/manufacturer/actions.ts` - 출고/회수 액션 추가
+  - `src/app/(dashboard)/distributor/actions.ts` - 유통사 출고/회수 액션
+- 컴포넌트 3개
+  - `src/components/forms/ShipmentForm.tsx` - 출고 폼 (장바구니 방식)
+  - `src/components/tables/ShipmentHistoryTable.tsx` - 출고 이력 테이블
+  - `src/components/tables/InventoryTable.tsx` - 재고 테이블
+- 제조사 페이지 3개
+  - `src/app/(dashboard)/manufacturer/shipment/page.tsx` - 출고
+  - `src/app/(dashboard)/manufacturer/shipment-history/page.tsx` - 출고 이력
+  - `src/app/(dashboard)/manufacturer/inventory/page.tsx` - 재고 조회
+- 유통사 페이지 4개
+  - `src/app/(dashboard)/distributor/shipment/page.tsx` - 출고
+  - `src/app/(dashboard)/distributor/shipment-history/page.tsx` - 출고 이력
+  - `src/app/(dashboard)/distributor/inventory/page.tsx` - 재고 조회
+  - `src/app/(dashboard)/distributor/dashboard/page.tsx` - 대시보드 (수정)
 
 **핵심 파일**:
 - `src/services/shipment.service.ts`
-- `supabase/functions/create-shipment/index.ts`
+- `src/services/inventory.service.ts`
+- `src/components/forms/ShipmentForm.tsx`
 
 ---
 
-### Phase 7: 이관 이력/회수 (1-2 세션)
+### Phase 7: 병원 - 시술 등록 (1-2 세션)
 
-- [ ] 이관 이력 페이지 (뭉치 단위)
-- [ ] 회수 기능 (24시간 제한)
-- [ ] 회수 이력 표시
-- [ ] Edge Function: `recall-shipment`
-
----
-
-### Phase 8: 병원 - 시술 등록 (1-2 세션)
-
-- [ ] 시술 등록 페이지
+- [ ] 병원 재고 조회 페이지
+- [ ] 시술 등록 페이지 (장바구니 방식 + 환자 전화번호)
 - [ ] 환자 자동 생성/조회
 - [ ] 알림 메시지 DB 기록
-- [ ] 환자 회수 알림
+- [ ] 환자 회수 알림 (시술 회수 시)
+- [ ] 병원 대시보드 통계 업데이트
+
+**핵심 파일**:
+- `src/services/treatment.service.ts`
+- `src/app/(dashboard)/hospital/*`
 
 ---
 
-### Phase 9: 재고/이력 조회 (1 세션)
+### Phase 8: 관리자 기능 (1-2 세션)
 
-- [ ] 재고 조회 (제품별, Lot별)
-- [ ] 거래 이력 조회
-
----
-
-### Phase 10: 관리자 기능 (1-2 세션)
-
-- [ ] 조직 관리
+- [ ] 조직 관리 (승인/비활성화)
 - [ ] 전체 이력 조회 (Excel형)
 - [ ] 회수 모니터링
 
 ---
 
-### Phase 11: Mock 페이지 (0.5 세션)
+### Phase 9: Mock 페이지 (0.5 세션)
 
 - [ ] 카카오 알림톡 Mock UI
 
 ---
 
-### Phase 12: 테스트 (1-2 세션)
+### Phase 10: 테스트 (1-2 세션)
 
 - [ ] 단위 테스트 (유틸, 서비스)
 - [ ] 통합 테스트 (FIFO, 회수 로직)
 
 ---
 
-### Phase 13: 최종 검토/배포 (1 세션)
+### Phase 11: 최종 검토/배포 (1 세션)
 
 - [ ] 코드 리뷰
 - [ ] 성능 최적화
@@ -375,15 +410,17 @@ neo-certify/
 | Phase 2 | ✅ 완료 | 2025-12-09 |
 | Phase 3 | ✅ 완료 | 2025-12-09 |
 | Phase 4 | ✅ 완료 | 2025-12-09 |
-| Phase 5 | ⏳ 다음 | - |
-| Phase 6-13 | 대기 | - |
+| Phase 5 | ✅ 완료 | 2025-12-09 |
+| Phase 6 | ✅ 완료 | 2025-12-09 |
+| Phase 7 | ⏳ 다음 | - |
+| Phase 8-13 | 대기 | - |
 
 ---
 
-## 다음 세션 작업 (Phase 5: 제조사 - 제품/생산)
+## 다음 세션 작업 (Phase 7: 병원 - 시술 등록)
 
-1. 제품 CRUD 페이지
-2. Lot 생산 등록 (자동 번호 생성)
-3. 가상 식별코드 자동 생성
-4. 제조사 설정 페이지
-5. 대시보드 통계
+1. 병원 재고 조회 페이지
+2. 시술 등록 페이지 (장바구니 방식 + 환자 전화번호)
+3. 환자 자동 생성/조회
+4. 알림 메시지 DB 기록
+5. 병원 대시보드 업데이트
