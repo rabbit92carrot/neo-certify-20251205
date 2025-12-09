@@ -1,0 +1,253 @@
+/**
+ * Lot 서비스
+ * Lot 생산 등록 및 조회 관련 비즈니스 로직
+ *
+ * Lot INSERT 시 DB 트리거(trg_lot_create_virtual_codes)가
+ * 자동으로 가상 식별코드를 생성합니다.
+ */
+
+import { createClient } from '@/lib/supabase/server';
+import type { ApiResponse, Lot, LotWithProduct, PaginatedResponse } from '@/types/api.types';
+import type { LotCreateData, LotListQueryData } from '@/lib/validations/product';
+import { CONFIG } from '@/constants';
+
+/**
+ * Lot 생산 등록
+ * DB 트리거가 가상 식별코드를 자동 생성합니다.
+ *
+ * @param organizationId 제조사 조직 ID
+ * @param data Lot 생성 데이터
+ * @returns 생성된 Lot 정보
+ */
+export async function createLot(
+  organizationId: string,
+  data: LotCreateData
+): Promise<ApiResponse<Lot>> {
+  const supabase = await createClient();
+
+  // 제품이 해당 제조사 소유이고 활성 상태인지 확인
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id, model_name')
+    .eq('id', data.productId)
+    .eq('organization_id', organizationId)
+    .eq('is_active', true)
+    .single();
+
+  if (productError || !product) {
+    return {
+      success: false,
+      error: {
+        code: 'PRODUCT_NOT_FOUND',
+        message: '유효한 제품을 선택해주세요.',
+      },
+    };
+  }
+
+  // Lot 번호 생성 (DB 함수 호출)
+  const { data: lotNumberResult, error: lotNumberError } = await supabase.rpc(
+    'generate_lot_number',
+    {
+      p_manufacturer_id: organizationId,
+      p_model_name: product.model_name,
+      p_manufacture_date: data.manufactureDate,
+    }
+  );
+
+  if (lotNumberError) {
+    console.error('Lot 번호 생성 실패:', lotNumberError);
+    return {
+      success: false,
+      error: {
+        code: 'LOT_NUMBER_GENERATION_FAILED',
+        message: 'Lot 번호 생성에 실패했습니다.',
+      },
+    };
+  }
+
+  const lotNumber = lotNumberResult as string;
+
+  // 사용기한 계산 (설정 기반 또는 직접 입력)
+  const expiryDate = data.expiryDate || (await calculateExpiryDate(organizationId, data.manufactureDate));
+
+  // Lot 생성 (트리거가 가상 코드 자동 생성)
+  const { data: lot, error } = await supabase
+    .from('lots')
+    .insert({
+      product_id: data.productId,
+      lot_number: lotNumber,
+      quantity: data.quantity,
+      manufacture_date: data.manufactureDate,
+      expiry_date: expiryDate,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // 중복 Lot 번호 에러 처리
+    if (error.code === '23505') {
+      return {
+        success: false,
+        error: {
+          code: 'DUPLICATE_LOT_NUMBER',
+          message: '동일한 Lot 번호가 이미 존재합니다.',
+        },
+      };
+    }
+
+    console.error('Lot 생성 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'CREATE_FAILED',
+        message: 'Lot 생성에 실패했습니다.',
+      },
+    };
+  }
+
+  return { success: true, data: lot };
+}
+
+/**
+ * 사용기한 계산 (제조사 설정 기반)
+ */
+async function calculateExpiryDate(
+  organizationId: string,
+  manufactureDate: string
+): Promise<string> {
+  const supabase = await createClient();
+
+  const { data: settings } = await supabase
+    .from('manufacturer_settings')
+    .select('expiry_months')
+    .eq('organization_id', organizationId)
+    .single();
+
+  const expiryMonths = settings?.expiry_months || CONFIG.DEFAULT_EXPIRY_MONTHS;
+
+  const date = new Date(manufactureDate);
+  date.setMonth(date.getMonth() + expiryMonths);
+
+  const isoDate = date.toISOString().split('T')[0];
+  return isoDate ?? manufactureDate;
+}
+
+/**
+ * Lot 목록 조회 (제품별)
+ *
+ * @param organizationId 제조사 조직 ID
+ * @param query 조회 옵션
+ * @returns 페이지네이션된 Lot 목록
+ */
+export async function getLots(
+  organizationId: string,
+  query: LotListQueryData
+): Promise<ApiResponse<PaginatedResponse<LotWithProduct>>> {
+  const supabase = await createClient();
+  const { productId, page = 1, pageSize = 20 } = query;
+  const offset = (page - 1) * pageSize;
+
+  let queryBuilder = supabase
+    .from('lots')
+    .select(
+      `
+      *,
+      product:products!inner(*)
+    `,
+      { count: 'exact' }
+    )
+    .eq('product.organization_id', organizationId)
+    .order('created_at', { ascending: false });
+
+  if (productId) {
+    queryBuilder = queryBuilder.eq('product_id', productId);
+  }
+
+  const { data, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
+
+  if (error) {
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: error.message,
+      },
+    };
+  }
+
+  const total = count || 0;
+
+  return {
+    success: true,
+    data: {
+      items: (data || []) as LotWithProduct[],
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        hasMore: offset + pageSize < total,
+      },
+    },
+  };
+}
+
+/**
+ * Lot 상세 조회
+ *
+ * @param organizationId 제조사 조직 ID
+ * @param lotId Lot ID
+ * @returns Lot 정보 (제품 정보 포함)
+ */
+export async function getLot(
+  organizationId: string,
+  lotId: string
+): Promise<ApiResponse<LotWithProduct>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('lots')
+    .select(
+      `
+      *,
+      product:products!inner(*)
+    `
+    )
+    .eq('id', lotId)
+    .eq('product.organization_id', organizationId)
+    .single();
+
+  if (error) {
+    return {
+      success: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Lot을 찾을 수 없습니다.',
+      },
+    };
+  }
+
+  return { success: true, data: data as LotWithProduct };
+}
+
+/**
+ * 오늘 생산량 조회
+ *
+ * @param organizationId 제조사 조직 ID
+ * @returns 오늘 생산된 총 수량
+ */
+export async function getTodayProduction(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data } = await supabase
+    .from('lots')
+    .select('quantity, product:products!inner(organization_id)')
+    .eq('product.organization_id', organizationId)
+    .gte('created_at', `${today}T00:00:00`)
+    .lte('created_at', `${today}T23:59:59`);
+
+  if (!data) {return 0;}
+
+  return data.reduce((sum, lot) => sum + lot.quantity, 0);
+}
