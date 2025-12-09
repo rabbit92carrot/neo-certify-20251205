@@ -47,6 +47,11 @@ export const CONFIG = {
     MIN_LENGTH: 6,
   },
 
+  // 사업자등록번호
+  BUSINESS_NUMBER: {
+    LENGTH: 10,
+  },
+
   // 앱 정보
   APP: {
     NAME: '네오인증서',
