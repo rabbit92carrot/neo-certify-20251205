@@ -100,33 +100,48 @@ neo-certify/
 
 ---
 
-### Phase 1: 데이터베이스 스키마 ⏳ 다음 진행
-**상태**: 대기 중
+### Phase 1: 데이터베이스 스키마 ✅ 완료
+**완료일**: 2025-12-09
 
-- [ ] 11개 엔티티 마이그레이션 SQL 작성
-- [ ] ENUM 타입 정의 (organization_type, status 등)
-- [ ] RLS 정책 설정
-- [ ] 인덱스 및 트리거 생성
-- [ ] TypeScript 타입 자동 생성
-- [ ] 시드 데이터 (테스트 계정)
+- [x] 12개 테이블 마이그레이션 SQL 작성 (13개 파일)
+- [x] ENUM 타입 정의 (6개: organization_type, organization_status, virtual_code_status, owner_type, history_action_type, notification_type)
+- [x] RLS 정책 설정 (모든 테이블)
+- [x] 인덱스 생성 (FIFO, 조회 성능 최적화)
+- [x] 트리거 생성 (updated_at, 가상코드 자동 생성, 이력 기록)
+- [x] 헬퍼 함수 (FIFO 선택, 회수 검증, Lot 번호 생성)
+- [x] 시드 데이터 (테스트 계정 7개)
+
+**산출물**:
+- 13개 마이그레이션 파일 (`supabase/migrations/00001~00013_*.sql`)
+- 시드 데이터 (`supabase/seed.sql`)
+- 12개 테이블: organizations, manufacturer_settings, products, lots, patients, virtual_codes, shipment_batches, shipment_details, treatment_records, treatment_details, histories, notification_messages
 
 **핵심 파일**:
-- `supabase/migrations/001_initial_schema.sql`
-- `src/types/database.types.ts`
+- `supabase/migrations/00001_create_enums.sql` - ENUM 타입
+- `supabase/migrations/00011_create_functions.sql` - 헬퍼 함수
+- `supabase/migrations/00013_enable_rls.sql` - RLS 정책
+- `supabase/seed.sql` - 테스트 계정
+
+**다음 단계**:
+1. 로컬 Supabase 실행: `npx supabase start`
+2. 마이그레이션 적용: `npx supabase db reset`
+3. TypeScript 타입 생성: `npm run gen:types`
 
 ---
 
-### Phase 2: 상수 및 타입 정의 (1 세션)
+### Phase 2: 상수 및 타입 정의 ⏳ 다음 진행
+**상태**: 대기 중
 
-- [ ] 조직/제품/상태 상수 정의
-- [ ] 에러/성공 메시지 상수
-- [ ] 설정 값 상수 (수량 제한, 시간 제한)
+- [x] 조직/제품/상태 상수 정의 (Phase 0에서 완료)
+- [x] 에러/성공 메시지 상수 (Phase 0에서 완료)
+- [x] 설정 값 상수 (Phase 0에서 완료)
 - [ ] Zod 유효성 검사 스키마
 - [ ] API 요청/응답 타입
+- [ ] TypeScript 타입 자동 생성 (Supabase CLI)
 
 **핵심 파일**:
-- `src/constants/*.ts`
-- `src/lib/validations/*.ts`
+- `src/types/database.types.ts` - Supabase CLI로 생성
+- `src/lib/validations/*.ts` - Zod 스키마
 
 ---
 
@@ -313,16 +328,15 @@ neo-certify/
 | Phase | 상태 | 완료일 |
 |-------|------|--------|
 | Phase 0 | ✅ 완료 | 2025-12-09 |
-| Phase 1 | ⏳ 다음 | - |
-| Phase 2-13 | 대기 | - |
+| Phase 1 | ✅ 완료 | 2025-12-09 |
+| Phase 2 | ⏳ 다음 | - |
+| Phase 3-13 | 대기 | - |
 
 ---
 
-## 다음 세션 작업 (Phase 1)
+## 다음 세션 작업 (Phase 2)
 
-1. Supabase CLI 설정 및 로컬 연결
-2. 11개 엔티티 마이그레이션 SQL 작성
-3. ENUM 타입 정의
-4. RLS 정책 설정
-5. TypeScript 타입 자동 생성
-6. 시드 데이터 작성
+1. 로컬 Supabase 실행 및 마이그레이션 적용
+2. TypeScript 타입 자동 생성 (`npm run gen:types`)
+3. Zod 유효성 검사 스키마 작성
+4. API 요청/응답 타입 정의
