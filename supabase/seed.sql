@@ -1,17 +1,95 @@
 -- Seed Data for Neo-Certify
 -- Description: Test accounts and initial data for development
 -- Created: 2025-12-09
+-- Updated: 2025-12-10 - Added automatic Auth user creation
 --
--- NOTE: This seed file creates organizations WITHOUT linking to Supabase Auth.
---       For full authentication testing, you need to:
---       1. Create users in Supabase Auth (Dashboard or API)
---       2. Update organizations.auth_user_id with the created user IDs
---
--- Test Accounts (passwords are for reference - actual auth handled by Supabase):
+-- Test Accounts:
 --   admin@neocert.com / admin123
 --   manufacturer@neocert.com / test123
 --   distributor@neocert.com / test123
 --   hospital@neocert.com / test123
+
+-- ============================================
+-- Create Auth Users (Supabase Local Development)
+-- ============================================
+-- Note: This uses Supabase's internal auth schema for local development only.
+-- In production, users should register through the application.
+
+-- Create test users directly using DO block
+DO $$
+DECLARE
+  encrypted_pw TEXT;
+BEGIN
+  -- Admin user
+  encrypted_pw := crypt('admin123', gen_salt('bf'));
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, email_change, email_change_token_new, recovery_token
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    'b0000000-0000-0000-0000-000000000001',
+    'authenticated', 'authenticated', 'admin@neocert.com', encrypted_pw, NOW(),
+    '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', ''
+  ) ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  VALUES (gen_random_uuid(), 'b0000000-0000-0000-0000-000000000001', 'admin@neocert.com',
+    '{"sub":"b0000000-0000-0000-0000-000000000001","email":"admin@neocert.com"}', 'email', NOW(), NOW(), NOW())
+  ON CONFLICT DO NOTHING;
+
+  -- Manufacturer user
+  encrypted_pw := crypt('test123', gen_salt('bf'));
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, email_change, email_change_token_new, recovery_token
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    'b0000000-0000-0000-0000-000000000002',
+    'authenticated', 'authenticated', 'manufacturer@neocert.com', encrypted_pw, NOW(),
+    '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', ''
+  ) ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  VALUES (gen_random_uuid(), 'b0000000-0000-0000-0000-000000000002', 'manufacturer@neocert.com',
+    '{"sub":"b0000000-0000-0000-0000-000000000002","email":"manufacturer@neocert.com"}', 'email', NOW(), NOW(), NOW())
+  ON CONFLICT DO NOTHING;
+
+  -- Distributor user
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, email_change, email_change_token_new, recovery_token
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    'b0000000-0000-0000-0000-000000000003',
+    'authenticated', 'authenticated', 'distributor@neocert.com', encrypted_pw, NOW(),
+    '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', ''
+  ) ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  VALUES (gen_random_uuid(), 'b0000000-0000-0000-0000-000000000003', 'distributor@neocert.com',
+    '{"sub":"b0000000-0000-0000-0000-000000000003","email":"distributor@neocert.com"}', 'email', NOW(), NOW(), NOW())
+  ON CONFLICT DO NOTHING;
+
+  -- Hospital user
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, email_change, email_change_token_new, recovery_token
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    'b0000000-0000-0000-0000-000000000004',
+    'authenticated', 'authenticated', 'hospital@neocert.com', encrypted_pw, NOW(),
+    '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', ''
+  ) ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  VALUES (gen_random_uuid(), 'b0000000-0000-0000-0000-000000000004', 'hospital@neocert.com',
+    '{"sub":"b0000000-0000-0000-0000-000000000004","email":"hospital@neocert.com"}', 'email', NOW(), NOW(), NOW())
+  ON CONFLICT DO NOTHING;
+END $$;
 
 -- ============================================
 -- Test Organizations
@@ -20,6 +98,7 @@
 -- Admin Organization
 INSERT INTO organizations (
   id,
+  auth_user_id,
   type,
   email,
   business_number,
@@ -31,6 +110,7 @@ INSERT INTO organizations (
   status
 ) VALUES (
   'a0000000-0000-0000-0000-000000000001',
+  'b0000000-0000-0000-0000-000000000001',
   'ADMIN',
   'admin@neocert.com',
   '0000000001',
@@ -45,6 +125,7 @@ INSERT INTO organizations (
 -- Manufacturer Organization
 INSERT INTO organizations (
   id,
+  auth_user_id,
   type,
   email,
   business_number,
@@ -56,6 +137,7 @@ INSERT INTO organizations (
   status
 ) VALUES (
   'a0000000-0000-0000-0000-000000000002',
+  'b0000000-0000-0000-0000-000000000002',
   'MANUFACTURER',
   'manufacturer@neocert.com',
   '1234567890',
@@ -85,6 +167,7 @@ INSERT INTO manufacturer_settings (
 -- Distributor Organization
 INSERT INTO organizations (
   id,
+  auth_user_id,
   type,
   email,
   business_number,
@@ -96,6 +179,7 @@ INSERT INTO organizations (
   status
 ) VALUES (
   'a0000000-0000-0000-0000-000000000003',
+  'b0000000-0000-0000-0000-000000000003',
   'DISTRIBUTOR',
   'distributor@neocert.com',
   '2345678901',
@@ -110,6 +194,7 @@ INSERT INTO organizations (
 -- Hospital Organization
 INSERT INTO organizations (
   id,
+  auth_user_id,
   type,
   email,
   business_number,
@@ -121,6 +206,7 @@ INSERT INTO organizations (
   status
 ) VALUES (
   'a0000000-0000-0000-0000-000000000004',
+  'b0000000-0000-0000-0000-000000000004',
   'HOSPITAL',
   'hospital@neocert.com',
   '3456789012',
@@ -212,18 +298,12 @@ INSERT INTO organizations (
 );
 
 -- ============================================
--- Helper: Link Auth Users to Organizations
+-- Auth User to Organization Mapping (Reference)
 -- ============================================
--- After creating users in Supabase Auth, run these updates:
+-- Auth users are automatically created and linked above.
 --
--- UPDATE organizations SET auth_user_id = '<admin-auth-uuid>'
--- WHERE email = 'admin@neocert.com';
---
--- UPDATE organizations SET auth_user_id = '<manufacturer-auth-uuid>'
--- WHERE email = 'manufacturer@neocert.com';
---
--- UPDATE organizations SET auth_user_id = '<distributor-auth-uuid>'
--- WHERE email = 'distributor@neocert.com';
---
--- UPDATE organizations SET auth_user_id = '<hospital-auth-uuid>'
--- WHERE email = 'hospital@neocert.com';
+-- Auth User ID                          | Organization ID                        | Email
+-- b0000000-0000-0000-0000-000000000001 | a0000000-0000-0000-0000-000000000001 | admin@neocert.com
+-- b0000000-0000-0000-0000-000000000002 | a0000000-0000-0000-0000-000000000002 | manufacturer@neocert.com
+-- b0000000-0000-0000-0000-000000000003 | a0000000-0000-0000-0000-000000000003 | distributor@neocert.com
+-- b0000000-0000-0000-0000-000000000004 | a0000000-0000-0000-0000-000000000004 | hospital@neocert.com
