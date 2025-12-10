@@ -61,3 +61,11 @@ export {
   type NavigationItem,
   type IconName,
 } from './navigation';
+
+// 오류 코드
+export {
+  ERROR_CODES,
+  ERROR_CODE_MESSAGES,
+  getErrorMessage,
+  type ErrorCode,
+} from './errors';

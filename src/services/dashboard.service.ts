@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/utils';
 import type {
   ApiResponse,
   ManufacturerDashboardStats,
@@ -22,7 +23,8 @@ export async function getManufacturerDashboardStats(
   organizationId: string
 ): Promise<ApiResponse<ManufacturerDashboardStats>> {
   const supabase = await createClient();
-  const today = new Date().toISOString().split('T')[0];
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
 
   // 병렬로 통계 조회
   const [inventoryResult, todayProductionResult, todayShipmentResult, activeProductsResult] =
@@ -39,8 +41,8 @@ export async function getManufacturerDashboardStats(
         .from('lots')
         .select('quantity, product:products!inner(organization_id)')
         .eq('product.organization_id', organizationId)
-        .gte('created_at', `${today}T00:00:00`)
-        .lte('created_at', `${today}T23:59:59`),
+        .gte('created_at', todayStart)
+        .lte('created_at', todayEnd),
 
       // 오늘 출고량 (오늘 출고 뭉치의 상세 개수)
       supabase
@@ -50,8 +52,8 @@ export async function getManufacturerDashboardStats(
           head: true,
         })
         .eq('shipment_batch.from_organization_id', organizationId)
-        .gte('shipment_batch.shipment_date', `${today}T00:00:00`)
-        .lte('shipment_batch.shipment_date', `${today}T23:59:59`),
+        .gte('shipment_batch.shipment_date', todayStart)
+        .lte('shipment_batch.shipment_date', todayEnd),
 
       // 활성 제품 수
       supabase
@@ -86,7 +88,8 @@ export async function getDistributorDashboardStats(
   organizationId: string
 ): Promise<ApiResponse<DistributorDashboardStats>> {
   const supabase = await createClient();
-  const today = new Date().toISOString().split('T')[0];
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
 
   const [inventoryResult, todayReceivedResult, todayShipmentResult] = await Promise.all([
     // 총 재고량
@@ -104,8 +107,8 @@ export async function getDistributorDashboardStats(
         head: true,
       })
       .eq('shipment_batch.to_organization_id', organizationId)
-      .gte('shipment_batch.shipment_date', `${today}T00:00:00`)
-      .lte('shipment_batch.shipment_date', `${today}T23:59:59`),
+      .gte('shipment_batch.shipment_date', todayStart)
+      .lte('shipment_batch.shipment_date', todayEnd),
 
     // 오늘 출고량
     supabase
@@ -115,8 +118,8 @@ export async function getDistributorDashboardStats(
         head: true,
       })
       .eq('shipment_batch.from_organization_id', organizationId)
-      .gte('shipment_batch.shipment_date', `${today}T00:00:00`)
-      .lte('shipment_batch.shipment_date', `${today}T23:59:59`),
+      .gte('shipment_batch.shipment_date', todayStart)
+      .lte('shipment_batch.shipment_date', todayEnd),
   ]);
 
   return {
@@ -139,7 +142,8 @@ export async function getHospitalDashboardStats(
   organizationId: string
 ): Promise<ApiResponse<HospitalDashboardStats>> {
   const supabase = await createClient();
-  const today = new Date().toISOString().split('T')[0];
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
 
   const [inventoryResult, todayTreatmentsResult, totalPatientsResult, todayShipmentResult] =
     await Promise.all([
@@ -155,8 +159,8 @@ export async function getHospitalDashboardStats(
         .from('treatment_records')
         .select('id', { count: 'exact', head: true })
         .eq('hospital_id', organizationId)
-        .gte('treatment_date', `${today}T00:00:00`)
-        .lte('treatment_date', `${today}T23:59:59`),
+        .gte('treatment_date', todayStart)
+        .lte('treatment_date', todayEnd),
 
       // 전체 환자 수 (고유 전화번호)
       supabase
@@ -172,8 +176,8 @@ export async function getHospitalDashboardStats(
           head: true,
         })
         .eq('shipment_batch.to_organization_id', organizationId)
-        .gte('shipment_batch.shipment_date', `${today}T00:00:00`)
-        .lte('shipment_batch.shipment_date', `${today}T23:59:59`),
+        .gte('shipment_batch.shipment_date', todayStart)
+        .lte('shipment_batch.shipment_date', todayEnd),
     ]);
 
   // 고유 환자 수 계산
@@ -197,7 +201,8 @@ export async function getHospitalDashboardStats(
  */
 export async function getAdminDashboardStats(): Promise<ApiResponse<AdminDashboardStats>> {
   const supabase = await createClient();
-  const today = new Date().toISOString().split('T')[0];
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
 
   const [totalOrgsResult, pendingApprovalsResult, todayRecallsResult, totalCodesResult] =
     await Promise.all([
@@ -215,8 +220,8 @@ export async function getAdminDashboardStats(): Promise<ApiResponse<AdminDashboa
         .from('shipment_batches')
         .select('id', { count: 'exact', head: true })
         .eq('is_recalled', true)
-        .gte('recall_date', `${today}T00:00:00`)
-        .lte('recall_date', `${today}T23:59:59`),
+        .gte('recall_date', todayStart)
+        .lte('recall_date', todayEnd),
 
       // 전체 가상 코드 수
       supabase.from('virtual_codes').select('id', { count: 'exact', head: true }),

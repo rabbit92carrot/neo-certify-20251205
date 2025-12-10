@@ -10,6 +10,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { getHoursDifference } from '@/lib/utils';
 import { normalizePhoneNumber } from '@/lib/validations/common';
 import type {
   ApiResponse,
@@ -392,12 +393,10 @@ export async function getTreatmentHistory(
 
   // 각 시술별 아이템 요약 조회
   const treatmentSummaries: TreatmentRecordSummary[] = [];
-  const now = new Date();
 
   for (const treatment of treatments || []) {
     const summary = await getTreatmentSummary(treatment.id);
-    const treatmentCreatedAt = new Date(treatment.created_at);
-    const hoursDiff = (now.getTime() - treatmentCreatedAt.getTime()) / (1000 * 60 * 60);
+    const hoursDiff = getHoursDifference(treatment.created_at);
 
     treatmentSummaries.push({
       ...treatment,
@@ -527,9 +526,7 @@ export async function recallTreatment(
   }
 
   // 2. 24시간 제한 확인
-  const createdAt = new Date(treatment.created_at);
-  const now = new Date();
-  const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+  const hoursDiff = getHoursDifference(treatment.created_at);
 
   if (hoursDiff > 24) {
     return {
@@ -738,9 +735,7 @@ export async function checkTreatmentRecallAllowed(
     };
   }
 
-  const createdAt = new Date(treatment.created_at);
-  const now = new Date();
-  const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+  const hoursDiff = getHoursDifference(treatment.created_at);
 
   if (hoursDiff > 24) {
     return {
