@@ -68,7 +68,7 @@ export const DISTRIBUTOR_NAV_ITEMS: NavigationItem[] = [
 export const HOSPITAL_NAV_ITEMS: NavigationItem[] = [
   { label: '대시보드', href: '/hospital/dashboard', icon: 'LayoutDashboard' },
   { label: '시술 등록', href: '/hospital/treatment', icon: 'Stethoscope' },
-  { label: '이관 이력', href: '/hospital/shipment-history', icon: 'History' },
+  { label: '시술 이력', href: '/hospital/treatment-history', icon: 'History' },
   { label: '재고 조회', href: '/hospital/inventory', icon: 'Warehouse' },
   { label: '거래 이력', href: '/hospital/history', icon: 'FileText' },
 ];

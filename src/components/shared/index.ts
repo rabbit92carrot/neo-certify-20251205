@@ -10,3 +10,4 @@ export { EmptyState } from './EmptyState';
 export { DataTable, type ColumnDef } from './DataTable';
 export { CartDisplay } from './CartDisplay';
 export { CollapsibleCard } from './CollapsibleCard';
+export { ProductCard } from './ProductCard';
