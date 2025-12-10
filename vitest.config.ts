@@ -10,6 +10,9 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     exclude: ['node_modules', '.next', 'out', 'build'],
+    // 통합 테스트 타임아웃 (Supabase 연결 시간 고려)
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -23,14 +26,21 @@ export default defineConfig({
         'node_modules/**',
       ],
       thresholds: {
-        lines: 80,
-        functions: 80,
-        branches: 80,
-        statements: 80,
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100,
       },
     },
     clearMocks: true,
     restoreMocks: true,
+    // 순차 실행 (DB 상태 충돌 방지)
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
   },
   resolve: {
     alias: {
