@@ -126,20 +126,23 @@ export async function getOrganizations(
     };
   }
 
-  // 각 조직의 가상 코드 수 조회
-  const organizationsWithStats: OrganizationWithStats[] = await Promise.all(
-    (organizations || []).map(async (org) => {
-      const { count: codeCount } = await supabase
-        .from('virtual_codes')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', org.id);
+  // 각 조직의 가상 코드 수 조회 (N+1 최적화: 배치 쿼리)
+  const orgIds = (organizations || []).map((o) => o.id);
+  const { data: virtualCodes } = await supabase
+    .from('virtual_codes')
+    .select('owner_id')
+    .in('owner_id', orgIds);
 
-      return {
-        ...org,
-        virtualCodeCount: codeCount || 0,
-      };
-    })
-  );
+  // 조직별 코드 수 집계
+  const countByOrgId = new Map<string, number>();
+  for (const vc of virtualCodes || []) {
+    countByOrgId.set(vc.owner_id, (countByOrgId.get(vc.owner_id) || 0) + 1);
+  }
+
+  const organizationsWithStats: OrganizationWithStats[] = (organizations || []).map((org) => ({
+    ...org,
+    virtualCodeCount: countByOrgId.get(org.id) || 0,
+  }));
 
   const total = count || 0;
 
@@ -416,7 +419,39 @@ export async function getAdminHistory(
     };
   }
 
-  // 각 가상 코드의 이력 정보 조회
+  // N+1 최적화: 한 번에 모든 이력 조회
+  const codeIds = (virtualCodes || []).map((vc) => vc.id);
+  const { data: allHistories } = await supabase
+    .from('histories')
+    .select('*')
+    .in('virtual_code_id', codeIds)
+    .order('created_at', { ascending: false });
+
+  // 가상 코드별 이력 그룹화
+  const historiesByCodeId = new Map<string, typeof allHistories>();
+  for (const h of allHistories || []) {
+    const existing = historiesByCodeId.get(h.virtual_code_id) || [];
+    existing.push(h);
+    historiesByCodeId.set(h.virtual_code_id, existing);
+  }
+
+  // N+1 최적화: 현재 소유자(조직) 정보 배치 조회
+  const ownerOrgIds = (virtualCodes || [])
+    .filter((vc) => vc.owner_id && vc.owner_type !== 'PATIENT')
+    .map((vc) => vc.owner_id);
+  const uniqueOwnerOrgIds = [...new Set(ownerOrgIds)];
+
+  const { data: ownerOrgs } = await supabase
+    .from('organizations')
+    .select('id, name, type')
+    .in('id', uniqueOwnerOrgIds);
+
+  const ownerOrgMap = new Map<string, { id: string; name: string; type: string }>();
+  for (const org of ownerOrgs || []) {
+    ownerOrgMap.set(org.id, org);
+  }
+
+  // 각 가상 코드의 이력 정보 처리 (DB 쿼리 없이 메모리에서 처리)
   const historyItemsWithNull = await Promise.all(
     (virtualCodes || []).map(async (vc): Promise<AdminHistoryItem | null> => {
       const lot = vc.lot as {
@@ -431,24 +466,20 @@ export async function getAdminHistory(
         };
       };
 
-      // 이력 조회
-      const { data: histories } = await supabase
-        .from('histories')
-        .select('*')
-        .eq('virtual_code_id', vc.id)
-        .order('created_at', { ascending: false });
+      // 이력 조회 (메모리에서)
+      const histories = historiesByCodeId.get(vc.id) || [];
 
       // 회수 이력 존재 여부
-      const isRecalled = histories?.some((h) => h.is_recall) || false;
+      const isRecalled = histories.some((h) => h.is_recall) || false;
 
       // 회수 포함하지 않는 경우 필터
       if (!includeRecalled && isRecalled) {
         return null;
       }
 
-      // 이력 상세 정보 변환
+      // 이력 상세 정보 변환 (조직 이름은 캐시 활용)
       const historyDetails: AdminHistoryDetail[] = await Promise.all(
-        (histories || []).map(async (h) => {
+        histories.map(async (h) => {
           const fromName =
             h.from_owner_type === 'PATIENT'
               ? maskPhoneNumber(h.from_owner_id || '')
@@ -475,7 +506,7 @@ export async function getAdminHistory(
         })
       );
 
-      // 현재 소유자 정보
+      // 현재 소유자 정보 (메모리에서)
       let currentOwner: AdminHistoryItem['currentOwner'] = null;
       if (vc.owner_id) {
         if (vc.owner_type === 'PATIENT') {
@@ -485,12 +516,7 @@ export async function getAdminHistory(
             type: 'PATIENT',
           };
         } else {
-          const { data: ownerOrg } = await supabase
-            .from('organizations')
-            .select('id, name, type')
-            .eq('id', vc.owner_id)
-            .single();
-
+          const ownerOrg = ownerOrgMap.get(vc.owner_id);
           if (ownerOrg) {
             currentOwner = {
               id: ownerOrg.id,
@@ -501,7 +527,7 @@ export async function getAdminHistory(
         }
       }
 
-      // 최초 생산자 정보
+      // 최초 생산자 정보 (캐시 활용)
       const producerName = await getOrganizationName(
         supabase,
         lot.product.organization_id,
@@ -521,7 +547,7 @@ export async function getAdminHistory(
         productName: lot.product.name,
         lotNumber: lot.lot_number,
         expiryDate: lot.expiry_date,
-        historyCount: histories?.length || 0,
+        historyCount: histories.length,
         isRecalled,
         histories: historyDetails,
       };
@@ -595,24 +621,37 @@ export async function getRecallHistory(
 
     const { data: shipments } = await shipmentQuery;
 
-    // 각 출고 회수의 상세 정보 조회
-    for (const shipment of shipments || []) {
-      const { data: details } = await supabase
-        .from('shipment_details')
-        .select(
-          `
-          virtual_code:virtual_codes!inner(
-            lot:lots!inner(
-              product:products!inner(name)
-            )
-          )
+    // N+1 최적화: 모든 출고 뭉치의 상세 정보를 한 번에 조회
+    const shipmentBatchIds = (shipments || []).map((s) => s.id);
+    const { data: allShipmentDetails } = await supabase
+      .from('shipment_details')
+      .select(
         `
+        shipment_batch_id,
+        virtual_code:virtual_codes!inner(
+          lot:lots!inner(
+            product:products!inner(name)
+          )
         )
-        .eq('shipment_batch_id', shipment.id);
+      `
+      )
+      .in('shipment_batch_id', shipmentBatchIds);
+
+    // 출고 뭉치별 상세 그룹화
+    const detailsByBatchId = new Map<string, typeof allShipmentDetails>();
+    for (const detail of allShipmentDetails || []) {
+      const existing = detailsByBatchId.get(detail.shipment_batch_id) || [];
+      existing.push(detail);
+      detailsByBatchId.set(detail.shipment_batch_id, existing);
+    }
+
+    // 각 출고 회수 처리 (DB 쿼리 없이 메모리에서)
+    for (const shipment of shipments || []) {
+      const details = detailsByBatchId.get(shipment.id) || [];
 
       // 제품별 수량 집계
       const productCounts = new Map<string, number>();
-      for (const detail of details || []) {
+      for (const detail of details) {
         const productName = (
           detail.virtual_code as {
             lot: { product: { name: string } };
@@ -629,7 +668,7 @@ export async function getRecallHistory(
         type: 'shipment',
         recallDate: shipment.recall_date || '',
         recallReason: shipment.recall_reason || '',
-        quantity: details?.length || 0,
+        quantity: details.length,
         fromOrganization: {
           id: fromOrg.id,
           name: fromOrg.name,
@@ -723,13 +762,21 @@ export async function getRecallHistory(
       }
     }
 
-    // 조직 정보 조회 및 결과 추가
+    // N+1 최적화: 조직 정보 배치 조회
+    const orgIds = [...new Set(Array.from(groupedRecalls.values()).map((g) => g.fromOrganizationId))];
+    const { data: orgs } = await supabase
+      .from('organizations')
+      .select('id, name, type')
+      .in('id', orgIds);
+
+    const orgMap = new Map<string, { id: string; name: string; type: string }>();
+    for (const org of orgs || []) {
+      orgMap.set(org.id, org);
+    }
+
+    // 결과 추가 (DB 쿼리 없이 메모리에서)
     for (const [, group] of groupedRecalls) {
-      const { data: fromOrg } = await supabase
-        .from('organizations')
-        .select('id, name, type')
-        .eq('id', group.fromOrganizationId)
-        .single();
+      const fromOrg = orgMap.get(group.fromOrganizationId);
 
       if (fromOrg) {
         recallItems.push({
