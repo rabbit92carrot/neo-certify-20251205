@@ -317,3 +317,78 @@ export interface OrganizationSelectItem {
 export interface OrganizationDetail extends Organization {
   manufacturerSettings?: ManufacturerSettings;
 }
+
+// ============================================================================
+// 관리자 전용 타입
+// ============================================================================
+
+/**
+ * 조직 + 통계 정보 (관리자용)
+ */
+export interface OrganizationWithStats extends Organization {
+  virtualCodeCount: number;
+  lastActivityAt?: string;
+}
+
+/**
+ * 관리자 이력 아이템 - 가상 코드별 이력 요약
+ */
+export interface AdminHistoryItem {
+  id: string;
+  virtualCode: string;
+  productionDate: string;
+  currentStatus: VirtualCodeStatus;
+  currentOwner: {
+    id: string;
+    name: string;
+    type: OrganizationType | 'PATIENT';
+  } | null;
+  originalProducer: {
+    id: string;
+    name: string;
+  };
+  productName: string;
+  lotNumber: string;
+  expiryDate: string;
+  historyCount: number;
+  isRecalled: boolean;
+  histories: AdminHistoryDetail[];
+}
+
+/**
+ * 관리자 이력 상세 - 이동 이력
+ */
+export interface AdminHistoryDetail {
+  id: string;
+  actionType: HistoryActionType;
+  fromOwner: string;
+  toOwner: string;
+  createdAt: string;
+  isRecall: boolean;
+  recallReason?: string;
+}
+
+/**
+ * 회수 이력 아이템
+ */
+export interface RecallHistoryItem {
+  id: string;
+  type: 'shipment' | 'treatment';
+  recallDate: string;
+  recallReason: string;
+  quantity: number;
+  fromOrganization: {
+    id: string;
+    name: string;
+    type: OrganizationType;
+  };
+  toTarget: {
+    id: string;
+    name: string;
+    type: OrganizationType | 'PATIENT';
+  } | null;
+  items: {
+    productName: string;
+    quantity: number;
+  }[];
+}

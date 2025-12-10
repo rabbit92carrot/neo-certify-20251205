@@ -183,3 +183,27 @@ export {
   type TransactionHistoryQueryData,
   type TransactionHistoryQueryFormData,
 } from './history';
+
+// ============================================================================
+// 관리자 스키마
+// ============================================================================
+export {
+  // 조직 관리
+  adminOrganizationQuerySchema,
+  adminOrganizationStatusUpdateSchema,
+  adminOrganizationRejectSchema,
+  // 전체 이력
+  adminHistoryQuerySchema,
+  adminHistoryQueryFormSchema,
+  // 회수 모니터링
+  adminRecallQuerySchema,
+  adminRecallQueryFormSchema,
+  // 타입
+  type AdminOrganizationQueryData,
+  type AdminOrganizationStatusUpdateData,
+  type AdminOrganizationRejectData,
+  type AdminHistoryQueryData,
+  type AdminHistoryQueryFormData,
+  type AdminRecallQueryData,
+  type AdminRecallQueryFormData,
+} from './admin';
