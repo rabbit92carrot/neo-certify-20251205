@@ -21,6 +21,11 @@ import {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // API Routes는 미들웨어에서 세션 처리하지 않음 (자체적으로 쿠키 관리)
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+
   // Supabase 클라이언트 생성 및 세션 갱신
   let supabaseResponse = NextResponse.next({
     request,

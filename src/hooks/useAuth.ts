@@ -6,7 +6,6 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { LOGIN_PATH } from '@/constants/routes';
 import type { User } from '@supabase/supabase-js';
@@ -54,7 +53,6 @@ export function useAuth(): UseAuthReturn {
     null
   );
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   // Supabase 클라이언트 메모이제이션
   const supabase = useMemo(() => createClient(), []);
@@ -110,16 +108,22 @@ export function useAuth(): UseAuthReturn {
    */
   const logout = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      // 로컬 상태 먼저 클리어
       setUser(null);
       setOrganization(null);
       setManufacturerSettings(null);
-      router.push(LOGIN_PATH);
-      router.refresh();
+
+      // Supabase 로그아웃
+      await supabase.auth.signOut();
+
+      // 로그인 페이지로 이동 (hard navigation)
+      window.location.href = LOGIN_PATH;
     } catch (error) {
       console.error('Error signing out:', error);
+      // 오류가 발생해도 로그인 페이지로 이동
+      window.location.href = LOGIN_PATH;
     }
-  }, [supabase, router]);
+  }, [supabase]);
 
   /**
    * 사용자 정보 새로고침

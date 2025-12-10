@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { getNavigationItems, ORGANIZATION_TYPE_LABELS, type OrganizationType } from '@/constants';
-import { useAuth } from '@/hooks/useAuth';
 
 interface SidebarProps {
   organizationType: OrganizationType;
@@ -22,7 +21,6 @@ interface SidebarProps {
  * 사이드바 컴포넌트
  */
 export function Sidebar({ organizationType, organizationName }: SidebarProps): React.ReactElement {
-  const { logout } = useAuth();
   const navItems = getNavigationItems(organizationType);
 
   return (
@@ -51,16 +49,18 @@ export function Sidebar({ organizationType, organizationName }: SidebarProps): R
 
       <Separator />
 
-      {/* 로그아웃 버튼 */}
+      {/* 로그아웃 버튼 - API Route 방식 (hydration 불필요) */}
       <div className="p-4">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-gray-700 hover:text-red-600 hover:bg-red-50"
-          onClick={logout}
-        >
-          <LogOut className="h-5 w-5" />
-          <span>로그아웃</span>
-        </Button>
+        <form action="/api/auth/logout" method="POST">
+          <Button
+            type="submit"
+            variant="ghost"
+            className="w-full justify-start gap-3 text-gray-700 hover:text-red-600 hover:bg-red-50"
+          >
+            <LogOut className="h-5 w-5" />
+            <span>로그아웃</span>
+          </Button>
+        </form>
       </div>
     </aside>
   );
