@@ -169,3 +169,17 @@ export {
   type PatientTreatmentQueryData,
   type TreatmentRecallData,
 } from './treatment';
+
+// ============================================================================
+// 거래이력 스키마
+// ============================================================================
+export {
+  // 스키마
+  historyActionTypeSchema,
+  transactionHistoryQuerySchema,
+  transactionHistoryQueryFormSchema,
+  // 타입
+  type HistoryActionTypeValue,
+  type TransactionHistoryQueryData,
+  type TransactionHistoryQueryFormData,
+} from './history';
