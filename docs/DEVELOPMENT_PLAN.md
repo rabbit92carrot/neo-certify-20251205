@@ -295,14 +295,28 @@ neo-certify/
 
 ---
 
-### Phase 7: 병원 - 시술 등록 (1-2 세션)
+### Phase 7: 병원 - 시술 등록 ✅ 완료
+**완료일**: 2025-12-10
 
-- [ ] 병원 재고 조회 페이지
-- [ ] 시술 등록 페이지 (장바구니 방식 + 환자 전화번호)
-- [ ] 환자 자동 생성/조회
-- [ ] 알림 메시지 DB 기록
-- [ ] 환자 회수 알림 (시술 회수 시)
-- [ ] 병원 대시보드 통계 업데이트
+- [x] 병원 재고 조회 페이지
+- [x] 시술 등록 페이지 (장바구니 방식 + 환자 전화번호)
+- [x] 환자 자동 생성/조회
+- [x] 알림 메시지 DB 기록
+- [x] 환자 회수 알림 (시술 회수 시)
+- [x] 병원 대시보드 통계 업데이트
+- [x] 시술 이력 페이지 (회수 기능 포함)
+
+**산출물**:
+- 서비스 레이어: `src/services/treatment.service.ts` - 시술 생성, 조회, 회수 로직
+- Server Actions: `src/app/(dashboard)/hospital/actions.ts`
+- 컴포넌트:
+  - `src/components/forms/TreatmentForm.tsx` - 시술 폼 (장바구니 방식)
+  - `src/components/tables/TreatmentHistoryTable.tsx` - 시술 이력 테이블
+- 페이지 3개:
+  - `src/app/(dashboard)/hospital/inventory/page.tsx` - 재고 조회
+  - `src/app/(dashboard)/hospital/treatment/page.tsx` - 시술 등록
+  - `src/app/(dashboard)/hospital/treatment-history/page.tsx` - 시술 이력
+- 대시보드: `src/app/(dashboard)/hospital/dashboard/page.tsx` - 실제 통계 연동
 
 **핵심 파일**:
 - `src/services/treatment.service.ts`
