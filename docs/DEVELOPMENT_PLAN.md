@@ -324,6 +324,50 @@ neo-certify/
 
 ---
 
+### Phase 7.5: 필수 수정 및 개선 ✅ 완료
+**완료일**: 2025-12-10
+
+Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
+
+**7.5.1 필수 수정사항**:
+- [x] ProductCard export 누락 수정 (`src/components/shared/index.ts`)
+- [x] 병원 시술이력 네비게이션 추가 (`src/constants/navigation.ts`)
+- [x] ERROR_CODES 상수 추가 (`src/constants/errors.ts`)
+
+**7.5.2 타임존 관리 개선**:
+- [x] 타임존 유틸리티 함수 생성 (`src/lib/utils.ts`)
+  - `getKoreaToday()`: 한국 시간 기준 오늘 날짜
+  - `getKoreaTodayStart()`: 오늘 시작 시간 (00:00:00 KST)
+  - `getKoreaTodayEnd()`: 오늘 끝 시간 (23:59:59.999 KST)
+  - `getHoursDifference()`: 시간 차이 계산
+  - `formatDateTimeKorea()`: 한국 시간 포맷팅
+- [x] dashboard.service.ts 타임존 적용
+- [x] treatment.service.ts 타임존 적용
+
+**7.5.3 거래이력 기능**:
+- [x] 거래이력 Zod 스키마 (`src/lib/validations/history.ts`)
+- [x] 거래이력 서비스 (`src/services/history.service.ts`)
+  - `getTransactionHistory()`: 조직 거래이력 조회 (그룹화 지원)
+  - `getManufacturerHistory()`: 제조사 이력 (생산/출고/회수)
+  - `getDistributorHistory()`: 유통사 이력 (입고/출고/회수)
+  - `getHospitalHistory()`: 병원 이력 (입고/시술/회수)
+- [x] 거래이력 테이블 컴포넌트 (`src/components/tables/TransactionHistoryTable.tsx`)
+- [x] 거래이력 페이지
+  - `src/app/(dashboard)/manufacturer/history/page.tsx`
+  - `src/app/(dashboard)/distributor/history/page.tsx`
+  - `src/app/(dashboard)/hospital/history/page.tsx`
+- [x] 네비게이션에 거래이력 추가 (모든 역할)
+
+**산출물**:
+- `src/constants/errors.ts` - ERROR_CODES 상수 및 메시지
+- `src/lib/utils.ts` - 타임존 유틸리티 함수 추가
+- `src/lib/validations/history.ts` - 거래이력 쿼리 스키마
+- `src/services/history.service.ts` - 거래이력 서비스
+- `src/components/tables/TransactionHistoryTable.tsx` - 거래이력 테이블
+- `src/app/(dashboard)/*/history/page.tsx` - 역할별 거래이력 페이지
+
+---
+
 ### Phase 8: 관리자 기능 (1-2 세션)
 
 - [ ] 조직 관리 (승인/비활성화)
@@ -426,15 +470,26 @@ neo-certify/
 | Phase 4 | ✅ 완료 | 2025-12-09 |
 | Phase 5 | ✅ 완료 | 2025-12-09 |
 | Phase 6 | ✅ 완료 | 2025-12-09 |
-| Phase 7 | ⏳ 다음 | - |
-| Phase 8-13 | 대기 | - |
+| Phase 7 | ✅ 완료 | 2025-12-10 |
+| Phase 7.5 | ✅ 완료 | 2025-12-10 |
+| Phase 8 | ⏳ 다음 | - |
+| Phase 9-11 | 대기 | - |
 
 ---
 
-## 다음 세션 작업 (Phase 7: 병원 - 시술 등록)
+## 다음 세션 작업 (Phase 8: 관리자 기능)
 
-1. 병원 재고 조회 페이지
-2. 시술 등록 페이지 (장바구니 방식 + 환자 전화번호)
-3. 환자 자동 생성/조회
-4. 알림 메시지 DB 기록
-5. 병원 대시보드 업데이트
+1. 조직 관리 페이지 (`/admin/organizations`)
+   - 전체 조직 목록 (무한 스크롤)
+   - 상태별 필터 (ACTIVE, PENDING_APPROVAL, INACTIVE)
+   - 상태 변경 (승인, 비활성화)
+2. 가입 승인 페이지 (`/admin/approvals`)
+   - PENDING_APPROVAL 조직 목록
+   - 사업자등록증 확인
+   - 승인/거부 처리
+3. 전체 이력 조회 (`/admin/history`)
+   - Excel형 테이블
+   - 필터: 기간, 상태, 소유자, 제조사, 제품
+4. 회수 모니터링 (`/admin/recalls`)
+   - 회수된 이관/시술 목록
+   - 회수 사유 확인
