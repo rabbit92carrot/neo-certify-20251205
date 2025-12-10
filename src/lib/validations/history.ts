@@ -56,12 +56,12 @@ export const transactionHistoryQueryFormSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   actionTypes: z.string().optional().transform((val) => {
-    if (!val) return [];
+    if (!val) {return [];}
     return val.split(',').filter(Boolean);
   }),
   isRecall: z.string().optional().transform((val) => {
-    if (val === 'true') return true;
-    if (val === 'false') return false;
+    if (val === 'true') {return true;}
+    if (val === 'false') {return false;}
     return undefined;
   }),
   productId: z.string().uuid().optional(),

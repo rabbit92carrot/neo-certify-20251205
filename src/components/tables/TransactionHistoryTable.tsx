@@ -61,7 +61,7 @@ function getActionBadgeVariant(
   actionType: HistoryActionType,
   isRecall: boolean
 ): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (isRecall) return 'destructive';
+  if (isRecall) {return 'destructive';}
 
   switch (actionType) {
     case 'PRODUCED':

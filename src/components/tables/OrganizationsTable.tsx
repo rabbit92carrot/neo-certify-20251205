@@ -116,7 +116,7 @@ export function OrganizationsTable({
   const [loading, setLoading] = useState(false);
 
   const handleAction = async () => {
-    if (!confirmDialog.organization || !confirmDialog.action) return;
+    if (!confirmDialog.organization || !confirmDialog.action) {return;}
 
     setLoading(true);
     try {
@@ -142,7 +142,7 @@ export function OrganizationsTable({
 
   const getDialogContent = () => {
     const org = confirmDialog.organization;
-    if (!org) return { title: '', description: '' };
+    if (!org) {return { title: '', description: '' };}
 
     switch (confirmDialog.action) {
       case 'approve':

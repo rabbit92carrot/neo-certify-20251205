@@ -116,7 +116,7 @@ export const adminHistoryQueryFormSchema = z.object({
     .string()
     .optional()
     .transform((val) => {
-      if (val === 'false') return false;
+      if (val === 'false') {return false;}
       return true;
     }),
 });

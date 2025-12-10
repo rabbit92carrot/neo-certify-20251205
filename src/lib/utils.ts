@@ -181,7 +181,7 @@ export function formatDateTimeKorea(date: Date | string): string {
  */
 export function maskPhoneNumber(phone: string): string {
   const normalized = normalizePhoneNumber(phone);
-  if (normalized.length < 7) return phone;
+  if (normalized.length < 7) {return phone;}
   return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`;
 }
 

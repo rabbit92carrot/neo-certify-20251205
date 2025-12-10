@@ -53,27 +53,40 @@ export function AdminHistoryFilter({
 
   // URL에서 초기값 로드
   useEffect(() => {
-    const start = searchParams.get('startDate');
-    const end = searchParams.get('endDate');
-    if (start) setStartDate(new Date(start));
-    if (end) setEndDate(new Date(end));
-    setCurrentStatus(searchParams.get('currentStatus') || '');
-    setCurrentOwnerId(searchParams.get('currentOwnerId') || '');
-    setOriginalProducerId(searchParams.get('originalProducerId') || '');
-    setProductId(searchParams.get('productId') || '');
-    setIncludeRecalled(searchParams.get('includeRecalled') !== 'false');
+    let ignore = false;
+
+    // 비동기 패턴으로 상태 업데이트 (race condition 방지)
+    const syncFromUrl = (): void => {
+      if (ignore) {return;}
+
+      const start = searchParams.get('startDate');
+      const end = searchParams.get('endDate');
+      setStartDate(start ? new Date(start) : undefined);
+      setEndDate(end ? new Date(end) : undefined);
+      setCurrentStatus(searchParams.get('currentStatus') || '');
+      setCurrentOwnerId(searchParams.get('currentOwnerId') || '');
+      setOriginalProducerId(searchParams.get('originalProducerId') || '');
+      setProductId(searchParams.get('productId') || '');
+      setIncludeRecalled(searchParams.get('includeRecalled') !== 'false');
+    };
+
+    syncFromUrl();
+
+    return (): void => {
+      ignore = true;
+    };
   }, [searchParams]);
 
   // 필터 적용
   const applyFilters = () => {
     const params = new URLSearchParams();
-    if (startDate) params.set('startDate', format(startDate, 'yyyy-MM-dd'));
-    if (endDate) params.set('endDate', format(endDate, 'yyyy-MM-dd'));
-    if (currentStatus) params.set('currentStatus', currentStatus);
-    if (currentOwnerId) params.set('currentOwnerId', currentOwnerId);
-    if (originalProducerId) params.set('originalProducerId', originalProducerId);
-    if (productId) params.set('productId', productId);
-    if (!includeRecalled) params.set('includeRecalled', 'false');
+    if (startDate) {params.set('startDate', format(startDate, 'yyyy-MM-dd'));}
+    if (endDate) {params.set('endDate', format(endDate, 'yyyy-MM-dd'));}
+    if (currentStatus) {params.set('currentStatus', currentStatus);}
+    if (currentOwnerId) {params.set('currentOwnerId', currentOwnerId);}
+    if (originalProducerId) {params.set('originalProducerId', originalProducerId);}
+    if (productId) {params.set('productId', productId);}
+    if (!includeRecalled) {params.set('includeRecalled', 'false');}
 
     router.push(`/admin/history?${params.toString()}`);
   };

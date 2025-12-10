@@ -74,7 +74,9 @@ export function KakaoMessageList({
 
   // 더보기 로드
   const handleLoadMore = useCallback(() => {
-    if (!onLoadMore || isPending) return;
+    if (!onLoadMore || isPending) {
+      return;
+    }
 
     startTransition(async () => {
       const nextPage = page + 1;
@@ -92,7 +94,9 @@ export function KakaoMessageList({
 
   // 필터 적용 (서버 재조회)
   const handleApplyFilter = useCallback(() => {
-    if (!onLoadMore) return;
+    if (!onLoadMore) {
+      return;
+    }
 
     setIsFiltering(true);
     startTransition(async () => {

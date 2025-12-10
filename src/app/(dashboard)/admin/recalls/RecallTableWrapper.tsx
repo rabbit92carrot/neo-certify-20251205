@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -53,31 +53,45 @@ export function RecallTableWrapper({
   );
   const [type, setType] = useState<'shipment' | 'treatment' | 'all'>(initialType);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const result = await adminService.getRecallHistory({
-      page,
-      pageSize: 20,
-      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
-      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
-      type,
-    });
+  useEffect(() => {
+    let ignore = false;
 
-    if (result.success && result.data) {
-      setRecalls(result.data.items);
-    }
-    setLoading(false);
+    const fetchData = async (): Promise<void> => {
+      setLoading(true);
+      const result = await adminService.getRecallHistory({
+        page,
+        pageSize: 20,
+        startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+        type,
+      });
+
+      if (!ignore) {
+        if (result.success && result.data) {
+          setRecalls(result.data.items);
+        }
+        setLoading(false);
+      }
+    };
+
+    void fetchData();
+
+    return (): void => {
+      ignore = true;
+    };
   }, [page, startDate, endDate, type]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const applyFilters = () => {
+  const applyFilters = (): void => {
     const params = new URLSearchParams();
-    if (startDate) params.set('startDate', format(startDate, 'yyyy-MM-dd'));
-    if (endDate) params.set('endDate', format(endDate, 'yyyy-MM-dd'));
-    if (type !== 'all') params.set('type', type);
+    if (startDate) {
+      params.set('startDate', format(startDate, 'yyyy-MM-dd'));
+    }
+    if (endDate) {
+      params.set('endDate', format(endDate, 'yyyy-MM-dd'));
+    }
+    if (type !== 'all') {
+      params.set('type', type);
+    }
     router.push(`/admin/recalls?${params.toString()}`);
   };
 

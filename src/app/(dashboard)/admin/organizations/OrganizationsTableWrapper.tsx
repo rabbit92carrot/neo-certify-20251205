@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -46,59 +46,78 @@ export function OrganizationsTableWrapper({
   const [organizations, setOrganizations] = useState<OrganizationWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState(search || '');
-
-  const fetchOrganizations = useCallback(async () => {
-    setLoading(true);
-    const result = await adminService.getOrganizations({
-      page,
-      pageSize: 20,
-      status: status as 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'DELETED' | undefined,
-      type: type as 'MANUFACTURER' | 'DISTRIBUTOR' | 'HOSPITAL' | undefined,
-      search,
-    });
-    if (result.success && result.data) {
-      setOrganizations(result.data.items);
-    }
-    setLoading(false);
-  }, [page, status, type, search]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchOrganizations();
-  }, [fetchOrganizations]);
+    let ignore = false;
 
-  const updateUrl = (params: { status?: string; type?: string; search?: string }) => {
+    const fetchData = async (): Promise<void> => {
+      setLoading(true);
+      const result = await adminService.getOrganizations({
+        page,
+        pageSize: 20,
+        status: status as 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'DELETED' | undefined,
+        type: type as 'MANUFACTURER' | 'DISTRIBUTOR' | 'HOSPITAL' | undefined,
+        search,
+      });
+      if (!ignore) {
+        if (result.success && result.data) {
+          setOrganizations(result.data.items);
+        }
+        setLoading(false);
+      }
+    };
+
+    void fetchData();
+
+    return (): void => {
+      ignore = true;
+    };
+  }, [page, status, type, search, refreshKey]);
+
+  const refreshData = (): void => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const updateUrl = (params: { status?: string; type?: string; search?: string }): void => {
     const searchParams = new URLSearchParams();
-    if (params.status) searchParams.set('status', params.status);
-    if (params.type) searchParams.set('type', params.type);
-    if (params.search) searchParams.set('search', params.search);
+    if (params.status) {
+      searchParams.set('status', params.status);
+    }
+    if (params.type) {
+      searchParams.set('type', params.type);
+    }
+    if (params.search) {
+      searchParams.set('search', params.search);
+    }
     router.push(`/admin/organizations?${searchParams.toString()}`);
   };
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: string): Promise<void> => {
     startTransition(async () => {
       await approveOrganizationAction(id);
-      fetchOrganizations();
+      refreshData();
     });
   };
 
-  const handleDeactivate = async (id: string) => {
+  const handleDeactivate = async (id: string): Promise<void> => {
     startTransition(async () => {
       await deactivateOrganizationAction(id);
-      fetchOrganizations();
+      refreshData();
     });
   };
 
-  const handleActivate = async (id: string) => {
+  const handleActivate = async (id: string): Promise<void> => {
     startTransition(async () => {
       await activateOrganizationAction(id);
-      fetchOrganizations();
+      refreshData();
     });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string): Promise<void> => {
     startTransition(async () => {
       await deleteOrganizationAction(id);
-      fetchOrganizations();
+      refreshData();
     });
   };
 

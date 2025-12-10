@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminHistoryTable } from '@/components/tables/AdminHistoryTable';
 import { AdminHistoryFilter } from '@/components/shared/AdminHistoryFilter';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
@@ -37,37 +37,48 @@ export function HistoryTableWrapper({
   >([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    let ignore = false;
 
-    // 병렬로 데이터 조회
-    const [historyResult, orgsResult, productsResult] = await Promise.all([
-      adminService.getAdminHistory({
-        page,
-        pageSize: 50,
-        startDate,
-        endDate,
-        currentStatus: currentStatus as VirtualCodeStatus | undefined,
-        currentOwnerId,
-        originalProducerId,
-        productId,
-        includeRecalled,
-      }),
-      adminService.getAllOrganizationsForSelect(),
-      adminService.getAllProductsForSelect(),
-    ]);
+    const fetchData = async (): Promise<void> => {
+      setLoading(true);
 
-    if (historyResult.success && historyResult.data) {
-      setHistories(historyResult.data.items);
-    }
-    if (orgsResult.success && orgsResult.data) {
-      setOrganizations(orgsResult.data);
-    }
-    if (productsResult.success && productsResult.data) {
-      setProducts(productsResult.data);
-    }
+      // 병렬로 데이터 조회
+      const [historyResult, orgsResult, productsResult] = await Promise.all([
+        adminService.getAdminHistory({
+          page,
+          pageSize: 50,
+          startDate,
+          endDate,
+          currentStatus: currentStatus as VirtualCodeStatus | undefined,
+          currentOwnerId,
+          originalProducerId,
+          productId,
+          includeRecalled,
+        }),
+        adminService.getAllOrganizationsForSelect(),
+        adminService.getAllProductsForSelect(),
+      ]);
 
-    setLoading(false);
+      if (!ignore) {
+        if (historyResult.success && historyResult.data) {
+          setHistories(historyResult.data.items);
+        }
+        if (orgsResult.success && orgsResult.data) {
+          setOrganizations(orgsResult.data);
+        }
+        if (productsResult.success && productsResult.data) {
+          setProducts(productsResult.data);
+        }
+        setLoading(false);
+      }
+    };
+
+    void fetchData();
+
+    return (): void => {
+      ignore = true;
+    };
   }, [
     page,
     startDate,
@@ -78,10 +89,6 @@ export function HistoryTableWrapper({
     productId,
     includeRecalled,
   ]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   if (loading) {
     return <LoadingSpinner />;

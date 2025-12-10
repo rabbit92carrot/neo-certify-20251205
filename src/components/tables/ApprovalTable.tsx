@@ -85,7 +85,7 @@ function OrganizationDetailDialog({
   open: boolean;
   onClose: () => void;
 }): React.ReactElement | null {
-  if (!organization) return null;
+  if (!organization) {return null;}
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -184,7 +184,7 @@ export function ApprovalTable({
   const [loading, setLoading] = useState(false);
 
   const handleAction = async () => {
-    if (!confirmDialog.organization || !confirmDialog.action) return;
+    if (!confirmDialog.organization || !confirmDialog.action) {return;}
 
     setLoading(true);
     try {
