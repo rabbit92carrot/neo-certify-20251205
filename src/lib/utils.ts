@@ -174,3 +174,28 @@ export function formatDateTimeKorea(date: Date | string): string {
     hour12: false,
   });
 }
+
+/**
+ * 전화번호 마스킹 (개인정보 보호)
+ * 01012345678 -> 010****5678
+ */
+export function maskPhoneNumber(phone: string): string {
+  const normalized = normalizePhoneNumber(phone);
+  if (normalized.length < 7) return phone;
+  return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`;
+}
+
+/**
+ * 전화번호 포맷팅
+ * 01012345678 -> 010-1234-5678
+ */
+export function formatPhoneNumber(phone: string): string {
+  const normalized = normalizePhoneNumber(phone);
+  if (normalized.length === 11) {
+    return `${normalized.slice(0, 3)}-${normalized.slice(3, 7)}-${normalized.slice(7)}`;
+  }
+  if (normalized.length === 10) {
+    return `${normalized.slice(0, 3)}-${normalized.slice(3, 6)}-${normalized.slice(6)}`;
+  }
+  return phone;
+}
