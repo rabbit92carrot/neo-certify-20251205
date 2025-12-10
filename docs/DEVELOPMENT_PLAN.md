@@ -368,17 +368,60 @@ Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
 
 ---
 
-### Phase 8: 관리자 기능 (1-2 세션)
+### Phase 8: 관리자 기능 ✅ 완료
+**완료일**: 2025-12-10
 
-- [ ] 조직 관리 (승인/비활성화)
-- [ ] 전체 이력 조회 (Excel형)
-- [ ] 회수 모니터링
+- [x] 조직 관리 페이지 (`/admin/organizations`)
+- [x] 가입 승인 페이지 (`/admin/approvals`)
+- [x] 전체 이력 조회 (`/admin/history`) - Excel형 테이블, 필터
+- [x] 회수 모니터링 (`/admin/recalls`)
+- [x] 대시보드 완성 (실제 통계 연동)
+
+**산출물**:
+- Zod 스키마: `src/lib/validations/admin.ts` - 관리자 쿼리 스키마
+- 타입 추가: `src/types/api.types.ts` - OrganizationWithStats, AdminHistoryItem, RecallHistoryItem
+- 서비스 레이어: `src/services/admin.service.ts` - 조직/이력/회수 비즈니스 로직
+- Server Actions: `src/app/(dashboard)/admin/actions.ts` - 승인/거부/비활성화 액션
+- 테이블 컴포넌트 4개:
+  - `src/components/tables/OrganizationsTable.tsx` - 조직 목록
+  - `src/components/tables/ApprovalTable.tsx` - 승인 대기 목록
+  - `src/components/tables/AdminHistoryTable.tsx` - 전체 이력 (확장형)
+  - `src/components/tables/RecallHistoryTable.tsx` - 회수 이력
+- 필터 컴포넌트: `src/components/shared/AdminHistoryFilter.tsx`
+- 페이지 4개:
+  - `src/app/(dashboard)/admin/organizations/page.tsx` - 조직 관리
+  - `src/app/(dashboard)/admin/approvals/page.tsx` - 가입 승인
+  - `src/app/(dashboard)/admin/history/page.tsx` - 전체 이력
+  - `src/app/(dashboard)/admin/recalls/page.tsx` - 회수 모니터링
+- 대시보드 수정: `src/app/(dashboard)/admin/dashboard/page.tsx` - 실제 통계, 승인 대기 목록
+
+**핵심 파일**:
+- `src/services/admin.service.ts`
+- `src/app/(dashboard)/admin/*`
 
 ---
 
-### Phase 9: Mock 페이지 (0.5 세션)
+### Phase 9: Mock 페이지 ✅ 완료
+**완료일**: 2025-12-10
 
-- [ ] 카카오 알림톡 Mock UI
+- [x] 카카오 알림톡 Mock UI (`/mock/kakao`)
+
+**산출물**:
+- 유틸리티 함수: `src/lib/utils.ts` - `maskPhoneNumber()`, `formatPhoneNumber()` 추가
+- 서비스 레이어: `src/services/notification.service.ts` - 알림 메시지 조회, 통계
+- 컴포넌트:
+  - `src/components/mock/KakaoMessageCard.tsx` - 카카오톡 스타일 메시지 카드
+  - `src/components/mock/KakaoMessageList.tsx` - 메시지 목록 (필터, 더보기)
+  - `src/components/mock/index.ts` - 컴포넌트 export
+- 페이지:
+  - `src/app/mock/layout.tsx` - Mock 페이지 레이아웃 (카카오 스타일 헤더)
+  - `src/app/mock/kakao/page.tsx` - 알림톡 Mock 페이지
+  - `src/app/mock/kakao/actions.ts` - Server Action (더보기)
+
+**핵심 파일**:
+- `src/services/notification.service.ts`
+- `src/app/mock/kakao/*`
+- `src/components/mock/*`
 
 ---
 
@@ -472,24 +515,17 @@ Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
 | Phase 6 | ✅ 완료 | 2025-12-09 |
 | Phase 7 | ✅ 완료 | 2025-12-10 |
 | Phase 7.5 | ✅ 완료 | 2025-12-10 |
-| Phase 8 | ⏳ 다음 | - |
-| Phase 9-11 | 대기 | - |
+| Phase 8 | ✅ 완료 | 2025-12-10 |
+| Phase 9 | ✅ 완료 | 2025-12-10 |
+| Phase 10-11 | ⏳ 다음 | - |
 
 ---
 
-## 다음 세션 작업 (Phase 8: 관리자 기능)
+## 다음 세션 작업 (Phase 10: 테스트)
 
-1. 조직 관리 페이지 (`/admin/organizations`)
-   - 전체 조직 목록 (무한 스크롤)
-   - 상태별 필터 (ACTIVE, PENDING_APPROVAL, INACTIVE)
-   - 상태 변경 (승인, 비활성화)
-2. 가입 승인 페이지 (`/admin/approvals`)
-   - PENDING_APPROVAL 조직 목록
-   - 사업자등록증 확인
-   - 승인/거부 처리
-3. 전체 이력 조회 (`/admin/history`)
-   - Excel형 테이블
-   - 필터: 기간, 상태, 소유자, 제조사, 제품
-4. 회수 모니터링 (`/admin/recalls`)
-   - 회수된 이관/시술 목록
-   - 회수 사유 확인
+1. 단위 테스트
+   - 유틸리티 함수 테스트 (maskPhoneNumber, formatPhoneNumber 등)
+   - 서비스 레이어 테스트
+2. 통합 테스트
+   - FIFO 로직 테스트
+   - 회수 로직 테스트
