@@ -13,16 +13,17 @@ import { CONFIG } from '@/constants';
 
 /**
  * Lot 생산 등록
- * DB 트리거가 가상 식별코드를 자동 생성합니다.
+ * 동일한 제품+Lot번호가 있으면 수량을 추가하고, 없으면 새로 생성합니다.
+ * DB 함수(upsert_lot)를 사용하여 atomic하게 처리합니다.
  *
  * @param organizationId 제조사 조직 ID
  * @param data Lot 생성 데이터
- * @returns 생성된 Lot 정보
+ * @returns 생성/업데이트된 Lot 정보
  */
 export async function createLot(
   organizationId: string,
   data: LotCreateData
-): Promise<ApiResponse<Lot>> {
+): Promise<ApiResponse<Lot & { isAddedToExisting?: boolean }>> {
   const supabase = await createClient();
 
   // 제품이 해당 제조사 소유이고 활성 상태인지 확인
@@ -70,32 +71,28 @@ export async function createLot(
   // 사용기한 계산 (설정 기반 또는 직접 입력)
   const expiryDate = data.expiryDate || (await calculateExpiryDate(organizationId, data.manufactureDate));
 
-  // Lot 생성 (트리거가 가상 코드 자동 생성)
-  const { data: lot, error } = await supabase
-    .from('lots')
-    .insert({
-      product_id: data.productId,
-      lot_number: lotNumber,
-      quantity: data.quantity,
-      manufacture_date: data.manufactureDate,
-      expiry_date: expiryDate,
-    })
-    .select()
-    .single();
+  // upsert_lot DB 함수 호출 (동일 Lot 존재 시 수량 추가, 없으면 새로 생성)
+  const { data: upsertResult, error: upsertError } = await supabase.rpc('upsert_lot', {
+    p_product_id: data.productId,
+    p_lot_number: lotNumber,
+    p_quantity: data.quantity,
+    p_manufacture_date: data.manufactureDate,
+    p_expiry_date: expiryDate,
+  });
 
-  if (error) {
-    // 중복 Lot 번호 에러 처리
-    if (error.code === '23505') {
+  if (upsertError) {
+    // 최대 수량 초과 에러 처리
+    if (upsertError.message?.includes('exceeds maximum limit')) {
       return {
         success: false,
         error: {
-          code: 'DUPLICATE_LOT_NUMBER',
-          message: '동일한 Lot 번호가 이미 존재합니다.',
+          code: 'QUANTITY_LIMIT_EXCEEDED',
+          message: '총 수량이 최대 한도(100,000개)를 초과합니다.',
         },
       };
     }
 
-    console.error('Lot 생성 실패:', error);
+    console.error('Lot 생성/업데이트 실패:', upsertError);
     return {
       success: false,
       error: {
@@ -105,7 +102,41 @@ export async function createLot(
     };
   }
 
-  return { success: true, data: lot };
+  const result = upsertResult?.[0];
+  if (!result) {
+    return {
+      success: false,
+      error: {
+        code: 'CREATE_FAILED',
+        message: 'Lot 생성 결과를 확인할 수 없습니다.',
+      },
+    };
+  }
+
+  // 생성/업데이트된 Lot 정보 조회
+  const { data: lot, error: fetchError } = await supabase
+    .from('lots')
+    .select()
+    .eq('id', result.lot_id)
+    .single();
+
+  if (fetchError || !lot) {
+    return {
+      success: false,
+      error: {
+        code: 'FETCH_FAILED',
+        message: 'Lot 정보 조회에 실패했습니다.',
+      },
+    };
+  }
+
+  return {
+    success: true,
+    data: {
+      ...lot,
+      isAddedToExisting: !result.is_new, // 기존 Lot에 추가된 경우 true
+    },
+  };
 }
 
 /**

@@ -1,10 +1,14 @@
 /**
  * 대시보드 통계 서비스
  * 각 역할별 대시보드에 표시되는 통계 데이터 조회
+ *
+ * 모든 재고 조회는 getTotalInventoryCount()를 통해 수행하여
+ * 단일 진실 원천(Single Source of Truth) 패턴을 적용합니다.
  */
 
 import { createClient } from '@/lib/supabase/server';
 import { getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/utils';
+import { getTotalInventoryCount } from './inventory.service';
 import type {
   ApiResponse,
   ManufacturerDashboardStats,
@@ -27,14 +31,11 @@ export async function getManufacturerDashboardStats(
   const todayEnd = getKoreaTodayEnd();
 
   // 병렬로 통계 조회
-  const [inventoryResult, todayProductionResult, todayShipmentResult, activeProductsResult] =
+  // 총 재고량은 getTotalInventoryCount()를 사용하여 데이터 일관성 보장
+  const [totalInventory, todayProductionResult, todayShipmentResult, activeProductsResult] =
     await Promise.all([
-      // 총 재고량 (IN_STOCK 상태, 현재 소유자가 제조사인 가상 코드 수)
-      supabase
-        .from('virtual_codes')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', organizationId)
-        .eq('status', 'IN_STOCK'),
+      // 총 재고량 (공통 함수 사용 - Single Source of Truth)
+      getTotalInventoryCount(organizationId),
 
       // 오늘 생산량 (오늘 생성된 Lot의 총 수량)
       supabase
@@ -70,7 +71,7 @@ export async function getManufacturerDashboardStats(
   return {
     success: true,
     data: {
-      totalInventory: inventoryResult.count || 0,
+      totalInventory,
       todayProduction,
       todayShipments: todayShipmentResult.count || 0,
       activeProducts: activeProductsResult.count || 0,
@@ -91,13 +92,9 @@ export async function getDistributorDashboardStats(
   const todayStart = getKoreaTodayStart();
   const todayEnd = getKoreaTodayEnd();
 
-  const [inventoryResult, todayReceivedResult, todayShipmentResult] = await Promise.all([
-    // 총 재고량
-    supabase
-      .from('virtual_codes')
-      .select('id', { count: 'exact', head: true })
-      .eq('owner_id', organizationId)
-      .eq('status', 'IN_STOCK'),
+  const [totalInventory, todayReceivedResult, todayShipmentResult] = await Promise.all([
+    // 총 재고량 (공통 함수 사용 - Single Source of Truth)
+    getTotalInventoryCount(organizationId),
 
     // 오늘 입고량
     supabase
@@ -125,7 +122,7 @@ export async function getDistributorDashboardStats(
   return {
     success: true,
     data: {
-      totalInventory: inventoryResult.count || 0,
+      totalInventory,
       todayReceived: todayReceivedResult.count || 0,
       todayShipments: todayShipmentResult.count || 0,
     },
@@ -145,14 +142,10 @@ export async function getHospitalDashboardStats(
   const todayStart = getKoreaTodayStart();
   const todayEnd = getKoreaTodayEnd();
 
-  const [inventoryResult, todayTreatmentsResult, totalPatientsResult, todayShipmentResult] =
+  const [totalInventory, todayTreatmentsResult, totalPatientsResult, todayShipmentResult] =
     await Promise.all([
-      // 총 재고량
-      supabase
-        .from('virtual_codes')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', organizationId)
-        .eq('status', 'IN_STOCK'),
+      // 총 재고량 (공통 함수 사용 - Single Source of Truth)
+      getTotalInventoryCount(organizationId),
 
       // 오늘 시술 건수
       supabase
@@ -186,7 +179,7 @@ export async function getHospitalDashboardStats(
   return {
     success: true,
     data: {
-      totalInventory: inventoryResult.count || 0,
+      totalInventory,
       todayTreatments: todayTreatmentsResult.count || 0,
       totalPatients: uniquePatients.size,
       todayShipments: todayShipmentResult.count || 0,

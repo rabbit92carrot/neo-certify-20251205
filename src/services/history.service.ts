@@ -8,9 +8,21 @@
  * - RECEIVED: 입고 (유통사, 병원)
  * - TREATED: 시술 (병원)
  * - RECALLED: 회수 (모든 역할)
+ *
+ * SSOT 원칙:
+ * - 이력 그룹화는 DB 함수(get_history_summary)를 통해 수행
+ * - 조직 이름 조회는 common.service.ts의 공통 함수 사용
+ * - 마스킹 유틸리티는 common.service.ts 사용
  */
 
 import { createClient } from '@/lib/supabase/server';
+import {
+  getOrganizationName,
+  getOrganizationNames,
+  maskPhoneNumber,
+  createOrganizationNameCache,
+  getActionTypeLabel,
+} from './common.service';
 import type {
   ApiResponse,
   PaginatedResponse,
@@ -66,7 +78,7 @@ export interface TransactionHistoryItem {
  * 거래이력 요약 (그룹화)
  */
 export interface TransactionHistorySummary {
-  id: string; // 첫 번째 이력 ID (그룹 대표)
+  id: string; // 그룹 키 (고유 식별자)
   actionType: HistoryActionType;
   actionTypeLabel: string;
   createdAt: string;
@@ -99,247 +111,156 @@ export interface TransactionHistorySummary {
 // 상수
 // ============================================================================
 
-const ACTION_TYPE_LABELS: Record<HistoryActionType, string> = {
-  PRODUCED: '생산',
-  SHIPPED: '출고',
-  RECEIVED: '입고',
-  TREATED: '시술',
-  RECALLED: '회수',
-  DISPOSED: '폐기',
-};
+const DEFAULT_PAGE = 1;
+const DEFAULT_PAGE_SIZE = 50;
 
 // ============================================================================
-// 내부 유틸리티
+// 거래이력 조회 (DB 함수 사용)
 // ============================================================================
 
 /**
- * 조직 이름 조회 (캐시 활용)
- */
-async function getOrganizationName(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  orgId: string,
-  cache: Map<string, string>
-): Promise<string> {
-  if (cache.has(orgId)) {
-    return cache.get(orgId)!;
-  }
-
-  const { data } = await supabase
-    .from('organizations')
-    .select('name')
-    .eq('id', orgId)
-    .single();
-
-  const name = data?.name || '알 수 없음';
-  cache.set(orgId, name);
-  return name;
-}
-
-/**
- * 환자 정보 (전화번호 마스킹)
- */
-const MIN_PHONE_LENGTH = 4;
-
-function maskPhoneNumber(phone: string): string {
-  if (phone.length < MIN_PHONE_LENGTH) {
-    return '****';
-  }
-  return `***-****-${phone.slice(-MIN_PHONE_LENGTH)}`;
-}
-
-// ============================================================================
-// 거래이력 조회
-// ============================================================================
-
-/**
- * 조직의 거래이력 조회
+ * 조직의 거래이력 조회 (DB 함수를 통한 서버 사이드 그룹화)
  *
  * @param organizationId 조직 ID
  * @param query 조회 옵션
  * @returns 페이지네이션된 거래이력 목록
  */
-// 페이지네이션 상수
-const DEFAULT_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 20;
-const GROUPING_MULTIPLIER = 10;
-const GROUP_ESTIMATION_DIVISOR = 5;
-const TIME_GROUP_LENGTH = 16; // YYYY-MM-DDTHH:mm
-
 export async function getTransactionHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
   const supabase = await createClient();
-  const { page = DEFAULT_PAGE, pageSize = DEFAULT_PAGE_SIZE, startDate, endDate, actionTypes, isRecall, productId } = query;
+  const {
+    page = DEFAULT_PAGE,
+    pageSize = DEFAULT_PAGE_SIZE,
+    startDate,
+    endDate,
+    actionTypes,
+    isRecall,
+  } = query;
   const offset = (page - DEFAULT_PAGE) * pageSize;
 
-  // 조직 이름 캐시
-  const orgNameCache = new Map<string, string>();
-
-  // 1. 기본 쿼리 - 내가 관련된 이력 조회
-  let queryBuilder = supabase
-    .from('histories')
-    .select(
-      `
-      id,
-      action_type,
-      from_owner_type,
-      from_owner_id,
-      to_owner_type,
-      to_owner_id,
-      is_recall,
-      recall_reason,
-      created_at,
-      virtual_code:virtual_codes!inner(
-        id,
-        code,
-        lot:lots!inner(
-          id,
-          lot_number,
-          product:products!inner(
-            id,
-            name
-          )
-        )
-      )
-    `,
-      { count: 'exact' }
-    )
-    .or(`from_owner_id.eq.${organizationId},to_owner_id.eq.${organizationId}`)
-    .order('created_at', { ascending: false });
-
-  // 2. 필터 적용
-  if (startDate) {
-    queryBuilder = queryBuilder.gte('created_at', startDate);
-  }
-  if (endDate) {
-    queryBuilder = queryBuilder.lte('created_at', endDate);
-  }
-  if (actionTypes && actionTypes.length > 0) {
-    queryBuilder = queryBuilder.in('action_type', actionTypes);
-  }
-  if (isRecall !== undefined) {
-    queryBuilder = queryBuilder.eq('is_recall', isRecall);
-  }
-
-  // 3. 제품 필터 (서브쿼리 필요)
-  // 제품 ID 필터는 클라이언트 측에서 처리 (복잡한 조인 쿼리 회피)
-
-  const { data: histories, count, error } = await queryBuilder.range(
-    offset,
-    offset + pageSize * GROUPING_MULTIPLIER - 1 // 그룹화를 위해 더 많이 가져옴
+  // 1. DB 함수를 통해 그룹화된 이력 조회
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: historyData, error: historyError } = await (supabase.rpc as any)(
+    'get_history_summary',
+    {
+      p_organization_id: organizationId,
+      p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : null,
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_is_recall: isRecall ?? null,
+      p_limit: pageSize,
+      p_offset: offset,
+    }
   );
 
-  if (error) {
-    console.error('거래이력 조회 실패:', error);
+  if (historyError) {
+    console.error('거래이력 조회 실패:', historyError);
     return {
       success: false,
       error: {
         code: 'QUERY_ERROR',
-        message: error.message,
+        message: historyError.message,
       },
     };
   }
 
-  // 4. 결과 그룹화 (같은 시간, 같은 액션, 같은 당사자)
-  const groupedHistories = new Map<string, TransactionHistorySummary>();
-
-  for (const history of histories || []) {
-    const virtualCode = history.virtual_code as {
-      id: string;
-      code: string;
-      lot: {
-        id: string;
-        lot_number: string;
-        product: { id: string; name: string };
-      };
-    };
-
-    // 제품 필터 적용
-    if (productId && virtualCode.lot.product.id !== productId) {
-      continue;
+  // 2. 총 그룹 수 조회 (페이지네이션용)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: totalCount, error: countError } = await (supabase.rpc as any)(
+    'get_history_summary_count',
+    {
+      p_organization_id: organizationId,
+      p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : null,
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_is_recall: isRecall ?? null,
     }
+  );
 
-    // 그룹 키 생성 (같은 시간대, 같은 액션, 같은 당사자)
-    const createdAtMinute = history.created_at.slice(0, TIME_GROUP_LENGTH); // YYYY-MM-DDTHH:mm
-    const groupKey = `${createdAtMinute}_${history.action_type}_${history.from_owner_id}_${history.to_owner_id}`;
+  if (countError) {
+    console.error('거래이력 카운트 실패:', countError);
+  }
 
-    if (groupedHistories.has(groupKey)) {
-      // 기존 그룹에 추가
-      const existing = groupedHistories.get(groupKey)!;
-      const productId = virtualCode.lot.product.id;
-      const existingItem = existing.items.find((i) => i.productId === productId);
-
-      if (existingItem) {
-        existingItem.quantity += 1;
-      } else {
-        existing.items.push({
-          productId,
-          productName: virtualCode.lot.product.name,
-          quantity: 1,
-        });
-      }
-      existing.totalQuantity += 1;
-    } else {
-      // 새 그룹 생성
-      const fromOwner = history.from_owner_id
-        ? {
-            type: history.from_owner_type as 'ORGANIZATION' | 'PATIENT',
-            id: history.from_owner_id,
-            name:
-              history.from_owner_type === 'PATIENT'
-                ? maskPhoneNumber(history.from_owner_id)
-                : await getOrganizationName(supabase, history.from_owner_id, orgNameCache),
-          }
-        : undefined;
-
-      const toOwner = history.to_owner_id
-        ? {
-            type: history.to_owner_type as 'ORGANIZATION' | 'PATIENT',
-            id: history.to_owner_id,
-            name:
-              history.to_owner_type === 'PATIENT'
-                ? maskPhoneNumber(history.to_owner_id)
-                : await getOrganizationName(supabase, history.to_owner_id, orgNameCache),
-          }
-        : undefined;
-
-      groupedHistories.set(groupKey, {
-        id: history.id,
-        actionType: history.action_type as HistoryActionType,
-        actionTypeLabel: ACTION_TYPE_LABELS[history.action_type as HistoryActionType],
-        createdAt: history.created_at,
-        isRecall: history.is_recall ?? false,
-        recallReason: history.recall_reason ?? undefined,
-        fromOwner,
-        toOwner,
-        items: [
-          {
-            productId: virtualCode.lot.product.id,
-            productName: virtualCode.lot.product.name,
-            quantity: 1,
-          },
-        ],
-        totalQuantity: 1,
-      });
+  // 3. 조직 이름 일괄 조회
+  const orgIds = new Set<string>();
+  for (const row of historyData || []) {
+    if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
+      orgIds.add(row.from_owner_id);
+    }
+    if (row.to_owner_id && row.to_owner_type === 'ORGANIZATION') {
+      orgIds.add(row.to_owner_id);
     }
   }
 
-  // 5. 페이지네이션 적용
-  const allSummaries = Array.from(groupedHistories.values());
-  const paginatedSummaries = allSummaries.slice(0, pageSize);
-  const total = count ?? allSummaries.length;
+  const orgNameMap = await getOrganizationNames([...orgIds]);
+
+  // 4. 결과 매핑
+  const summaries: TransactionHistorySummary[] = (historyData || []).map(
+    (row: {
+      group_key: string;
+      action_type: string;
+      from_owner_type: string;
+      from_owner_id: string;
+      to_owner_type: string;
+      to_owner_id: string;
+      is_recall: boolean;
+      recall_reason: string;
+      created_at: string;
+      total_quantity: number;
+      product_summaries: Array<{ productId: string; productName: string; quantity: number }>;
+    }) => {
+      // 소유자 정보 포맷팅
+      const fromOwner = row.from_owner_id
+        ? {
+            type: row.from_owner_type as 'ORGANIZATION' | 'PATIENT',
+            id: row.from_owner_id,
+            name:
+              row.from_owner_type === 'PATIENT'
+                ? maskPhoneNumber(row.from_owner_id)
+                : orgNameMap.get(row.from_owner_id) || '알 수 없음',
+          }
+        : undefined;
+
+      const toOwner = row.to_owner_id
+        ? {
+            type: row.to_owner_type as 'ORGANIZATION' | 'PATIENT',
+            id: row.to_owner_id,
+            name:
+              row.to_owner_type === 'PATIENT'
+                ? maskPhoneNumber(row.to_owner_id)
+                : orgNameMap.get(row.to_owner_id) || '알 수 없음',
+          }
+        : undefined;
+
+      return {
+        id: row.group_key,
+        actionType: row.action_type as HistoryActionType,
+        actionTypeLabel: getActionTypeLabel(row.action_type),
+        createdAt: row.created_at,
+        isRecall: row.is_recall ?? false,
+        recallReason: row.recall_reason || undefined,
+        fromOwner,
+        toOwner,
+        items: row.product_summaries || [],
+        totalQuantity: Number(row.total_quantity),
+      };
+    }
+  );
+
+  const total = Number(totalCount) || summaries.length;
 
   return {
     success: true,
     data: {
-      items: paginatedSummaries,
+      items: summaries,
       meta: {
         page,
         pageSize,
-        total: Math.ceil(total / GROUP_ESTIMATION_DIVISOR), // 대략적인 그룹 수 추정
-        totalPages: Math.ceil(total / (pageSize * GROUP_ESTIMATION_DIVISOR)),
-        hasMore: allSummaries.length > pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        hasMore: offset + summaries.length < total,
       },
     },
   };
@@ -360,7 +281,9 @@ export async function getManufacturerHistory(
     ...query,
     actionTypes:
       query.actionTypes && query.actionTypes.length > 0
-        ? query.actionTypes.filter((t) => manufacturerActionTypes.includes(t as HistoryActionType))
+        ? query.actionTypes.filter((t) =>
+            manufacturerActionTypes.includes(t as HistoryActionType)
+          )
         : manufacturerActionTypes,
   };
 
@@ -381,7 +304,9 @@ export async function getDistributorHistory(
     ...query,
     actionTypes:
       query.actionTypes && query.actionTypes.length > 0
-        ? query.actionTypes.filter((t) => distributorActionTypes.includes(t as HistoryActionType))
+        ? query.actionTypes.filter((t) =>
+            distributorActionTypes.includes(t as HistoryActionType)
+          )
         : distributorActionTypes,
   };
 
@@ -402,9 +327,20 @@ export async function getHospitalHistory(
     ...query,
     actionTypes:
       query.actionTypes && query.actionTypes.length > 0
-        ? query.actionTypes.filter((t) => hospitalActionTypes.includes(t as HistoryActionType))
+        ? query.actionTypes.filter((t) =>
+            hospitalActionTypes.includes(t as HistoryActionType)
+          )
         : hospitalActionTypes,
   };
 
   return getTransactionHistory(organizationId, filteredQuery as TransactionHistoryQueryData);
 }
+
+// ============================================================================
+// 레거시 함수 (하위 호환성) - deprecated
+// ============================================================================
+
+/**
+ * @deprecated common.service.ts의 getOrganizationName 사용
+ */
+export { getOrganizationName, maskPhoneNumber, createOrganizationNameCache };

@@ -1,9 +1,17 @@
 /**
  * 관리자 서비스
  * 조직 관리, 전체 이력, 회수 모니터링 비즈니스 로직
+ *
+ * SSOT 원칙:
+ * - 조직 이름 조회, 마스킹 등 공통 유틸리티는 common.service.ts 사용
  */
 
 import { createClient } from '@/lib/supabase/server';
+import {
+  getOrganizationName,
+  maskPhoneNumber,
+  createOrganizationNameCache,
+} from './common.service';
 import type {
   ApiResponse,
   PaginatedResponse,
@@ -30,46 +38,6 @@ import { ORGANIZATION_STATUSES } from '@/constants/organization';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
-
-
-// ============================================================================
-// 내부 유틸리티
-// ============================================================================
-
-/**
- * 조직 이름 조회 (캐시 활용)
- */
-async function getOrganizationName(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  orgId: string,
-  cache: Map<string, string>
-): Promise<string> {
-  if (cache.has(orgId)) {
-    return cache.get(orgId)!;
-  }
-
-  const { data } = await supabase
-    .from('organizations')
-    .select('name')
-    .eq('id', orgId)
-    .single();
-
-  const name = data?.name || '알 수 없음';
-  cache.set(orgId, name);
-  return name;
-}
-
-/**
- * 환자 정보 (전화번호 마스킹)
- */
-const MIN_PHONE_LENGTH = 4;
-
-function maskPhoneNumber(phone: string): string {
-  if (phone.length < MIN_PHONE_LENGTH) {
-    return '****';
-  }
-  return `***-****-${phone.slice(-MIN_PHONE_LENGTH)}`;
-}
 
 // ============================================================================
 // 조직 관리
@@ -345,8 +313,8 @@ export async function getAdminHistory(
   } = query;
   const offset = (page - DEFAULT_PAGE) * pageSize;
 
-  // 조직 이름 캐시
-  const orgNameCache = new Map<string, string>();
+  // 조직 이름 캐시 (공통 서비스 사용)
+  const orgNameCache = createOrganizationNameCache();
 
   // 기본 쿼리 - 가상 코드 기준 조회
   let queryBuilder = supabase

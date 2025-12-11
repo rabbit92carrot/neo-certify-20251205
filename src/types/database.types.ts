@@ -511,6 +511,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_quantity_to_lot: {
+        Args: { p_additional_quantity: number; p_lot_id: string }
+        Returns: number
+      }
       generate_lot_number: {
         Args: {
           p_manufacture_date?: string
@@ -534,6 +538,14 @@ export type Database = {
         Args: { p_owner_id: string; p_product_id: string }
         Returns: number
       }
+      get_inventory_summary: {
+        Args: { p_owner_id: string }
+        Returns: {
+          product_id: string
+          product_name: string
+          quantity: number
+        }[]
+      }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_organization_type: {
         Args: never
@@ -556,6 +568,23 @@ export type Database = {
           virtual_code_id: string
         }[]
       }
+      upsert_lot: {
+        Args: {
+          p_expiry_date: string
+          p_lot_number: string
+          p_manufacture_date: string
+          p_product_id: string
+          p_quantity: number
+        }
+        Returns: {
+          is_new: boolean
+          lot_id: string
+          lot_number: string
+          total_quantity: number
+        }[]
+      }
+      user_is_lot_manufacturer: { Args: { lot_uuid: string }; Returns: boolean }
+      user_owns_codes_in_lot: { Args: { lot_uuid: string }; Returns: boolean }
       validate_business_number: { Args: { bn: string }; Returns: boolean }
     }
     Enums: {

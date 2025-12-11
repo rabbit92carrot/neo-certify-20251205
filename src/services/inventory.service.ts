@@ -14,6 +14,7 @@ import type {
 
 /**
  * 제품별 재고 요약 조회
+ * DB 함수를 사용하여 Supabase API limit 제한을 우회
  *
  * @param organizationId 조직 ID
  * @returns 제품별 재고 요약 목록
@@ -23,22 +24,10 @@ export async function getInventorySummary(
 ): Promise<ApiResponse<InventorySummary[]>> {
   const supabase = await createClient();
 
-  // 자신이 소유한 IN_STOCK 가상 코드를 제품별로 그룹화
-  const { data, error } = await supabase
-    .from('virtual_codes')
-    .select(
-      `
-      lot:lots!inner(
-        product:products!inner(
-          id,
-          name
-        )
-      )
-    `
-    )
-    .eq('owner_id', organizationId)
-    .eq('owner_type', 'ORGANIZATION')
-    .eq('status', 'IN_STOCK');
+  // DB 함수를 사용하여 제품별 재고 집계 (API limit 우회)
+  const { data, error } = await supabase.rpc('get_inventory_summary', {
+    p_owner_id: organizationId,
+  });
 
   if (error) {
     console.error('재고 요약 조회 실패:', error);
@@ -51,29 +40,13 @@ export async function getInventorySummary(
     };
   }
 
-  // 제품별로 그룹화
-  const productMap = new Map<string, { name: string; quantity: number }>();
-
-  for (const item of data || []) {
-    const product = (item.lot as { product: { id: string; name: string } }).product;
-    const existing = productMap.get(product.id);
-    if (existing) {
-      existing.quantity += 1;
-    } else {
-      productMap.set(product.id, { name: product.name, quantity: 1 });
-    }
-  }
-
-  const summaries: InventorySummary[] = Array.from(productMap.entries()).map(
-    ([productId, { name, quantity }]) => ({
-      productId,
-      productName: name,
-      totalQuantity: quantity,
+  const summaries: InventorySummary[] = (data || []).map(
+    (row: { product_id: string; product_name: string; quantity: number }) => ({
+      productId: row.product_id,
+      productName: row.product_name,
+      totalQuantity: Number(row.quantity),
     })
   );
-
-  // 제품명 순 정렬
-  summaries.sort((a, b) => a.productName.localeCompare(b.productName, 'ko'));
 
   return { success: true, data: summaries };
 }
@@ -169,6 +142,24 @@ export async function getInventoryCount(
   }
 
   return data || 0;
+}
+
+/**
+ * 전체 재고 수량 조회 (대시보드용)
+ * getInventorySummary()를 내부적으로 사용하여 데이터 일관성 보장
+ * 모든 재고 조회는 이 함수 또는 getInventorySummary()를 통해 수행해야 합니다.
+ *
+ * @param organizationId 조직 ID
+ * @returns 전체 재고 수량
+ */
+export async function getTotalInventoryCount(
+  organizationId: string
+): Promise<number> {
+  const result = await getInventorySummary(organizationId);
+  if (!result.success || !result.data) {
+    return 0;
+  }
+  return result.data.reduce((sum, s) => sum + s.totalQuantity, 0);
 }
 
 /**
