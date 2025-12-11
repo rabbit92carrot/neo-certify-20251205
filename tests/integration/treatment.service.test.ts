@@ -406,7 +406,7 @@ describe('Treatment Service Integration Tests', () => {
         quantity: 5,
       });
 
-      const patientPhone = generateTestPhoneNumber();
+      const _patientPhone = generateTestPhoneNumber();
       const codes = await getVirtualCodesByLot(lot.id);
       const codeId = codes[0].id;
 

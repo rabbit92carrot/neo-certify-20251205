@@ -530,4 +530,429 @@ describe('Lot Service Integration Tests', () => {
       expect(totalQuantity).toBe(expectedTotal);
     });
   });
+
+  describe('동일 제품 추가 생산 (upsert_lot)', () => {
+    let manufacturerOrg: Awaited<ReturnType<typeof createTestOrganization>>;
+    let product: Awaited<ReturnType<typeof createTestProduct>>;
+
+    beforeEach(async () => {
+      manufacturerOrg = await createTestOrganization({ type: 'MANUFACTURER' });
+      product = await createTestProduct({
+        organizationId: manufacturerOrg.id,
+        name: '추가생산테스트제품',
+        modelName: 'ADD-PROD-001',
+      });
+    });
+
+    afterEach(async () => {
+      await cleanupAllTestData();
+    });
+
+    it('동일 제품 같은 날 2회 생산 시 기존 Lot에 수량이 추가되어야 한다', async () => {
+      const lotNumber = `LOT_UPSERT_${generateTestId()}`;
+      const manufactureDate = new Date().toISOString().split('T')[0];
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // 첫 번째 생산: 100개
+      const { data: firstResult } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber,
+        p_quantity: 100,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      expect(firstResult).toBeDefined();
+      expect(firstResult[0].is_new).toBe(true);
+      expect(firstResult[0].total_quantity).toBe(100);
+
+      const firstLotId = firstResult[0].lot_id;
+
+      // 두 번째 생산: 50개 추가
+      const { data: secondResult } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber,
+        p_quantity: 50,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      expect(secondResult).toBeDefined();
+      expect(secondResult[0].is_new).toBe(false); // 기존 Lot에 추가
+      expect(secondResult[0].total_quantity).toBe(150);
+      expect(secondResult[0].lot_id).toBe(firstLotId); // 동일 Lot ID
+
+      // Lot 수량 확인
+      const { data: lot } = await adminClient
+        .from('lots')
+        .select('quantity')
+        .eq('id', firstLotId)
+        .single();
+
+      expect(lot!.quantity).toBe(150);
+
+      // Virtual codes 수량 확인
+      const { count: vcCount } = await adminClient
+        .from('virtual_codes')
+        .select('*', { count: 'exact', head: true })
+        .eq('lot_id', firstLotId);
+
+      expect(vcCount).toBe(150);
+    });
+
+    it('동일 제품 다른 날 생산 시 새 Lot이 생성되어야 한다', async () => {
+      const lotNumber1 = `LOT_DAY1_${generateTestId()}`;
+      const lotNumber2 = `LOT_DAY2_${generateTestId()}`;
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // 첫째 날 생산
+      const { data: day1Result } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber1,
+        p_quantity: 100,
+        p_manufacture_date: '2025-12-10',
+        p_expiry_date: expiryDate,
+      });
+
+      // 둘째 날 생산 (다른 Lot 번호)
+      const { data: day2Result } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber2,
+        p_quantity: 100,
+        p_manufacture_date: '2025-12-11',
+        p_expiry_date: expiryDate,
+      });
+
+      expect(day1Result[0].is_new).toBe(true);
+      expect(day2Result[0].is_new).toBe(true);
+      expect(day1Result[0].lot_id).not.toBe(day2Result[0].lot_id);
+    });
+
+    it('다른 제품 같은 날 생산 시 각각 별도 Lot이 생성되어야 한다', async () => {
+      const product2 = await createTestProduct({
+        organizationId: manufacturerOrg.id,
+        name: '다른제품',
+        modelName: 'DIFF-001',
+      });
+
+      const lotNumber = `LOT_SAME_DAY_${generateTestId()}`;
+      const manufactureDate = new Date().toISOString().split('T')[0];
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // 제품1 생산
+      const { data: prod1Result } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber,
+        p_quantity: 100,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      // 제품2 생산 (같은 Lot 번호지만 다른 제품)
+      const { data: prod2Result } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product2.id,
+        p_lot_number: lotNumber,
+        p_quantity: 100,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      expect(prod1Result[0].is_new).toBe(true);
+      expect(prod2Result[0].is_new).toBe(true);
+      expect(prod1Result[0].lot_id).not.toBe(prod2Result[0].lot_id);
+    });
+
+    it('추가 생산 후 virtual_codes 개수가 정확해야 한다', async () => {
+      const lotNumber = `LOT_VC_${generateTestId()}`;
+      const manufactureDate = new Date().toISOString().split('T')[0];
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // 첫 번째 생산
+      const { data: firstResult } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber,
+        p_quantity: 30,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      const lotId = firstResult[0].lot_id;
+
+      // 두 번째 생산
+      await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber,
+        p_quantity: 20,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      // 세 번째 생산
+      await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber,
+        p_quantity: 50,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      // 총 100개 (30 + 20 + 50)
+      const { count: vcCount } = await adminClient
+        .from('virtual_codes')
+        .select('*', { count: 'exact', head: true })
+        .eq('lot_id', lotId);
+
+      expect(vcCount).toBe(100);
+
+      // 모든 virtual_codes가 IN_STOCK이고 제조사 소유인지 확인
+      const { data: vcs } = await adminClient
+        .from('virtual_codes')
+        .select('status, owner_type, owner_id')
+        .eq('lot_id', lotId);
+
+      expect(vcs!.every((vc) => vc.status === 'IN_STOCK')).toBe(true);
+      expect(vcs!.every((vc) => vc.owner_type === 'ORGANIZATION')).toBe(true);
+      expect(vcs!.every((vc) => vc.owner_id === manufacturerOrg.id)).toBe(true);
+    });
+
+    it('추가 생산 시 최대 수량(100,000개) 초과하면 에러가 발생해야 한다', async () => {
+      const lotNumber = `LOT_MAX_${generateTestId()}`;
+      const manufactureDate = new Date().toISOString().split('T')[0];
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // 첫 번째 생산: 100개 (소량으로 빠른 생성)
+      const { data: firstResult } = await adminClient.rpc('upsert_lot', {
+        p_product_id: product.id,
+        p_lot_number: lotNumber,
+        p_quantity: 100,
+        p_manufacture_date: manufactureDate,
+        p_expiry_date: expiryDate,
+      });
+
+      expect(firstResult).toBeDefined();
+      const lotId = firstResult[0].lot_id;
+
+      // Lot 수량을 직접 99,990으로 업데이트 (테스트 시간 단축)
+      await adminClient.from('lots').update({ quantity: 99990 }).eq('id', lotId);
+
+      // 추가 생산: 20개 시도 (총 100,010개 > 100,000개)
+      // add_quantity_to_lot 함수가 최대 수량 체크해야 함
+      const { error } = await adminClient.rpc('add_quantity_to_lot', {
+        p_lot_id: lotId,
+        p_additional_quantity: 20,
+      });
+
+      expect(error).not.toBeNull();
+      expect(error!.message).toContain('exceeds maximum limit');
+    });
+  });
+
+  describe('add_quantity_to_lot 함수', () => {
+    let manufacturerOrg: Awaited<ReturnType<typeof createTestOrganization>>;
+    let product: Awaited<ReturnType<typeof createTestProduct>>;
+
+    beforeEach(async () => {
+      manufacturerOrg = await createTestOrganization({ type: 'MANUFACTURER' });
+      product = await createTestProduct({ organizationId: manufacturerOrg.id });
+    });
+
+    afterEach(async () => {
+      await cleanupAllTestData();
+    });
+
+    it('기존 Lot에 수량을 추가할 수 있어야 한다', async () => {
+      // Lot 생성
+      const { data: lot } = await adminClient
+        .from('lots')
+        .insert({
+          product_id: product.id,
+          lot_number: `LOT_ADD_${generateTestId()}`,
+          quantity: 50,
+          manufacture_date: new Date().toISOString().split('T')[0],
+          expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        })
+        .select()
+        .single();
+
+      // 수량 추가
+      const { data: newQuantity, error } = await adminClient.rpc('add_quantity_to_lot', {
+        p_lot_id: lot!.id,
+        p_additional_quantity: 30,
+      });
+
+      expect(error).toBeNull();
+      expect(newQuantity).toBe(80);
+
+      // Lot 수량 확인
+      const { data: updatedLot } = await adminClient
+        .from('lots')
+        .select('quantity')
+        .eq('id', lot!.id)
+        .single();
+
+      expect(updatedLot!.quantity).toBe(80);
+
+      // Virtual codes 수량 확인
+      const { count } = await adminClient
+        .from('virtual_codes')
+        .select('*', { count: 'exact', head: true })
+        .eq('lot_id', lot!.id);
+
+      expect(count).toBe(80);
+    });
+
+    it('0 이하의 수량은 에러가 발생해야 한다', async () => {
+      const { data: lot } = await adminClient
+        .from('lots')
+        .insert({
+          product_id: product.id,
+          lot_number: `LOT_ZERO_${generateTestId()}`,
+          quantity: 50,
+          manufacture_date: new Date().toISOString().split('T')[0],
+          expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        })
+        .select()
+        .single();
+
+      // 0개 추가 시도
+      const { error: zeroError } = await adminClient.rpc('add_quantity_to_lot', {
+        p_lot_id: lot!.id,
+        p_additional_quantity: 0,
+      });
+
+      expect(zeroError).not.toBeNull();
+
+      // 음수 추가 시도
+      const { error: negativeError } = await adminClient.rpc('add_quantity_to_lot', {
+        p_lot_id: lot!.id,
+        p_additional_quantity: -10,
+      });
+
+      expect(negativeError).not.toBeNull();
+    });
+
+    it('존재하지 않는 Lot ID에 추가 시도 시 에러가 발생해야 한다', async () => {
+      const { error } = await adminClient.rpc('add_quantity_to_lot', {
+        p_lot_id: '00000000-0000-0000-0000-000000000000',
+        p_additional_quantity: 10,
+      });
+
+      expect(error).not.toBeNull();
+      expect(error!.message).toContain('Lot not found');
+    });
+  });
+
+  describe('재고 요약 조회 (get_inventory_summary)', () => {
+    let manufacturerOrg: Awaited<ReturnType<typeof createTestOrganization>>;
+    let product1: Awaited<ReturnType<typeof createTestProduct>>;
+    let product2: Awaited<ReturnType<typeof createTestProduct>>;
+
+    beforeEach(async () => {
+      manufacturerOrg = await createTestOrganization({ type: 'MANUFACTURER' });
+      product1 = await createTestProduct({
+        organizationId: manufacturerOrg.id,
+        name: '제품A',
+        modelName: 'PROD-A',
+      });
+      product2 = await createTestProduct({
+        organizationId: manufacturerOrg.id,
+        name: '제품B',
+        modelName: 'PROD-B',
+      });
+    });
+
+    afterEach(async () => {
+      await cleanupAllTestData();
+    });
+
+    it('제품별로 정확하게 그룹화되어야 한다', async () => {
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // 제품1: 100개 (Lot 2개)
+      await adminClient.from('lots').insert({
+        product_id: product1.id,
+        lot_number: `LOT_P1_1_${generateTestId()}`,
+        quantity: 60,
+        manufacture_date: new Date().toISOString().split('T')[0],
+        expiry_date: expiryDate,
+      });
+      await adminClient.from('lots').insert({
+        product_id: product1.id,
+        lot_number: `LOT_P1_2_${generateTestId()}`,
+        quantity: 40,
+        manufacture_date: new Date().toISOString().split('T')[0],
+        expiry_date: expiryDate,
+      });
+
+      // 제품2: 50개
+      await adminClient.from('lots').insert({
+        product_id: product2.id,
+        lot_number: `LOT_P2_${generateTestId()}`,
+        quantity: 50,
+        manufacture_date: new Date().toISOString().split('T')[0],
+        expiry_date: expiryDate,
+      });
+
+      // 재고 요약 조회
+      const { data: summary, error } = await adminClient.rpc('get_inventory_summary', {
+        p_owner_id: manufacturerOrg.id,
+      });
+
+      expect(error).toBeNull();
+      expect(summary).toBeDefined();
+
+      const prod1Summary = summary.find((s: { product_id: string }) => s.product_id === product1.id);
+      const prod2Summary = summary.find((s: { product_id: string }) => s.product_id === product2.id);
+
+      expect(prod1Summary).toBeDefined();
+      expect(Number(prod1Summary.quantity)).toBe(100);
+      expect(prod2Summary).toBeDefined();
+      expect(Number(prod2Summary.quantity)).toBe(50);
+    });
+
+    it('IN_STOCK 상태의 코드만 카운트해야 한다', async () => {
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // Lot 생성 (10개)
+      const { data: lot } = await adminClient
+        .from('lots')
+        .insert({
+          product_id: product1.id,
+          lot_number: `LOT_STATUS_${generateTestId()}`,
+          quantity: 10,
+          manufacture_date: new Date().toISOString().split('T')[0],
+          expiry_date: expiryDate,
+        })
+        .select()
+        .single();
+
+      // 일부 코드를 USED 상태로 변경
+      const { data: codes } = await adminClient
+        .from('virtual_codes')
+        .select('id')
+        .eq('lot_id', lot!.id)
+        .limit(3);
+
+      for (const code of codes!) {
+        await adminClient.from('virtual_codes').update({ status: 'USED' }).eq('id', code.id);
+      }
+
+      // 재고 요약 조회 (7개만 카운트되어야 함)
+      const { data: summary } = await adminClient.rpc('get_inventory_summary', {
+        p_owner_id: manufacturerOrg.id,
+      });
+
+      const prodSummary = summary.find((s: { product_id: string }) => s.product_id === product1.id);
+      expect(Number(prodSummary.quantity)).toBe(7);
+    });
+
+    it('재고가 없는 경우 빈 배열을 반환해야 한다', async () => {
+      const { data: summary, error } = await adminClient.rpc('get_inventory_summary', {
+        p_owner_id: manufacturerOrg.id,
+      });
+
+      expect(error).toBeNull();
+      expect(summary).toEqual([]);
+    });
+  });
 });

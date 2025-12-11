@@ -186,6 +186,45 @@ describe('Shipment Service Integration Tests', () => {
 
       expect(selectedCodes).toHaveLength(3);
     });
+
+    it('재고가 0개인 경우 빈 배열을 반환해야 한다', async () => {
+      // Lot이 없는 제품에서 선택 시도
+      const { data: selectedCodes, error } = await adminClient.rpc('select_fifo_codes', {
+        p_product_id: product.id,
+        p_owner_id: manufacturer.id,
+        p_quantity: 10,
+      });
+
+      expect(error).toBeNull();
+      expect(selectedCodes).toHaveLength(0);
+    });
+
+    it('모든 재고가 USED 상태인 경우 빈 배열을 반환해야 한다', async () => {
+      // Lot 생성
+      const lot = await createTestLot({
+        productId: product.id,
+        manufacturerId: manufacturer.id,
+        quantity: 3,
+      });
+
+      // 모든 코드를 USED 상태로 변경
+      const codes = await getVirtualCodesByLot(lot.id);
+      for (const code of codes) {
+        await adminClient
+          .from('virtual_codes')
+          .update({ status: VIRTUAL_CODE_STATUSES.USED })
+          .eq('id', code.id);
+      }
+
+      // 선택 시도
+      const { data: selectedCodes } = await adminClient.rpc('select_fifo_codes', {
+        p_product_id: product.id,
+        p_owner_id: manufacturer.id,
+        p_quantity: 3,
+      });
+
+      expect(selectedCodes).toHaveLength(0);
+    });
   });
 
   describe('출고 생성 (createShipment)', () => {
@@ -437,6 +476,50 @@ describe('Shipment Service Integration Tests', () => {
       });
 
       expect(isAllowed).toBe(false);
+    });
+
+    it('정확히 24시간 전에 생성된 출고는 회수 불가능해야 한다', async () => {
+      // 정확히 24시간 전 (경계값)
+      const exactly24HoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: shipmentBatch } = await adminClient
+        .from('shipment_batches')
+        .insert({
+          from_organization_id: manufacturer.id,
+          to_organization_id: distributor.id,
+          to_organization_type: ORGANIZATION_TYPES.DISTRIBUTOR,
+          shipment_date: exactly24HoursAgo,
+        })
+        .select()
+        .single();
+
+      const { data: isAllowed } = await adminClient.rpc('is_recall_allowed', {
+        p_shipment_batch_id: shipmentBatch!.id,
+      });
+
+      expect(isAllowed).toBe(false);
+    });
+
+    it('24시간보다 1초 짧은 출고는 회수 가능해야 한다', async () => {
+      // 24시간 - 1초 전 (경계값 직전)
+      const justUnder24Hours = new Date(Date.now() - (24 * 60 * 60 * 1000 - 1000)).toISOString();
+
+      const { data: shipmentBatch } = await adminClient
+        .from('shipment_batches')
+        .insert({
+          from_organization_id: manufacturer.id,
+          to_organization_id: distributor.id,
+          to_organization_type: ORGANIZATION_TYPES.DISTRIBUTOR,
+          shipment_date: justUnder24Hours,
+        })
+        .select()
+        .single();
+
+      const { data: isAllowed } = await adminClient.rpc('is_recall_allowed', {
+        p_shipment_batch_id: shipmentBatch!.id,
+      });
+
+      expect(isAllowed).toBe(true);
     });
 
     it('이미 회수된 출고는 재회수 불가능해야 한다', async () => {

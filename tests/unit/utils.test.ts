@@ -57,6 +57,16 @@ describe('normalizePhoneNumber', () => {
   it('should remove mixed hyphens and spaces', () => {
     expect(normalizePhoneNumber('010-1234 5678')).toBe('01012345678');
   });
+
+  it('should handle empty string', () => {
+    expect(normalizePhoneNumber('')).toBe('');
+  });
+
+  it('should only remove hyphens and spaces', () => {
+    // 하이픈과 공백만 제거 (괄호, +는 유지됨)
+    expect(normalizePhoneNumber('010-1234-5678')).toBe('01012345678');
+    expect(normalizePhoneNumber('010 1234 5678')).toBe('01012345678');
+  });
 });
 
 describe('isValidPhoneNumber', () => {
@@ -72,6 +82,19 @@ describe('isValidPhoneNumber', () => {
     expect(isValidPhoneNumber('02012345678')).toBe(false);
     expect(isValidPhoneNumber('010123456')).toBe(false);
   });
+
+  it('should return false for empty string', () => {
+    expect(isValidPhoneNumber('')).toBe(false);
+  });
+
+  it('should handle boundary cases', () => {
+    // 10자리 (최소 유효 길이)
+    expect(isValidPhoneNumber('0101234567')).toBe(true);
+    // 11자리 (최대 유효 길이)
+    expect(isValidPhoneNumber('01012345678')).toBe(true);
+    // 12자리 (초과)
+    expect(isValidPhoneNumber('010123456789')).toBe(false);
+  });
 });
 
 describe('isValidBusinessNumber', () => {
@@ -84,6 +107,19 @@ describe('isValidBusinessNumber', () => {
     expect(isValidBusinessNumber('123456789')).toBe(false);
     expect(isValidBusinessNumber('12345678901')).toBe(false);
     expect(isValidBusinessNumber('abcdefghij')).toBe(false);
+  });
+
+  it('should return false for empty string', () => {
+    expect(isValidBusinessNumber('')).toBe(false);
+  });
+
+  it('should handle boundary cases', () => {
+    // 정확히 10자리
+    expect(isValidBusinessNumber('1234567890')).toBe(true);
+    // 9자리 (미만)
+    expect(isValidBusinessNumber('123456789')).toBe(false);
+    // 11자리 (초과)
+    expect(isValidBusinessNumber('12345678901')).toBe(false);
   });
 });
 
@@ -146,6 +182,22 @@ describe('isWithin24Hours', () => {
   it('should return true for exactly 23 hours ago', () => {
     const date = new Date(Date.now() - 1000 * 60 * 60 * 23);
     expect(isWithin24Hours(date)).toBe(true);
+  });
+
+  it('should return false for exactly 24 hours ago', () => {
+    // 정확히 24시간 전 (밀리초 단위로 정확히)
+    const exactly24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    expect(isWithin24Hours(exactly24Hours)).toBe(false);
+  });
+
+  it('should return true for just under 24 hours ago', () => {
+    // 24시간보다 1밀리초 짧음
+    const justUnder24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000 + 1);
+    expect(isWithin24Hours(justUnder24Hours)).toBe(true);
+  });
+
+  it('should return true for current time', () => {
+    expect(isWithin24Hours(new Date())).toBe(true);
   });
 });
 
@@ -273,6 +325,19 @@ describe('maskPhoneNumber', () => {
   it('should return original for short phone numbers', () => {
     expect(maskPhoneNumber('123456')).toBe('123456');
   });
+
+  it('should handle empty string', () => {
+    expect(maskPhoneNumber('')).toBe('');
+  });
+
+  it('should handle 10-digit phone number', () => {
+    // 10자리든 11자리든 항상 **** (4개 별표) 사용
+    expect(maskPhoneNumber('0101234567')).toBe('010****4567');
+  });
+
+  it('should handle phone numbers with spaces', () => {
+    expect(maskPhoneNumber('010 1234 5678')).toBe('010****5678');
+  });
 });
 
 describe('formatPhoneNumber', () => {
@@ -291,5 +356,14 @@ describe('formatPhoneNumber', () => {
 
   it('should handle already formatted phone numbers', () => {
     expect(formatPhoneNumber('010-1234-5678')).toBe('010-1234-5678');
+  });
+
+  it('should handle empty string', () => {
+    expect(formatPhoneNumber('')).toBe('');
+  });
+
+  it('should handle phone numbers with spaces', () => {
+    // 공백이 포함된 경우 정규화 후 포맷팅
+    expect(formatPhoneNumber('010 1234 5678')).toBe('010-1234-5678');
   });
 });
