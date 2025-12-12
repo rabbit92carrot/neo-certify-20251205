@@ -94,12 +94,14 @@ export async function getOrganizations(
     };
   }
 
-  // 각 조직의 가상 코드 수 조회 (N+1 최적화: 배치 쿼리)
+  // 각 조직의 보유 코드 수 조회 (IN_STOCK 상태만)
+  // owner_id는 VARCHAR 타입이므로 문자열로 변환
   const orgIds = (organizations || []).map((o) => o.id);
   const { data: virtualCodes } = await supabase
     .from('virtual_codes')
     .select('owner_id')
-    .in('owner_id', orgIds);
+    .in('owner_id', orgIds)
+    .eq('status', 'IN_STOCK');
 
   // 조직별 코드 수 집계
   const countByOrgId = new Map<string, number>();
