@@ -392,3 +392,70 @@ export interface RecallHistoryItem {
     quantity: number;
   }[];
 }
+
+// ============================================================================
+// Admin Event Summary Types (이벤트 단위 요약 뷰)
+// ============================================================================
+
+/**
+ * Lot 요약 정보 - 이벤트 내 Lot별 수량
+ */
+export interface AdminEventLotSummary {
+  lotId: string;
+  lotNumber: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+}
+
+/**
+ * 관리자 이벤트 요약 - 시간+액션+출발지+도착지로 그룹화
+ */
+export interface AdminEventSummary {
+  id: string; // group_key
+  eventTime: string;
+  actionType: HistoryActionType;
+  actionTypeLabel: string;
+  fromOwner: {
+    type: 'ORGANIZATION' | 'PATIENT';
+    id: string;
+    name: string;
+  } | null;
+  toOwner: {
+    type: 'ORGANIZATION' | 'PATIENT';
+    id: string;
+    name: string;
+  } | null;
+  isRecall: boolean;
+  recallReason?: string;
+  totalQuantity: number;
+  lotSummaries: AdminEventLotSummary[];
+  sampleCodeIds: string[];
+}
+
+/**
+ * 샘플 코드 상세 - 이벤트 상세 모달용
+ */
+export interface AdminEventSampleCode {
+  id: string;
+  code: string;
+  productionDate: string;
+  currentStatus: VirtualCodeStatus;
+  currentOwnerName: string;
+  lotNumber: string;
+  productName: string;
+}
+
+/**
+ * 이벤트 요약 CSV 항목
+ */
+export interface AdminEventCsvItem {
+  eventTime: string;
+  actionType: string;
+  totalQuantity: number;
+  fromOwner: string;
+  toOwner: string;
+  lotNumbers: string;
+  productNames: string;
+  isRecall: string;
+}

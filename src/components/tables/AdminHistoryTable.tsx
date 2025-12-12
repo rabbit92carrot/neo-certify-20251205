@@ -29,11 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils';
 import type {
@@ -132,24 +127,28 @@ function HistoryDetailRow({ detail }: { detail: AdminHistoryDetail }): React.Rea
 
 /**
  * 이력 행 (확장 가능)
+ * 테이블 구조에 맞게 Collapsible 대신 상태 기반 토글 사용
  */
 function HistoryRow({ item }: { item: AdminHistoryItem }): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <>
       <TableRow className={cn(item.isRecalled && 'bg-red-50')}>
         <TableCell>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="p-0 h-auto">
-              {isOpen ? (
-                <ChevronDown className="h-4 w-4 mr-2" />
-              ) : (
-                <ChevronRight className="h-4 w-4 mr-2" />
-              )}
-              <code className="text-xs font-mono">{item.virtualCode}</code>
-            </Button>
-          </CollapsibleTrigger>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="p-0 h-auto"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            {isOpen ? (
+              <ChevronDown className="h-4 w-4 mr-2" />
+            ) : (
+              <ChevronRight className="h-4 w-4 mr-2" />
+            )}
+            <code className="text-xs font-mono">{item.virtualCode}</code>
+          </Button>
         </TableCell>
         <TableCell className="text-muted-foreground">
           {format(new Date(item.productionDate), 'yyyy.MM.dd', { locale: ko })}
@@ -193,7 +192,7 @@ function HistoryRow({ item }: { item: AdminHistoryItem }): React.ReactElement {
           </div>
         </TableCell>
       </TableRow>
-      <CollapsibleContent asChild>
+      {isOpen && (
         <TableRow>
           <TableCell colSpan={8} className="p-0">
             <div className="px-6 py-3 space-y-2 bg-gray-50/50">
@@ -206,8 +205,8 @@ function HistoryRow({ item }: { item: AdminHistoryItem }): React.ReactElement {
             </div>
           </TableCell>
         </TableRow>
-      </CollapsibleContent>
-    </Collapsible>
+      )}
+    </>
   );
 }
 

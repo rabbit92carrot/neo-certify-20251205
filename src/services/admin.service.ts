@@ -24,12 +24,17 @@ import type {
   HistoryActionType,
   OrganizationType,
   VirtualCodeStatus,
+  AdminEventSummary,
+  AdminEventLotSummary,
+  AdminEventSampleCode,
 } from '@/types/api.types';
 import type {
   AdminOrganizationQueryData,
   AdminHistoryQueryData,
   AdminRecallQueryData,
+  AdminEventSummaryQueryData,
 } from '@/lib/validations/admin';
+import { getActionTypeLabel } from './common.service';
 import { ORGANIZATION_STATUSES } from '@/constants/organization';
 
 // ============================================================================
@@ -886,4 +891,244 @@ export async function getAllProductsForSelect(): Promise<
       manufacturerName: (product.organization as { name: string }).name,
     })),
   };
+}
+
+// ============================================================================
+// 이벤트 단위 이력 요약 (새 이력 조회 방식)
+// ============================================================================
+
+/**
+ * 관리자 이벤트 요약 조회
+ * 시간+액션+출발지+도착지로 그룹화된 이벤트 단위 조회
+ *
+ * @param query 조회 옵션 (필터, 페이지네이션)
+ * @returns 페이지네이션된 이벤트 요약 목록
+ */
+export async function getAdminEventSummary(
+  query: AdminEventSummaryQueryData
+): Promise<ApiResponse<PaginatedResponse<AdminEventSummary>>> {
+  const supabase = await createClient();
+  const {
+    page = DEFAULT_PAGE,
+    pageSize = DEFAULT_PAGE_SIZE,
+    startDate,
+    endDate,
+    actionTypes,
+    lotNumber,
+    productId,
+    organizationId,
+    includeRecalled = true,
+  } = query;
+  const offset = (page - DEFAULT_PAGE) * pageSize;
+
+  // DB 함수 호출
+  const { data: summaryData, error: summaryError } = await supabase.rpc(
+    'get_admin_event_summary',
+    {
+      p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
+      p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+      p_action_types: actionTypes?.length ? actionTypes : undefined,
+      p_lot_number: lotNumber || undefined,
+      p_product_id: productId || undefined,
+      p_organization_id: organizationId || undefined,
+      p_include_recalled: includeRecalled,
+      p_limit: pageSize,
+      p_offset: offset,
+    }
+  );
+
+  if (summaryError) {
+    console.error('이벤트 요약 조회 실패:', summaryError);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: summaryError.message || '이벤트 요약 조회에 실패했습니다.',
+      },
+    };
+  }
+
+  // 총 개수 조회
+  const { data: totalCount, error: countError } = await supabase.rpc(
+    'get_admin_event_summary_count',
+    {
+      p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
+      p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+      p_action_types: actionTypes?.length ? actionTypes : undefined,
+      p_lot_number: lotNumber || undefined,
+      p_product_id: productId || undefined,
+      p_organization_id: organizationId || undefined,
+      p_include_recalled: includeRecalled,
+    }
+  );
+
+  if (countError) {
+    console.error('이벤트 요약 카운트 조회 실패:', countError);
+  }
+
+  // 조직 이름 캐시 생성 및 일괄 조회
+  const orgIds = new Set<string>();
+  for (const row of summaryData || []) {
+    if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
+      orgIds.add(row.from_owner_id);
+    }
+    if (row.to_owner_id && row.to_owner_type === 'ORGANIZATION') {
+      orgIds.add(row.to_owner_id);
+    }
+  }
+
+  // 조직 이름 일괄 조회
+  const orgNameMap = new Map<string, string>();
+  if (orgIds.size > 0) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .in('id', [...orgIds]);
+
+    for (const org of orgData || []) {
+      orgNameMap.set(org.id, org.name);
+    }
+  }
+
+  // 결과 매핑
+  const summaries: AdminEventSummary[] = (summaryData || []).map((row) => {
+    const fromOwner = row.from_owner_id
+      ? {
+          type: row.from_owner_type as 'ORGANIZATION' | 'PATIENT',
+          id: row.from_owner_id,
+          name:
+            row.from_owner_type === 'PATIENT'
+              ? maskPhoneNumber(row.from_owner_id)
+              : orgNameMap.get(row.from_owner_id) || '알 수 없음',
+        }
+      : null;
+
+    const toOwner = row.to_owner_id
+      ? {
+          type: row.to_owner_type as 'ORGANIZATION' | 'PATIENT',
+          id: row.to_owner_id,
+          name:
+            row.to_owner_type === 'PATIENT'
+              ? maskPhoneNumber(row.to_owner_id)
+              : orgNameMap.get(row.to_owner_id) || '알 수 없음',
+        }
+      : null;
+
+    // lot_summaries는 DB에서 JSON 형식으로 반환됨
+    const lotSummaries = (row.lot_summaries as unknown as AdminEventLotSummary[]) || [];
+
+    return {
+      id: row.group_key,
+      eventTime: row.event_time,
+      actionType: row.action_type as HistoryActionType,
+      actionTypeLabel: getActionTypeLabel(row.action_type),
+      fromOwner,
+      toOwner,
+      isRecall: row.is_recall ?? false,
+      recallReason: row.recall_reason || undefined,
+      totalQuantity: Number(row.total_quantity),
+      lotSummaries,
+      sampleCodeIds: row.sample_code_ids || [],
+    };
+  });
+
+  const total = Number(totalCount) || summaries.length;
+
+  return {
+    success: true,
+    data: {
+      items: summaries,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        hasMore: offset + summaries.length < total,
+      },
+    },
+  };
+}
+
+/**
+ * 이벤트 샘플 코드 조회
+ * 이벤트 상세 모달에서 샘플 코드 표시용
+ *
+ * @param codeIds 가상 코드 ID 배열 (최대 10개)
+ * @returns 샘플 코드 상세 정보 배열
+ */
+export async function getEventSampleCodes(
+  codeIds: string[]
+): Promise<ApiResponse<AdminEventSampleCode[]>> {
+  const supabase = await createClient();
+
+  if (!codeIds.length) {
+    return { success: true, data: [] };
+  }
+
+  // 최대 10개만 조회
+  const limitedIds = codeIds.slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('virtual_codes')
+    .select(
+      `
+      id,
+      code,
+      status,
+      owner_id,
+      owner_type,
+      lot:lots!inner(
+        lot_number,
+        manufacture_date,
+        product:products!inner(name)
+      )
+    `
+    )
+    .in('id', limitedIds);
+
+  if (error) {
+    console.error('샘플 코드 조회 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: error.message,
+      },
+    };
+  }
+
+  // 소유자 이름 조회 (조직만)
+  const ownerIds = (data || [])
+    .filter((vc) => vc.owner_type === 'ORGANIZATION')
+    .map((vc) => vc.owner_id);
+
+  const orgNameMap = new Map<string, string>();
+  if (ownerIds.length > 0) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .in('id', [...new Set(ownerIds)]);
+
+    for (const org of orgData || []) {
+      orgNameMap.set(org.id, org.name);
+    }
+  }
+
+  const sampleCodes: AdminEventSampleCode[] = (data || []).map((vc) => {
+    const lot = vc.lot as { lot_number: string; manufacture_date: string; product: { name: string } };
+    return {
+      id: vc.id,
+      code: vc.code,
+      productionDate: lot.manufacture_date,
+      currentStatus: vc.status as VirtualCodeStatus,
+      currentOwnerName:
+        vc.owner_type === 'PATIENT'
+          ? maskPhoneNumber(vc.owner_id)
+          : orgNameMap.get(vc.owner_id) || '알 수 없음',
+      lotNumber: lot.lot_number,
+      productName: lot.product.name,
+    };
+  });
+
+  return { success: true, data: sampleCodes };
 }

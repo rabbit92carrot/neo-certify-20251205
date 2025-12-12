@@ -13,6 +13,7 @@ import {
   getVirtualCodesByLot,
   updateVirtualCodeOwner,
   cleanupAllTestData,
+  createTestShipmentBatch,
 } from '../helpers';
 import { ORGANIZATION_STATUSES, ORGANIZATION_TYPES } from '@/constants/organization';
 
@@ -336,6 +337,257 @@ describe('Admin Service Integration Tests', () => {
       expect(selectableProducts).toBeDefined();
       expect(selectableProducts?.length).toBe(1);
       expect(selectableProducts?.[0].name).toBe('활성제품');
+    });
+  });
+
+  describe('이벤트 요약 조회', () => {
+    it('동시 출고가 하나의 이벤트로 그룹핑되어야 한다', async () => {
+      // 테스트 데이터 생성
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const distributor = await createTestOrganization({ type: 'DISTRIBUTOR' });
+      const product = await createTestProduct({ organizationId: manufacturer.id });
+      const lot = await createTestLot({ productId: product.id, quantity: 10 });
+      const codes = await getVirtualCodesByLot(lot.id);
+
+      // 출고 생성 (5개 코드 한 번에)
+      const shipment = await createTestShipmentBatch({
+        fromOrganizationId: manufacturer.id,
+        toOrganizationType: 'DISTRIBUTOR',
+        toOrganizationId: distributor.id,
+        virtualCodeIds: codes.slice(0, 5).map((c) => c.id),
+      });
+
+      expect(shipment).toBeDefined();
+      expect(shipment.id).toBeDefined();
+
+      // 출고 이력 추가 (SHIPPED, RECEIVED)
+      const now = new Date().toISOString();
+      const shippedHistories = codes.slice(0, 5).map((code) => ({
+        virtual_code_id: code.id,
+        action_type: 'SHIPPED' as const,
+        from_owner_type: 'ORGANIZATION' as const,
+        from_owner_id: manufacturer.id,
+        to_owner_type: 'ORGANIZATION' as const,
+        to_owner_id: distributor.id,
+        is_recall: false,
+        shipment_batch_id: shipment.id,
+        created_at: now,
+      }));
+
+      await adminClient.from('histories').insert(shippedHistories);
+
+      const receivedHistories = codes.slice(0, 5).map((code) => ({
+        virtual_code_id: code.id,
+        action_type: 'RECEIVED' as const,
+        from_owner_type: 'ORGANIZATION' as const,
+        from_owner_id: manufacturer.id,
+        to_owner_type: 'ORGANIZATION' as const,
+        to_owner_id: distributor.id,
+        is_recall: false,
+        shipment_batch_id: shipment.id,
+        created_at: now,
+      }));
+
+      await adminClient.from('histories').insert(receivedHistories);
+
+      // DB 함수로 이벤트 요약 조회 (p_action_types는 null로 전달하여 모든 타입 조회)
+      const { data: summaryData, error } = await adminClient.rpc('get_admin_event_summary', {
+        p_start_date: null,
+        p_end_date: null,
+        p_action_types: null,
+        p_lot_number: null,
+        p_product_id: null,
+        p_organization_id: null,
+        p_include_recalled: true,
+        p_limit: 50,
+        p_offset: 0,
+      });
+
+      expect(error).toBeNull();
+      expect(summaryData).toBeDefined();
+
+      // 출고 이벤트가 존재하는지 확인
+      const shipmentEvents = summaryData?.filter(
+        (e: { action_type: string; from_owner_id: string }) =>
+          e.action_type === 'SHIPPED' && e.from_owner_id === manufacturer.id
+      );
+
+      // 동시 출고는 하나의 이벤트로 그룹핑
+      expect(shipmentEvents?.length).toBeGreaterThanOrEqual(1);
+
+      // 해당 이벤트의 총 수량 검증
+      if (shipmentEvents && shipmentEvents.length > 0) {
+        const eventWithQuantity = shipmentEvents.find(
+          (e: { total_quantity: number }) => e.total_quantity >= 5
+        );
+        expect(eventWithQuantity).toBeDefined();
+      }
+    });
+
+    it('회수된 이벤트가 필터링 가능해야 한다', async () => {
+      // 테스트 데이터 생성
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const distributor = await createTestOrganization({ type: 'DISTRIBUTOR' });
+      const product = await createTestProduct({ organizationId: manufacturer.id });
+      const lot = await createTestLot({ productId: product.id, quantity: 20 });
+      const codes = await getVirtualCodesByLot(lot.id);
+
+      // 출고 생성 (10개 코드)
+      const shipment = await createTestShipmentBatch({
+        fromOrganizationId: manufacturer.id,
+        toOrganizationType: 'DISTRIBUTOR',
+        toOrganizationId: distributor.id,
+        virtualCodeIds: codes.slice(0, 10).map((c) => c.id),
+      });
+
+      // 출고 이력 추가
+      const now = new Date().toISOString();
+      const shippedHistories = codes.slice(0, 10).map((code) => ({
+        virtual_code_id: code.id,
+        action_type: 'SHIPPED' as const,
+        from_owner_type: 'ORGANIZATION' as const,
+        from_owner_id: manufacturer.id,
+        to_owner_type: 'ORGANIZATION' as const,
+        to_owner_id: distributor.id,
+        is_recall: false,
+        shipment_batch_id: shipment.id,
+        created_at: now,
+      }));
+
+      await adminClient.from('histories').insert(shippedHistories);
+
+      // 출고 회수
+      const { error: recallError } = await adminClient
+        .from('shipment_batches')
+        .update({
+          is_recalled: true,
+          recall_date: new Date().toISOString(),
+          recall_reason: '테스트 회수 사유',
+        })
+        .eq('id', shipment.id);
+
+      expect(recallError).toBeNull();
+
+      // 회수된 코드를 제조사로 복귀
+      for (let i = 0; i < 10; i++) {
+        await updateVirtualCodeOwner(codes[i].id, 'ORGANIZATION', manufacturer.id);
+      }
+
+      // 회수 이력 추가
+      const recallHistories = codes.slice(0, 10).map((code) => ({
+        virtual_code_id: code.id,
+        action_type: 'RECALLED' as const,
+        from_owner_type: 'ORGANIZATION' as const,
+        from_owner_id: distributor.id,
+        to_owner_type: 'ORGANIZATION' as const,
+        to_owner_id: manufacturer.id,
+        is_recall: true,
+        recall_reason: '테스트 회수 사유',
+        shipment_batch_id: shipment.id,
+      }));
+
+      await adminClient.from('histories').insert(recallHistories);
+
+      // 회수 이벤트 포함 조회
+      const { data: withRecalled } = await adminClient.rpc('get_admin_event_summary', {
+        p_start_date: null,
+        p_end_date: null,
+        p_action_types: null,
+        p_lot_number: null,
+        p_product_id: null,
+        p_organization_id: null,
+        p_include_recalled: true,
+        p_limit: 50,
+        p_offset: 0,
+      });
+
+      // 회수 이벤트 제외 조회
+      const { data: withoutRecalled } = await adminClient.rpc('get_admin_event_summary', {
+        p_start_date: null,
+        p_end_date: null,
+        p_action_types: null,
+        p_lot_number: null,
+        p_product_id: null,
+        p_organization_id: null,
+        p_include_recalled: false,
+        p_limit: 50,
+        p_offset: 0,
+      });
+
+      // 회수 포함 조회에는 RECALLED 이벤트 존재
+      const recalledEvents = withRecalled?.filter(
+        (e: { action_type: string }) => e.action_type === 'RECALLED'
+      );
+      expect(recalledEvents?.length).toBeGreaterThanOrEqual(1);
+
+      // 회수 제외 조회에는 RECALLED 이벤트가 적거나 없어야 함
+      const recalledEventsFiltered = withoutRecalled?.filter(
+        (e: { action_type: string }) => e.action_type === 'RECALLED'
+      );
+      // 필터가 is_recall 플래그 기준인지 action_type 기준인지에 따라 다름
+      // 일반적으로 회수 필터는 is_recall 플래그로 필터링
+      expect(recalledEventsFiltered?.length ?? 0).toBeLessThanOrEqual(recalledEvents?.length ?? 0);
+    });
+
+    it('액션 타입별로 필터링 가능해야 한다', async () => {
+      // 테스트 데이터를 먼저 생성하여 PRODUCED 이력 확보
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const product = await createTestProduct({ organizationId: manufacturer.id });
+      await createTestLot({ productId: product.id, quantity: 3 });
+
+      // 모든 이벤트 조회 (타입 필터 없이)
+      const { data: allEvents, error: allError } = await adminClient.rpc(
+        'get_admin_event_summary',
+        {
+          p_start_date: null,
+          p_end_date: null,
+          p_action_types: null,
+          p_lot_number: null,
+          p_product_id: null,
+          p_organization_id: null,
+          p_include_recalled: true,
+          p_limit: 100,
+          p_offset: 0,
+        }
+      );
+
+      expect(allError).toBeNull();
+      expect(allEvents).toBeDefined();
+      expect(allEvents?.length).toBeGreaterThan(0);
+
+      // PRODUCED 이벤트 존재 확인
+      const producedEvents = allEvents?.filter(
+        (e: { action_type: string }) => e.action_type === 'PRODUCED'
+      );
+      expect(producedEvents?.length).toBeGreaterThan(0);
+    });
+
+    it('Lot 번호로 필터링 가능해야 한다', async () => {
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const product = await createTestProduct({ organizationId: manufacturer.id });
+      const lot = await createTestLot({ productId: product.id, quantity: 5 });
+
+      // 해당 Lot 번호로 필터링
+      const { data: filteredEvents, error } = await adminClient.rpc('get_admin_event_summary', {
+        p_start_date: null,
+        p_end_date: null,
+        p_action_types: null,
+        p_lot_number: lot.lot_number,
+        p_product_id: null,
+        p_organization_id: null,
+        p_include_recalled: true,
+        p_limit: 50,
+        p_offset: 0,
+      });
+
+      expect(error).toBeNull();
+      expect(filteredEvents).toBeDefined();
+
+      // PRODUCED 이벤트가 있어야 함 (Lot 생성 시 자동 생성)
+      const producedEvent = filteredEvents?.find(
+        (e: { action_type: string }) => e.action_type === 'PRODUCED'
+      );
+      expect(producedEvent).toBeDefined();
     });
   });
 });

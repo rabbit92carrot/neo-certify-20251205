@@ -122,6 +122,68 @@ export const adminHistoryQueryFormSchema = z.object({
 });
 
 // ============================================================================
+// 이벤트 단위 이력 요약 스키마 (새 이력 조회 방식)
+// ============================================================================
+
+/**
+ * 관리자 이벤트 요약 조회 쿼리 스키마
+ * 시간+액션+출발지+도착지로 그룹화된 이벤트 단위 조회
+ */
+export const adminEventSummaryQuerySchema = z.object({
+  // 페이지네이션
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+
+  // 기간 필터
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+
+  // 이벤트 타입 필터 (다중 선택)
+  actionTypes: z
+    .array(z.enum(['PRODUCED', 'SHIPPED', 'RECEIVED', 'TREATED', 'RECALLED', 'DISPOSED']))
+    .optional(),
+
+  // Lot 번호 검색 (부분 검색)
+  lotNumber: z.string().optional(),
+
+  // 제품 필터
+  productId: z.string().uuid().optional(),
+
+  // 조직 필터 (출발지 OR 도착지)
+  organizationId: z.string().uuid().optional(),
+
+  // 회수 이벤트 포함 여부 (기본: true)
+  includeRecalled: z.coerce.boolean().optional().default(true),
+});
+
+/**
+ * 관리자 이벤트 요약 조회 (폼용 - URL 파라미터 처리)
+ */
+export const adminEventSummaryQueryFormSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  actionTypes: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) {return undefined;}
+      return val.split(',').filter(Boolean);
+    }),
+  lotNumber: z.string().optional(),
+  productId: z.string().optional(),
+  organizationId: z.string().optional(),
+  includeRecalled: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (val === 'false') {return false;}
+      return true;
+    }),
+});
+
+// ============================================================================
 // 회수 모니터링 스키마
 // ============================================================================
 
@@ -161,5 +223,7 @@ export type AdminOrganizationStatusUpdateData = z.infer<typeof adminOrganization
 export type AdminOrganizationRejectData = z.infer<typeof adminOrganizationRejectSchema>;
 export type AdminHistoryQueryData = z.infer<typeof adminHistoryQuerySchema>;
 export type AdminHistoryQueryFormData = z.infer<typeof adminHistoryQueryFormSchema>;
+export type AdminEventSummaryQueryData = z.infer<typeof adminEventSummaryQuerySchema>;
+export type AdminEventSummaryQueryFormData = z.infer<typeof adminEventSummaryQueryFormSchema>;
 export type AdminRecallQueryData = z.infer<typeof adminRecallQuerySchema>;
 export type AdminRecallQueryFormData = z.infer<typeof adminRecallQueryFormSchema>;

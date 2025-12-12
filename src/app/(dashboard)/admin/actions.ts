@@ -335,3 +335,103 @@ export async function getAllProductsForSelectAction() {
 
   return adminService.getAllProductsForSelect();
 }
+
+// ============================================================================
+// 이벤트 요약 Actions (이력 조회 개선)
+// ============================================================================
+
+/**
+ * 관리자 이벤트 요약 조회 Action
+ * 시간+액션+출발지+도착지로 그룹화된 이벤트 단위 조회
+ */
+export async function getAdminEventSummaryAction(query: {
+  page?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  actionTypes?: string[];
+  lotNumber?: string;
+  productId?: string;
+  organizationId?: string;
+  includeRecalled?: boolean;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getAdminEventSummary({
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 50,
+    startDate: query.startDate,
+    endDate: query.endDate,
+    actionTypes: query.actionTypes as ('PRODUCED' | 'SHIPPED' | 'RECEIVED' | 'TREATED' | 'RECALLED' | 'DISPOSED')[] | undefined,
+    lotNumber: query.lotNumber,
+    productId: query.productId,
+    organizationId: query.organizationId,
+    includeRecalled: query.includeRecalled ?? true,
+  });
+}
+
+/**
+ * 이벤트 샘플 코드 조회 Action
+ * 상세 모달에서 샘플 코드 정보를 가져올 때 사용
+ */
+export async function getEventSampleCodesAction(codeIds: string[]) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getEventSampleCodes(codeIds);
+}
+
+/**
+ * 이벤트 요약 CSV 내보내기 Action
+ * 필터 적용된 전체 이벤트 요약 목록을 반환 (CSV 생성은 클라이언트에서)
+ */
+export async function exportEventSummaryCsvAction(query: {
+  startDate?: string;
+  endDate?: string;
+  actionTypes?: string[];
+  lotNumber?: string;
+  productId?: string;
+  organizationId?: string;
+  includeRecalled?: boolean;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  // CSV 내보내기는 페이지네이션 없이 최대 10,000개까지
+  return adminService.getAdminEventSummary({
+    page: 1,
+    pageSize: 10000,
+    startDate: query.startDate,
+    endDate: query.endDate,
+    actionTypes: query.actionTypes as ('PRODUCED' | 'SHIPPED' | 'RECEIVED' | 'TREATED' | 'RECALLED' | 'DISPOSED')[] | undefined,
+    lotNumber: query.lotNumber,
+    productId: query.productId,
+    organizationId: query.organizationId,
+    includeRecalled: query.includeRecalled ?? true,
+  });
+}
