@@ -94,25 +94,30 @@ export async function getOrganizations(
     };
   }
 
-  // 각 조직의 보유 코드 수를 DB에서 직접 집계 (count 쿼리 사용)
-  // Supabase 기본 limit(1000)으로 인해 select 후 JS 집계는 부정확하므로
-  // 조직별로 개별 count 쿼리를 병렬 실행
+  // 모든 조직의 보유 코드 수를 한 번에 조회 (N+1 최적화)
+  // DB 함수 get_organization_code_counts 사용
   const countByOrgId = new Map<string, number>();
 
   if (organizations && organizations.length > 0) {
-    const countPromises = organizations.map(async (org) => {
-      const { count: codeCount } = await supabase
-        .from('virtual_codes')
-        .select('*', { count: 'exact', head: true })
-        .eq('owner_id', org.id)
-        .eq('status', 'IN_STOCK');
+    const orgIds = organizations.map((org) => org.id);
 
-      return { orgId: org.id, count: codeCount || 0 };
-    });
+    type CodeCountRow = {
+      org_id: string;
+      code_count: number;
+    };
 
-    const countResults = await Promise.all(countPromises);
-    for (const result of countResults) {
-      countByOrgId.set(result.orgId, result.count);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: countResults, error: countError } = await (supabase.rpc as any)(
+      'get_organization_code_counts',
+      { p_org_ids: orgIds }
+    );
+
+    if (!countError && countResults) {
+      for (const row of countResults as CodeCountRow[]) {
+        countByOrgId.set(row.org_id, Number(row.code_count));
+      }
+    } else if (countError) {
+      console.error('조직 코드 수 bulk 조회 실패:', countError);
     }
   }
 

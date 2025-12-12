@@ -232,19 +232,20 @@ export async function getShipmentHistory(
     };
   }
 
-  // 각 뭉치별 아이템 요약 조회
-  const batchSummaries: ShipmentBatchSummary[] = [];
+  // 모든 뭉치의 요약 정보를 한 번에 조회 (N+1 최적화)
+  const batchIds = (batches || []).map((b) => b.id);
+  const summariesMap = await getShipmentBatchSummariesBulk(batchIds);
 
-  for (const batch of batches || []) {
-    const summary = await getShipmentBatchSummary(batch.id);
-    batchSummaries.push({
+  const batchSummaries: ShipmentBatchSummary[] = (batches || []).map((batch) => {
+    const summary = summariesMap.get(batch.id) || { itemSummary: [], totalQuantity: 0 };
+    return {
       ...batch,
       fromOrganization: batch.fromOrganization as Pick<Organization, 'id' | 'name' | 'type'>,
       toOrganization: batch.toOrganization as Pick<Organization, 'id' | 'name' | 'type'>,
       itemSummary: summary.itemSummary,
       totalQuantity: summary.totalQuantity,
-    });
-  }
+    };
+  });
 
   const total = count || 0;
 
@@ -315,18 +316,20 @@ export async function getReceivedShipmentHistory(
     };
   }
 
-  const batchSummaries: ShipmentBatchSummary[] = [];
+  // 모든 뭉치의 요약 정보를 한 번에 조회 (N+1 최적화)
+  const receivedBatchIds = (batches || []).map((b) => b.id);
+  const receivedSummariesMap = await getShipmentBatchSummariesBulk(receivedBatchIds);
 
-  for (const batch of batches || []) {
-    const summary = await getShipmentBatchSummary(batch.id);
-    batchSummaries.push({
+  const batchSummaries: ShipmentBatchSummary[] = (batches || []).map((batch) => {
+    const summary = receivedSummariesMap.get(batch.id) || { itemSummary: [], totalQuantity: 0 };
+    return {
       ...batch,
       fromOrganization: batch.fromOrganization as Pick<Organization, 'id' | 'name' | 'type'>,
       toOrganization: batch.toOrganization as Pick<Organization, 'id' | 'name' | 'type'>,
       itemSummary: summary.itemSummary,
       totalQuantity: summary.totalQuantity,
-    });
-  }
+    };
+  });
 
   const total = count || 0;
 
@@ -346,56 +349,78 @@ export async function getReceivedShipmentHistory(
 }
 
 /**
- * 출고 뭉치 아이템 요약 조회 (내부용)
+ * 여러 출고 뭉치의 아이템 요약을 한 번에 조회 (N+1 최적화)
+ * DB 함수 get_shipment_batch_summaries 사용
  */
-async function getShipmentBatchSummary(
-  shipmentBatchId: string
-): Promise<{ itemSummary: { productId: string; productName: string; quantity: number }[]; totalQuantity: number }> {
-  const supabase = await createClient();
+async function getShipmentBatchSummariesBulk(
+  batchIds: string[]
+): Promise<Map<string, { itemSummary: { productId: string; productName: string; quantity: number }[]; totalQuantity: number }>> {
+  const result = new Map<string, { itemSummary: { productId: string; productName: string; quantity: number }[]; totalQuantity: number }>();
 
-  const { data: details } = await supabase
-    .from('shipment_details')
-    .select(
-      `
-      virtual_code:virtual_codes!inner(
-        lot:lots!inner(
-          product:products!inner(
-            id,
-            name
-          )
-        )
-      )
-    `
-    )
-    .eq('shipment_batch_id', shipmentBatchId);
-
-  if (!details || details.length === 0) {
-    return { itemSummary: [], totalQuantity: 0 };
+  if (batchIds.length === 0) {
+    return result;
   }
 
-  // 제품별 그룹화
-  const productMap = new Map<string, { name: string; quantity: number }>();
+  const supabase = await createClient();
 
-  for (const detail of details) {
-    const product = (detail.virtual_code as { lot: { product: { id: string; name: string } } }).lot.product;
-    const existing = productMap.get(product.id);
+  // DB 함수 호출로 모든 뭉치의 요약을 한 번에 조회
+  type SummaryRow = {
+    batch_id: string;
+    product_id: string;
+    product_name: string;
+    lot_id: string;
+    lot_number: string;
+    quantity: number;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_shipment_batch_summaries', {
+    p_batch_ids: batchIds,
+  });
+
+  if (error || !data) {
+    console.error('출고 뭉치 요약 bulk 조회 실패:', error);
+    // 에러 시 빈 결과 반환 (각 뭉치는 빈 요약을 갖게 됨)
+    return result;
+  }
+
+  const rows = data as SummaryRow[];
+
+  // 뭉치별로 그룹화
+  const batchMap = new Map<string, Map<string, { name: string; quantity: number }>>();
+
+  for (const row of rows) {
+    if (!batchMap.has(row.batch_id)) {
+      batchMap.set(row.batch_id, new Map());
+    }
+    const productMap = batchMap.get(row.batch_id)!;
+
+    // 같은 제품의 수량 합산
+    const existing = productMap.get(row.product_id);
     if (existing) {
-      existing.quantity += 1;
+      existing.quantity += Number(row.quantity);
     } else {
-      productMap.set(product.id, { name: product.name, quantity: 1 });
+      productMap.set(row.product_id, { name: row.product_name, quantity: Number(row.quantity) });
     }
   }
 
-  const itemSummary = Array.from(productMap.entries()).map(([productId, { name, quantity }]) => ({
-    productId,
-    productName: name,
-    quantity,
-  }));
+  // 결과 변환
+  for (const batchId of batchIds) {
+    const productMap = batchMap.get(batchId);
+    if (productMap) {
+      const itemSummary = Array.from(productMap.entries()).map(([productId, { name, quantity }]) => ({
+        productId,
+        productName: name,
+        quantity,
+      }));
+      const totalQuantity = itemSummary.reduce((sum, item) => sum + item.quantity, 0);
+      result.set(batchId, { itemSummary, totalQuantity });
+    } else {
+      result.set(batchId, { itemSummary: [], totalQuantity: 0 });
+    }
+  }
 
-  return {
-    itemSummary,
-    totalQuantity: details.length,
-  };
+  return result;
 }
 
 /**

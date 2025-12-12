@@ -284,21 +284,22 @@ export async function getTreatmentHistory(
     };
   }
 
-  // 각 시술별 아이템 요약 조회
-  const treatmentSummaries: TreatmentRecordSummary[] = [];
+  // 모든 시술의 요약 정보를 한 번에 조회 (N+1 최적화)
+  const treatmentIds = (treatments || []).map((t) => t.id);
+  const summariesMap = await getTreatmentSummariesBulk(treatmentIds);
 
-  for (const treatment of treatments || []) {
-    const summary = await getTreatmentSummary(treatment.id);
+  const treatmentSummaries: TreatmentRecordSummary[] = (treatments || []).map((treatment) => {
+    const summary = summariesMap.get(treatment.id) || { itemSummary: [], totalQuantity: 0 };
     const hoursDiff = getHoursDifference(treatment.created_at);
 
-    treatmentSummaries.push({
+    return {
       ...treatment,
       hospital: treatment.hospital as Pick<Organization, 'id' | 'name' | 'type'>,
       itemSummary: summary.itemSummary,
       totalQuantity: summary.totalQuantity,
       isRecallable: hoursDiff <= 24,
-    });
-  }
+    };
+  });
 
   const total = count || 0;
 
@@ -318,56 +319,78 @@ export async function getTreatmentHistory(
 }
 
 /**
- * 시술 아이템 요약 조회 (내부용)
+ * 여러 시술의 아이템 요약을 한 번에 조회 (N+1 최적화)
+ * DB 함수 get_treatment_summaries 사용
  */
-async function getTreatmentSummary(
-  treatmentId: string
-): Promise<{ itemSummary: TreatmentItemSummary[]; totalQuantity: number }> {
-  const supabase = await createClient();
+async function getTreatmentSummariesBulk(
+  treatmentIds: string[]
+): Promise<Map<string, { itemSummary: TreatmentItemSummary[]; totalQuantity: number }>> {
+  const result = new Map<string, { itemSummary: TreatmentItemSummary[]; totalQuantity: number }>();
 
-  const { data: details } = await supabase
-    .from('treatment_details')
-    .select(
-      `
-      virtual_code:virtual_codes!inner(
-        lot:lots!inner(
-          product:products!inner(
-            id,
-            name
-          )
-        )
-      )
-    `
-    )
-    .eq('treatment_id', treatmentId);
-
-  if (!details || details.length === 0) {
-    return { itemSummary: [], totalQuantity: 0 };
+  if (treatmentIds.length === 0) {
+    return result;
   }
 
-  // 제품별 그룹화
-  const productMap = new Map<string, { name: string; quantity: number }>();
+  const supabase = await createClient();
 
-  for (const detail of details) {
-    const product = (detail.virtual_code as { lot: { product: { id: string; name: string } } }).lot.product;
-    const existing = productMap.get(product.id);
+  // DB 함수 호출로 모든 시술의 요약을 한 번에 조회
+  type SummaryRow = {
+    treatment_id: string;
+    product_id: string;
+    product_name: string;
+    lot_id: string;
+    lot_number: string;
+    quantity: number;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_treatment_summaries', {
+    p_treatment_ids: treatmentIds,
+  });
+
+  if (error || !data) {
+    console.error('시술 요약 bulk 조회 실패:', error);
+    // 에러 시 빈 결과 반환
+    return result;
+  }
+
+  const rows = data as SummaryRow[];
+
+  // 시술별로 그룹화
+  const treatmentMap = new Map<string, Map<string, { name: string; quantity: number }>>();
+
+  for (const row of rows) {
+    if (!treatmentMap.has(row.treatment_id)) {
+      treatmentMap.set(row.treatment_id, new Map());
+    }
+    const productMap = treatmentMap.get(row.treatment_id)!;
+
+    // 같은 제품의 수량 합산
+    const existing = productMap.get(row.product_id);
     if (existing) {
-      existing.quantity += 1;
+      existing.quantity += Number(row.quantity);
     } else {
-      productMap.set(product.id, { name: product.name, quantity: 1 });
+      productMap.set(row.product_id, { name: row.product_name, quantity: Number(row.quantity) });
     }
   }
 
-  const itemSummary = Array.from(productMap.entries()).map(([productId, { name, quantity }]) => ({
-    productId,
-    productName: name,
-    quantity,
-  }));
+  // 결과 변환
+  for (const treatmentId of treatmentIds) {
+    const productMap = treatmentMap.get(treatmentId);
+    if (productMap) {
+      const itemSummary = Array.from(productMap.entries()).map(([productId, { name, quantity }]) => ({
+        productId,
+        productName: name,
+        quantity,
+      }));
+      const totalQuantity = itemSummary.reduce((sum, item) => sum + item.quantity, 0);
+      result.set(treatmentId, { itemSummary, totalQuantity });
+    } else {
+      result.set(treatmentId, { itemSummary: [], totalQuantity: 0 });
+    }
+  }
 
-  return {
-    itemSummary,
-    totalQuantity: details.length,
-  };
+  return result;
 }
 
 // ============================================================================

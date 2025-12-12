@@ -123,7 +123,7 @@ export function maskPhoneNumber(phone: string): string {
  * @returns 마스킹된 이메일 (예: te***@example.com)
  */
 export function maskEmail(email: string): string {
-  if (!email || !email.includes('@')) {
+  if (!email?.includes('@')) {
     return '***@***';
   }
 
