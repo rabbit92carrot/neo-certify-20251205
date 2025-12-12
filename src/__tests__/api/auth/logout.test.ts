@@ -26,9 +26,9 @@ vi.mock('@supabase/ssr', () => ({
 }));
 
 // Dynamic import after mocking
-const importPOST = async () => {
-  const module = await import('@/app/api/auth/logout/route');
-  return module.POST;
+const importPOST = async (): Promise<typeof import('@/app/api/auth/logout/route').POST> => {
+  const routeModule = await import('@/app/api/auth/logout/route');
+  return routeModule.POST;
 };
 
 describe('POST /api/auth/logout', () => {

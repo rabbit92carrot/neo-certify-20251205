@@ -5,7 +5,7 @@
  * 제조사/유통사에서 출고할 제품을 선택하고 장바구니에 담아 출고합니다.
  */
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Package, Send, Building2, Hospital } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -67,7 +67,7 @@ export function ShipmentForm({
   } = useCart();
 
   // 선택된 제품의 현재 가용 수량 계산 (장바구니에 담긴 수량 제외)
-  const getAvailableQuantity = (product: ProductWithInventory, lotId?: string): number => {
+  const getAvailableQuantity = useCallback((product: ProductWithInventory, lotId?: string): number => {
     // 장바구니에 담긴 수량
     const cartQuantity = items
       .filter((item) => {
@@ -80,7 +80,7 @@ export function ShipmentForm({
 
     if (lotId && product.lots) {
       const lot = product.lots.find((l) => l.lotId === lotId);
-      return (lot?.quantity || 0) - cartQuantity;
+      return (lot?.quantity ?? 0) - cartQuantity;
     }
 
     // 전체 재고에서 장바구니 수량 제외
@@ -89,7 +89,7 @@ export function ShipmentForm({
       .reduce((sum, item) => sum + item.quantity, 0);
 
     return product.availableQuantity - totalCartQuantity;
-  };
+  }, [items]);
 
   const handleAddToCart = () => {
     if (!selectedProduct) {
@@ -188,7 +188,7 @@ export function ShipmentForm({
     });
 
     return options;
-  }, [selectedProduct, items]);
+  }, [selectedProduct, getAvailableQuantity]);
 
   // 현재 선택된 제품의 가용 수량
   const currentAvailableQty = selectedProduct

@@ -156,25 +156,20 @@ describe('common.service', () => {
     beforeAll(async () => {
       supabase = createTestAdminClient();
 
-      // 모든 테스트용 조직을 한 번에 생성
+      // 모든 테스트용 조직을 한 번에 생성 (고유한 이름 자동 생성)
       testOrgCommon = await createTestOrganization({
-        name: '테스트조직_common_service',
         type: 'MANUFACTURER',
       });
       testOrg1 = await createTestOrganization({
-        name: '테스트조직1_batch',
         type: 'MANUFACTURER',
       });
       testOrg2 = await createTestOrganization({
-        name: '테스트조직2_batch',
         type: 'DISTRIBUTOR',
       });
       testOrgOwner = await createTestOrganization({
-        name: '테스트조직_owner',
         type: 'HOSPITAL',
       });
       testOrgFormat = await createTestOrganization({
-        name: '테스트조직_format',
         type: 'DISTRIBUTOR',
       });
     });
@@ -212,7 +207,7 @@ describe('common.service', () => {
     describe('getOrganizationName', () => {
       it('존재하는 조직 ID로 이름 조회', async () => {
         const name = await getOrganizationName(supabase, testOrgCommon.id);
-        expect(name).toBe('테스트조직_common_service');
+        expect(name).toBe(testOrgCommon.name);
       });
 
       it('존재하지 않는 조직 ID는 "알 수 없음" 반환', async () => {
@@ -225,12 +220,12 @@ describe('common.service', () => {
 
         // 첫 번째 호출 (DB 조회)
         const name1 = await getOrganizationName(supabase, testOrgCommon.id, cache);
-        expect(name1).toBe('테스트조직_common_service');
+        expect(name1).toBe(testOrgCommon.name);
         expect(cache.has(testOrgCommon.id)).toBe(true);
 
         // 두 번째 호출 (캐시 사용)
         const name2 = await getOrganizationName(supabase, testOrgCommon.id, cache);
-        expect(name2).toBe('테스트조직_common_service');
+        expect(name2).toBe(testOrgCommon.name);
       });
 
       it('캐시에 값이 있으면 DB 조회 없이 반환', async () => {
@@ -247,8 +242,8 @@ describe('common.service', () => {
       it('여러 조직 ID로 이름 일괄 조회', async () => {
         const names = await getOrganizationNamesWithTestClient([testOrg1.id, testOrg2.id]);
 
-        expect(names.get(testOrg1.id)).toBe('테스트조직1_batch');
-        expect(names.get(testOrg2.id)).toBe('테스트조직2_batch');
+        expect(names.get(testOrg1.id)).toBe(testOrg1.name);
+        expect(names.get(testOrg2.id)).toBe(testOrg2.name);
       });
 
       it('빈 배열 입력 시 빈 Map 반환', async () => {
@@ -259,7 +254,7 @@ describe('common.service', () => {
       it('중복 ID는 자동으로 제거됨', async () => {
         const names = await getOrganizationNamesWithTestClient([testOrg1.id, testOrg1.id, testOrg1.id]);
         expect(names.size).toBe(1);
-        expect(names.get(testOrg1.id)).toBe('테스트조직1_batch');
+        expect(names.get(testOrg1.id)).toBe(testOrg1.name);
       });
 
       it('존재하지 않는 ID는 결과에 포함되지 않음', async () => {
@@ -275,7 +270,7 @@ describe('common.service', () => {
     describe('getOwnerDisplayName', () => {
       it('ORGANIZATION 타입은 조직 이름 반환', async () => {
         const name = await getOwnerDisplayName('ORGANIZATION', testOrgOwner.id, supabase);
-        expect(name).toBe('테스트조직_owner');
+        expect(name).toBe(testOrgOwner.name);
       });
 
       it('PATIENT 타입은 마스킹된 전화번호 반환', async () => {
@@ -286,7 +281,7 @@ describe('common.service', () => {
       it('캐시 사용 가능', async () => {
         const cache = createOrganizationNameCache();
         const name = await getOwnerDisplayName('ORGANIZATION', testOrgOwner.id, supabase, cache);
-        expect(name).toBe('테스트조직_owner');
+        expect(name).toBe(testOrgOwner.name);
         expect(cache.has(testOrgOwner.id)).toBe(true);
       });
     });
@@ -299,7 +294,7 @@ describe('common.service', () => {
         expect(info).toMatchObject({
           type: 'ORGANIZATION',
           id: testOrgFormat.id,
-          name: '테스트조직_format',
+          name: testOrgFormat.name,
         });
       });
 
@@ -332,7 +327,7 @@ describe('common.service', () => {
         const cache = createOrganizationNameCache();
         const info = await formatOwnerInfo('ORGANIZATION', testOrgFormat.id, supabase, cache);
 
-        expect(info?.name).toBe('테스트조직_format');
+        expect(info?.name).toBe(testOrgFormat.name);
         expect(cache.has(testOrgFormat.id)).toBe(true);
       });
     });

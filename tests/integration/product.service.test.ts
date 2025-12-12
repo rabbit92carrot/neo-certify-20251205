@@ -75,8 +75,8 @@ describe('Product Service Integration Tests', () => {
     });
 
     it('다른 제조사의 같은 UDI-DI는 허용되어야 한다', async () => {
-      const manufacturer1 = await createTestOrganization({ type: 'MANUFACTURER', name: '제조사1' });
-      const manufacturer2 = await createTestOrganization({ type: 'MANUFACTURER', name: '제조사2' });
+      const manufacturer1 = await createTestOrganization({ type: 'MANUFACTURER' });
+      const manufacturer2 = await createTestOrganization({ type: 'MANUFACTURER' });
       const udiDi = generateTestId('UDI');
 
       // 제조사1 제품

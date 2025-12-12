@@ -192,7 +192,6 @@ describe('Manufacturer Settings Service Integration Tests', () => {
     it('조직 정보와 제조사 설정을 함께 조회할 수 있어야 한다', async () => {
       const manufacturer = await createTestOrganization({
         type: 'MANUFACTURER',
-        name: '테스트제조사',
       });
 
       // 조인 조회
@@ -204,7 +203,7 @@ describe('Manufacturer Settings Service Integration Tests', () => {
 
       expect(error).toBeNull();
       expect(orgWithSettings).toBeDefined();
-      expect(orgWithSettings?.name).toBe('테스트제조사');
+      expect(orgWithSettings?.name).toBe(manufacturer.name);
       expect(orgWithSettings?.manufacturer_settings).toBeDefined();
     });
   });

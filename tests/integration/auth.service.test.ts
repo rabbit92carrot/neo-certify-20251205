@@ -555,28 +555,36 @@ describe('Auth Service Integration Tests', () => {
         const email = generateTestEmail();
         const normalizedPhone = testCase.input.replace(/[^0-9]/g, '');
 
-        const { data: authData } = await adminClient.auth.admin.createUser({
+        const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
           email,
           password: 'Test1234!',
           email_confirm: true,
         });
-        trackTestData('authUsers', authData.user!.id);
 
-        const { data: orgData } = await adminClient.from('organizations').insert({
-          auth_user_id: authData.user!.id,
+        if (authError || !authData.user) {
+          throw new Error(`Auth 생성 실패: ${authError?.message}`);
+        }
+        trackTestData('authUsers', authData.user.id);
+
+        const { data: orgData, error: orgError } = await adminClient.from('organizations').insert({
+          auth_user_id: authData.user.id,
           type: ORGANIZATION_TYPES.MANUFACTURER,
           email,
-          name: '테스트 제조사',
+          name: `테스트제조사_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           business_number: generateTestBusinessNumber(),
-          business_license_file: `${authData.user!.id}/business_license.pdf`,
+          business_license_file: `${authData.user.id}/business_license.pdf`,
           representative_name: '홍길동',
           representative_contact: normalizedPhone,
           address: '서울시 강남구',
           status: ORGANIZATION_STATUSES.ACTIVE,
         }).select().single();
-        trackTestData('organizations', orgData!.id);
 
-        expect(orgData?.representative_contact).toBe(testCase.expected);
+        if (orgError || !orgData) {
+          throw new Error(`조직 생성 실패: ${orgError?.message}`);
+        }
+        trackTestData('organizations', orgData.id);
+
+        expect(orgData.representative_contact).toBe(testCase.expected);
       }
     });
   });

@@ -1,13 +1,13 @@
 /**
  * History Service 통합 테스트
  *
- * 거래 이력 트리거 및 조회 관련 기능을 테스트합니다.
+ * 거래 이력 및 조회 관련 기능을 테스트합니다.
  * 실제 Supabase 로컬 인스턴스를 사용합니다.
  *
- * 참고: 이력은 트리거로 자동 생성됩니다.
- * - PRODUCED: 가상코드 생성 시 (trg_production_history)
- * - SHIPPED/RECEIVED/TREATED: 소유권 변경 시 (trg_virtual_code_history)
- * - DISPOSED: 상태가 DISPOSED로 변경 시
+ * 참고: 이력 생성 방식
+ * - PRODUCED: 가상코드 생성 시 트리거로 자동 생성 (trg_production_history)
+ * - SHIPPED/RECEIVED/TREATED: atomic 함수에서 직접 생성 (트리거 비활성화됨)
+ * - RECALLED: 서비스 레이어에서 직접 생성
  */
 import { describe, it, expect, afterEach, afterAll } from 'vitest';
 import {
@@ -55,7 +55,9 @@ describe('History Service Integration Tests', () => {
       expect(histories?.every((h) => h.to_owner_id === manufacturer.id)).toBe(true);
     });
 
-    it('소유권 변경 시 SHIPPED 이력이 트리거로 자동 생성되어야 한다', async () => {
+    // 참고: 소유권 변경 트리거가 비활성화되어 있습니다.
+    // SHIPPED/RECEIVED 이력은 create_shipment_atomic_bulk 함수에서 직접 생성됩니다.
+    it.skip('소유권 변경 시 SHIPPED 이력이 트리거로 자동 생성되어야 한다 (트리거 비활성화됨)', async () => {
       const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
       const distributor = await createTestOrganization({ type: 'DISTRIBUTOR' });
 
@@ -83,7 +85,9 @@ describe('History Service Integration Tests', () => {
       expect(histories?.every((h) => h.to_owner_id === distributor.id)).toBe(true);
     });
 
-    it('환자에게 소유권 이전 시 TREATED 이력이 트리거로 자동 생성되어야 한다', async () => {
+    // 참고: 소유권 변경 트리거가 비활성화되어 있습니다.
+    // TREATED 이력은 create_treatment_atomic_bulk 함수에서 직접 생성됩니다.
+    it.skip('환자에게 소유권 이전 시 TREATED 이력이 트리거로 자동 생성되어야 한다 (트리거 비활성화됨)', async () => {
       const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
       const hospital = await createTestOrganization({ type: 'HOSPITAL' });
 
@@ -121,18 +125,16 @@ describe('History Service Integration Tests', () => {
   describe('이력 조회 및 필터링', () => {
     it('조직 ID로 관련된 이력을 조회할 수 있어야 한다', async () => {
       const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
-      const distributor = await createTestOrganization({ type: 'DISTRIBUTOR' });
 
       const product = await createTestProduct({ organizationId: manufacturer.id });
       const lot = await createTestLot({ productId: product.id, quantity: 5 });
       const codes = await getVirtualCodesByLot(lot.id);
 
-      // 소유권 변경 (제조사 → 유통사)
-      for (const code of codes) {
-        await updateVirtualCodeOwner(code.id, 'ORGANIZATION', distributor.id);
-      }
+      // 참고: 소유권 변경 트리거가 비활성화되어 있으므로
+      // PRODUCED 이력만 트리거로 자동 생성됩니다.
+      // SHIPPED 이력은 atomic 함수를 통해서만 생성됩니다.
 
-      // 제조사 관련 이력: PRODUCED(5) + SHIPPED(5) = 10
+      // 제조사 관련 이력: PRODUCED(5)만 존재
       const { data: manufacturerHistories } = await adminClient
         .from('histories')
         .select('*')
@@ -142,32 +144,18 @@ describe('History Service Integration Tests', () => {
           codes.map((c) => c.id)
         );
 
-      // 유통사 관련 이력: SHIPPED(5) - to_owner로서
-      const { data: distributorHistories } = await adminClient
-        .from('histories')
-        .select('*')
-        .or(`from_owner_id.eq.${distributor.id},to_owner_id.eq.${distributor.id}`)
-        .in(
-          'virtual_code_id',
-          codes.map((c) => c.id)
-        );
-
-      expect(manufacturerHistories).toHaveLength(10); // PRODUCED 5 + SHIPPED 5
-      expect(distributorHistories).toHaveLength(5); // SHIPPED to_owner 5
+      expect(manufacturerHistories).toHaveLength(5); // PRODUCED 5
     });
 
     it('액션 타입으로 필터링할 수 있어야 한다', async () => {
       const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
-      const distributor = await createTestOrganization({ type: 'DISTRIBUTOR' });
 
       const product = await createTestProduct({ organizationId: manufacturer.id });
       const lot = await createTestLot({ productId: product.id, quantity: 3 });
       const codes = await getVirtualCodesByLot(lot.id);
 
-      // 소유권 변경
-      for (const code of codes) {
-        await updateVirtualCodeOwner(code.id, 'ORGANIZATION', distributor.id);
-      }
+      // 참고: 소유권 변경 트리거가 비활성화되어 있으므로
+      // PRODUCED 이력만 트리거로 자동 생성됩니다.
 
       // PRODUCED만
       const { data: produced } = await adminClient
@@ -179,18 +167,7 @@ describe('History Service Integration Tests', () => {
           codes.map((c) => c.id)
         );
 
-      // SHIPPED만
-      const { data: shipped } = await adminClient
-        .from('histories')
-        .select('*')
-        .eq('action_type', 'SHIPPED')
-        .in(
-          'virtual_code_id',
-          codes.map((c) => c.id)
-        );
-
       expect(produced).toHaveLength(3);
-      expect(shipped).toHaveLength(3);
     });
   });
 

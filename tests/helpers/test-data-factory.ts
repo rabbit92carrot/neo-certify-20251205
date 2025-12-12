@@ -23,6 +23,9 @@ const createdIds = {
   notifications: [] as string[],
 };
 
+// 고유 조직명 생성을 위한 전역 카운터
+let orgNameCounter = 0;
+
 /**
  * 고유한 테스트 ID 생성 (문자열)
  */
@@ -86,7 +89,7 @@ export async function createTestOrganization(
     email: options.email || generateTestEmail(),
     business_number: options.businessNumber || generateTestBusinessNumber(),
     business_license_file: '/test/license.pdf',
-    name: options.name || `테스트조직_${Date.now()}`,
+    name: options.name || `테스트조직_${Date.now()}_${++orgNameCounter}_${Math.random().toString(36).substring(2, 7)}`,
     representative_name: '테스트대표',
     representative_contact: '01012345678',
     address: '서울시 테스트구 테스트동',
@@ -145,7 +148,7 @@ export async function createTestOrganizationWithAuth(
     email,
     business_number: options.businessNumber || generateTestBusinessNumber(),
     business_license_file: '/test/license.pdf',
-    name: options.name || `테스트조직_${Date.now()}`,
+    name: options.name || `테스트조직_${Date.now()}_${++orgNameCounter}_${Math.random().toString(36).substring(2, 7)}`,
     representative_name: '테스트대표',
     representative_contact: '01012345678',
     address: '서울시 테스트구 테스트동',

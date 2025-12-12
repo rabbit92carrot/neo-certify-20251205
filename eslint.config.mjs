@@ -16,6 +16,13 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "node_modules/**",
     "coverage/**",
+    // Config files (avoid TypeScript parser issues)
+    "*.config.js",
+    "*.config.mjs",
+    "*.config.ts",
+    // Tests folder (excluded from tsconfig.json, use vitest for linting)
+    "tests/**",
+    "src/__tests__/**",
   ]),
   {
     files: ["**/*.ts", "**/*.tsx"],

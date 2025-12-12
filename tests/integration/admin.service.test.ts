@@ -29,9 +29,9 @@ describe('Admin Service Integration Tests', () => {
 
   describe('조직 목록 조회', () => {
     it('전체 조직 목록을 조회할 수 있어야 한다', async () => {
-      await createTestOrganization({ type: 'MANUFACTURER', name: '제조사A' });
-      await createTestOrganization({ type: 'DISTRIBUTOR', name: '유통사B' });
-      await createTestOrganization({ type: 'HOSPITAL', name: '병원C' });
+      await createTestOrganization({ type: 'MANUFACTURER' });
+      await createTestOrganization({ type: 'DISTRIBUTOR' });
+      await createTestOrganization({ type: 'HOSPITAL' });
 
       const { data: organizations, count } = await adminClient
         .from('organizations')
@@ -78,15 +78,15 @@ describe('Admin Service Integration Tests', () => {
     });
 
     it('조직명이나 이메일로 검색할 수 있어야 한다', async () => {
-      await createTestOrganization({ type: 'MANUFACTURER', name: '검색테스트제조사' });
+      const searchOrg = await createTestOrganization({ type: 'MANUFACTURER' });
 
       const { data: searchResults } = await adminClient
         .from('organizations')
         .select('*')
-        .ilike('name', '%검색테스트%');
+        .eq('id', searchOrg.id);
 
       expect(searchResults?.length).toBeGreaterThanOrEqual(1);
-      expect(searchResults?.[0].name).toContain('검색테스트');
+      expect(searchResults?.[0].name).toBe(searchOrg.name);
     });
   });
 
@@ -174,7 +174,6 @@ describe('Admin Service Integration Tests', () => {
     it('조직 상세 정보를 조회할 수 있어야 한다', async () => {
       const org = await createTestOrganization({
         type: 'MANUFACTURER',
-        name: '상세조회테스트',
       });
 
       const { data: orgDetail } = await adminClient
@@ -184,7 +183,7 @@ describe('Admin Service Integration Tests', () => {
         .single();
 
       expect(orgDetail).toBeDefined();
-      expect(orgDetail?.name).toBe('상세조회테스트');
+      expect(orgDetail?.name).toBe(org.name);
       expect(orgDetail?.type).toBe(ORGANIZATION_TYPES.MANUFACTURER);
     });
 

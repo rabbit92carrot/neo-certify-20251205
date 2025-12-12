@@ -339,11 +339,9 @@ describe('Inventory Service Integration Tests', () => {
       const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
       const distributor1 = await createTestOrganization({
         type: 'DISTRIBUTOR',
-        name: '유통사1',
       });
       const distributor2 = await createTestOrganization({
         type: 'DISTRIBUTOR',
-        name: '유통사2',
       });
 
       const product = await createTestProduct({ organizationId: manufacturer.id });
@@ -471,20 +469,16 @@ describe('Inventory Service Integration Tests', () => {
     it('다른 조직의 재고는 포함하지 않아야 한다', async () => {
       const manufacturer1 = await createTestOrganization({
         type: 'MANUFACTURER',
-        name: '제조사1',
       });
       const manufacturer2 = await createTestOrganization({
         type: 'MANUFACTURER',
-        name: '제조사2',
       });
 
       const product1 = await createTestProduct({
         organizationId: manufacturer1.id,
-        name: '제조사1 제품',
       });
       const product2 = await createTestProduct({
         organizationId: manufacturer2.id,
-        name: '제조사2 제품',
       });
 
       await createTestLot({ productId: product1.id, quantity: 100 });
@@ -497,7 +491,7 @@ describe('Inventory Service Integration Tests', () => {
 
       expect(error).toBeNull();
       expect(data.length).toBe(1);
-      expect(data[0].product_name).toBe('제조사1 제품');
+      expect(data[0].product_name).toBe(product1.name);
       expect(Number(data[0].quantity)).toBe(100);
     });
 

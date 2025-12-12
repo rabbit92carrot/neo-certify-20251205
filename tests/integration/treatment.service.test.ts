@@ -178,7 +178,7 @@ describe('Treatment Service Integration Tests', () => {
       const patientPhone = generateTestPhoneNumber();
       await adminClient.from('patients').insert({ phone_number: patientPhone });
 
-      const { data: treatment } = await adminClient
+      const { data: treatment, error: treatmentError } = await adminClient
         .from('treatment_records')
         .insert({
           hospital_id: hospital.id,
@@ -188,12 +188,16 @@ describe('Treatment Service Integration Tests', () => {
         .select()
         .single();
 
+      if (treatmentError || !treatment) {
+        throw new Error(`시술 기록 생성 실패: ${treatmentError?.message}`);
+      }
+
       const codes = await getVirtualCodesByLot(lot.id);
       const codeIds = codes.slice(0, 3).map((c) => c.id);
 
       // 시술 상세 기록
       const detailInserts = codeIds.map((virtualCodeId) => ({
-        treatment_id: treatment!.id,
+        treatment_id: treatment.id,
         virtual_code_id: virtualCodeId,
       }));
       const { error } = await adminClient.from('treatment_details').insert(detailInserts);
@@ -204,7 +208,7 @@ describe('Treatment Service Integration Tests', () => {
       const { data: details } = await adminClient
         .from('treatment_details')
         .select('*')
-        .eq('treatment_id', treatment!.id);
+        .eq('treatment_id', treatment.id);
 
       expect(details).toHaveLength(3);
     });
@@ -520,8 +524,8 @@ describe('Treatment Service Integration Tests', () => {
 
   describe('병원 권한 검증', () => {
     it('다른 병원에서는 시술을 회수할 수 없어야 한다', async () => {
-      const hospital1 = await createTestOrganization({ type: 'HOSPITAL', name: '병원1' });
-      const hospital2 = await createTestOrganization({ type: 'HOSPITAL', name: '병원2' });
+      const hospital1 = await createTestOrganization({ type: 'HOSPITAL' });
+      const hospital2 = await createTestOrganization({ type: 'HOSPITAL' });
       const patientPhone = generateTestPhoneNumber();
 
       await adminClient.from('patients').insert({ phone_number: patientPhone });
