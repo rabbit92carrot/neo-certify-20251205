@@ -172,7 +172,7 @@ export function ShipmentForm({
 
   // Lot 옵션 생성
   const lotOptions: ComboboxOption[] = useMemo(() => {
-    if (!selectedProduct?.lots) return [];
+    if (!selectedProduct?.lots) {return [];}
 
     const options: ComboboxOption[] = [
       { value: 'auto', label: '자동 선택 (FIFO)' },

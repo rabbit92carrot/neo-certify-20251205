@@ -49,7 +49,7 @@ describe('Notification Service Integration Tests', () => {
       .select()
       .single();
 
-    if (error) throw new Error(`알림 생성 실패: ${error.message}`);
+    if (error) {throw new Error(`알림 생성 실패: ${error.message}`);}
     trackTestData('notifications', notification.id);
     return notification;
   }

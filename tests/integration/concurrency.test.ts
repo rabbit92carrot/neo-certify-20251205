@@ -161,7 +161,7 @@ describe('동시성 테스트 (Concurrency Tests)', () => {
       expect(patients).toHaveLength(1);
 
       // 정리를 위해 추적
-      if (patients && patients[0]) {
+      if (patients?.[0]) {
         trackTestData('patients', patients[0].phone_number);
       }
     });
@@ -193,7 +193,7 @@ describe('동시성 테스트 (Concurrency Tests)', () => {
 
         expect(patients).toHaveLength(1);
 
-        if (patients && patients[0]) {
+        if (patients?.[0]) {
           trackTestData('patients', patients[0].phone_number);
         }
       }
@@ -388,7 +388,7 @@ describe('동시성 테스트 (Concurrency Tests)', () => {
 
       expect(patients).toHaveLength(1);
 
-      if (patients && patients[0]) {
+      if (patients?.[0]) {
         trackTestData('patients', patients[0].phone_number);
       }
 
@@ -429,7 +429,7 @@ describe('동시성 테스트 (Concurrency Tests)', () => {
       if (shipmentError) {
         console.error('Shipment creation error:', shipmentError);
       }
-      if (shipmentResult && shipmentResult[0]?.error_code) {
+      if (shipmentResult?.[0]?.error_code) {
         console.error('Shipment atomic error:', shipmentResult[0]);
       }
 
