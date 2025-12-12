@@ -13,8 +13,16 @@ import { ERROR_MESSAGES } from '@/constants';
 
 /**
  * UUID 스키마
+ * 참고: z.string().uuid()는 RFC 4122 표준 UUID만 허용하므로,
+ * 시드 데이터의 테스트용 UUID(예: a0000000-0000-0000-0000-000000000001)가 실패함.
+ * 따라서 UUID 형식(8-4-4-4-12 hex)만 검증하는 정규식을 사용.
  */
-export const uuidSchema = z.string().uuid();
+export const uuidSchema = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    'Invalid UUID format'
+  );
 
 /**
  * 이메일 스키마

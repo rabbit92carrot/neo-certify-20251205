@@ -11,12 +11,27 @@ import { ERROR_MESSAGES } from '@/constants';
 // ============================================================================
 
 /**
+ * lotId 스키마: UUID 또는 빈 문자열/null/undefined 허용
+ * 빈 문자열이나 falsy 값은 undefined로 변환 (z.preprocess 사용)
+ */
+const optionalLotIdSchema = z.preprocess(
+  (val) => {
+    // 빈 문자열, null, undefined는 모두 undefined로 변환
+    if (val === '' || val === null || val === undefined) {
+      return undefined;
+    }
+    return val;
+  },
+  uuidSchema.optional()
+);
+
+/**
  * 출고 항목 스키마 (장바구니 아이템)
  */
 export const shipmentItemSchema = z.object({
   productId: uuidSchema,
   quantity: quantitySchema,
-  lotId: uuidSchema.optional(), // 제조사만 선택 가능 (FIFO 우회)
+  lotId: optionalLotIdSchema, // 제조사만 선택 가능 (FIFO 우회)
 });
 
 /**
@@ -54,7 +69,7 @@ export const shipmentCreateFormSchema = z.object({
           .refine((val) => !isNaN(val) && val >= 1, {
             message: ERROR_MESSAGES.QUANTITY.MIN,
           }),
-        lotId: uuidSchema.optional(),
+        lotId: optionalLotIdSchema,
       })
     )
     .min(1, '최소 1개 이상의 제품을 선택해야 합니다.'),
@@ -116,7 +131,7 @@ export const cartItemSchema = z.object({
   productId: uuidSchema,
   productName: z.string(),
   quantity: quantitySchema,
-  lotId: uuidSchema.optional(),
+  lotId: optionalLotIdSchema,
   lotNumber: z.string().optional(),
   availableQuantity: z.number().int().min(0),
 });
@@ -127,7 +142,7 @@ export const cartItemSchema = z.object({
 export const addToCartSchema = z.object({
   productId: uuidSchema,
   quantity: quantitySchema,
-  lotId: uuidSchema.optional(),
+  lotId: optionalLotIdSchema,
 });
 
 /**
