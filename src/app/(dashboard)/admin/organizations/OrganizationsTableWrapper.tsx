@@ -12,8 +12,8 @@ import {
   deactivateOrganizationAction,
   activateOrganizationAction,
   deleteOrganizationAction,
+  getOrganizationsAction,
 } from '../actions';
-import * as adminService from '@/services/admin.service';
 import type { OrganizationWithStats } from '@/types/api.types';
 import {
   ORGANIZATION_STATUS_LABELS,
@@ -47,7 +47,7 @@ export function OrganizationsTableWrapper({
 
     const fetchData = async (): Promise<void> => {
       setLoading(true);
-      const result = await adminService.getOrganizations({
+      const result = await getOrganizationsAction({
         page,
         pageSize: 20,
         status: status as 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'DELETED' | undefined,

@@ -167,8 +167,38 @@ export async function deleteOrganizationAction(
 }
 
 // ============================================================================
-// 승인 대기 조직 Actions
+// 조직 조회 Actions
 // ============================================================================
+
+/**
+ * 조직 목록 조회 Action (필터링 포함)
+ */
+export async function getOrganizationsAction(query: {
+  page?: number;
+  pageSize?: number;
+  status?: 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'DELETED';
+  type?: 'MANUFACTURER' | 'DISTRIBUTOR' | 'HOSPITAL';
+  search?: string;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getOrganizations({
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 20,
+    status: query.status,
+    type: query.type,
+    search: query.search,
+  });
+}
 
 /**
  * 승인 대기 조직 목록 조회 Action
@@ -226,4 +256,82 @@ export async function getRecallHistoryAction(query: {
     startDate: query.startDate,
     endDate: query.endDate,
   });
+}
+
+// ============================================================================
+// 관리자 이력 Actions
+// ============================================================================
+
+/**
+ * 관리자 이력 조회 Action
+ */
+export async function getAdminHistoryAction(query: {
+  page?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  currentStatus?: string;
+  currentOwnerId?: string;
+  originalProducerId?: string;
+  productId?: string;
+  includeRecalled?: boolean;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getAdminHistory({
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 50,
+    startDate: query.startDate,
+    endDate: query.endDate,
+    currentStatus: query.currentStatus as 'IN_STOCK' | 'USED' | 'DISPOSED' | undefined,
+    currentOwnerId: query.currentOwnerId,
+    originalProducerId: query.originalProducerId,
+    productId: query.productId,
+    includeRecalled: query.includeRecalled ?? true,
+  });
+}
+
+/**
+ * 전체 조직 목록 조회 Action (셀렉트용)
+ */
+export async function getAllOrganizationsForSelectAction() {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getAllOrganizationsForSelect();
+}
+
+/**
+ * 전체 제품 목록 조회 Action (셀렉트용)
+ */
+export async function getAllProductsForSelectAction() {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getAllProductsForSelect();
 }

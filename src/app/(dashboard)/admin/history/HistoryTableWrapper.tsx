@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { AdminHistoryTable } from '@/components/tables/AdminHistoryTable';
 import { AdminHistoryFilter } from '@/components/shared/AdminHistoryFilter';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import * as adminService from '@/services/admin.service';
+import {
+  getAdminHistoryAction,
+  getAllOrganizationsForSelectAction,
+  getAllProductsForSelectAction,
+} from '../actions';
 import type { AdminHistoryItem, OrganizationType, VirtualCodeStatus } from '@/types/api.types';
 
 interface HistoryTableWrapperProps {
@@ -45,7 +49,7 @@ export function HistoryTableWrapper({
 
       // 병렬로 데이터 조회
       const [historyResult, orgsResult, productsResult] = await Promise.all([
-        adminService.getAdminHistory({
+        getAdminHistoryAction({
           page,
           pageSize: 50,
           startDate,
@@ -56,8 +60,8 @@ export function HistoryTableWrapper({
           productId,
           includeRecalled,
         }),
-        adminService.getAllOrganizationsForSelect(),
-        adminService.getAllProductsForSelect(),
+        getAllOrganizationsForSelectAction(),
+        getAllProductsForSelectAction(),
       ]);
 
       if (!ignore) {
