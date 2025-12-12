@@ -37,10 +37,12 @@ export interface ShipmentBatchSummary extends ShipmentBatch {
  * 출고 대상 조직 목록 조회
  *
  * @param organizationType 현재 조직 유형
+ * @param excludeOrganizationId 제외할 조직 ID (자기 자신)
  * @returns 출고 가능한 조직 목록
  */
 export async function getShipmentTargetOrganizations(
-  organizationType: OrganizationType
+  organizationType: OrganizationType,
+  excludeOrganizationId?: string
 ): Promise<ApiResponse<Pick<Organization, 'id' | 'name' | 'type'>[]>> {
   const supabase = await createClient();
 
@@ -58,12 +60,18 @@ export async function getShipmentTargetOrganizations(
     return { success: true, data: [] };
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('organizations')
     .select('id, name, type')
     .in('type', targetTypes)
-    .eq('status', 'ACTIVE')
-    .order('name');
+    .eq('status', 'ACTIVE');
+
+  // 자기 자신 제외
+  if (excludeOrganizationId) {
+    query = query.neq('id', excludeOrganizationId);
+  }
+
+  const { data, error } = await query.order('name');
 
   if (error) {
     console.error('출고 대상 조직 조회 실패:', error);

@@ -37,8 +37,11 @@ export default async function ManufacturerShipmentPage(): Promise<React.ReactEle
     })
   );
 
-  // 출고 대상 조직 목록 조회
-  const targetOrgsResult = await getShipmentTargetOrganizations(user.organization.type);
+  // 출고 대상 조직 목록 조회 (자기 자신 제외)
+  const targetOrgsResult = await getShipmentTargetOrganizations(
+    user.organization.type,
+    user.organization.id
+  );
   const targetOrganizations = targetOrgsResult.success ? targetOrgsResult.data! : [];
 
   return (
