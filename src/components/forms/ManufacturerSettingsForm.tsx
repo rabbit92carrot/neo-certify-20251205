@@ -25,13 +25,7 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CONFIG, ERROR_MESSAGES } from '@/constants';
 import type { ManufacturerSettings } from '@/types/api.types';
@@ -42,11 +36,17 @@ interface ManufacturerSettingsFormProps {
 }
 
 // 날짜 형식 옵션
-const DATE_FORMAT_OPTIONS = [
+const DATE_FORMAT_OPTIONS: ComboboxOption[] = [
   { value: 'yymmdd', label: 'YYMMDD (예: 241209)' },
   { value: 'yyyymmdd', label: 'YYYYMMDD (예: 20241209)' },
   { value: 'yymm', label: 'YYMM (예: 2412)' },
 ];
+
+// 사용기한 옵션
+const EXPIRY_MONTH_OPTIONS: ComboboxOption[] = CONFIG.EXPIRY_MONTH_OPTIONS.map((months) => ({
+  value: String(months),
+  label: `${months}개월`,
+}));
 
 export function ManufacturerSettingsForm({
   settings,
@@ -203,24 +203,16 @@ export function ManufacturerSettingsForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>날짜 형식 *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      disabled={isLoading}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="날짜 형식 선택" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {DATE_FORMAT_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <Combobox
+                        options={DATE_FORMAT_OPTIONS}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="날짜 형식 선택"
+                        searchPlaceholder="형식 검색..."
+                        disabled={isLoading}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -245,24 +237,16 @@ export function ManufacturerSettingsForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>기본 사용기한 *</FormLabel>
-                    <Select
-                      onValueChange={(val) => field.onChange(parseInt(val, 10))}
-                      defaultValue={String(field.value)}
-                      disabled={isLoading}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="사용기한 선택" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {CONFIG.EXPIRY_MONTH_OPTIONS.map((months) => (
-                          <SelectItem key={months} value={String(months)}>
-                            {months}개월
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <Combobox
+                        options={EXPIRY_MONTH_OPTIONS}
+                        value={String(field.value)}
+                        onValueChange={(val) => field.onChange(parseInt(val, 10))}
+                        placeholder="사용기한 선택"
+                        searchPlaceholder="개월 검색..."
+                        disabled={isLoading}
+                      />
+                    </FormControl>
                     <FormDescription>
                       생산일자 기준으로 자동 계산되는 사용기한 (개월)
                     </FormDescription>

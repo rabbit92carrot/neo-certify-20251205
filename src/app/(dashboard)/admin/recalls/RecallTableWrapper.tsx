@@ -1,19 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar, Search, X, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import {
   Popover,
   PopoverContent,
@@ -104,6 +98,13 @@ export function RecallTableWrapper({
 
   const activeFilterCount = [startDate, endDate, type !== 'all'].filter(Boolean).length;
 
+  // 회수 유형 옵션
+  const recallTypeOptions: ComboboxOption[] = useMemo(() => [
+    { value: 'all', label: '전체' },
+    { value: 'shipment', label: '출고 회수' },
+    { value: 'treatment', label: '시술 회수' },
+  ], []);
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -188,16 +189,13 @@ export function RecallTableWrapper({
           {/* 유형 */}
           <div className="space-y-2">
             <Label className="text-xs">회수 유형</Label>
-            <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체</SelectItem>
-                <SelectItem value="shipment">출고 회수</SelectItem>
-                <SelectItem value="treatment">시술 회수</SelectItem>
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={recallTypeOptions}
+              value={type}
+              onValueChange={(v) => setType(v as typeof type)}
+              placeholder="전체"
+              searchPlaceholder="유형 검색..."
+            />
           </div>
 
           <div className="flex items-end">

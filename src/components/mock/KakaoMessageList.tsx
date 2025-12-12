@@ -1,16 +1,10 @@
 'use client';
 
-import { useState, useCallback, useTransition } from 'react';
-import { Search, Filter, Loader2, MessageSquare } from 'lucide-react';
+import { useState, useCallback, useTransition, useMemo } from 'react';
+import { Search, Loader2, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { KakaoMessageCard } from './KakaoMessageCard';
 import type { NotificationItem, NotificationType } from '@/services/notification.service';
 import { normalizePhoneNumber } from '@/lib/utils';
@@ -128,6 +122,13 @@ export function KakaoMessageList({
     }
   }, [onLoadMore]);
 
+  // 유형 필터 옵션
+  const typeFilterOptions: ComboboxOption[] = useMemo(() => [
+    { value: 'ALL', label: '전체' },
+    { value: 'CERTIFICATION', label: '인증' },
+    { value: 'RECALL', label: '회수' },
+  ], []);
+
   return (
     <div className="flex flex-col">
       {/* 통계 요약 */}
@@ -160,20 +161,15 @@ export function KakaoMessageList({
           </div>
 
           {/* 유형 필터 */}
-          <Select
-            value={typeFilter}
-            onValueChange={(value) => setTypeFilter(value as FilterType)}
-          >
-            <SelectTrigger className="w-[120px]">
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">전체</SelectItem>
-              <SelectItem value="CERTIFICATION">인증</SelectItem>
-              <SelectItem value="RECALL">회수</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="w-[130px]">
+            <Combobox
+              options={typeFilterOptions}
+              value={typeFilter}
+              onValueChange={(value) => setTypeFilter(value as FilterType)}
+              placeholder="전체"
+              searchPlaceholder="유형 검색..."
+            />
+          </div>
         </div>
 
         {/* 필터 액션 */}

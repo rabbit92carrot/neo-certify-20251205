@@ -1,16 +1,10 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { Search, Factory, Building2, Hospital } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { OrganizationsTable } from '@/components/tables/OrganizationsTable';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import {
@@ -126,6 +120,40 @@ export function OrganizationsTableWrapper({
     updateUrl({ status, type, search: searchInput });
   };
 
+  // 상태 옵션
+  const statusOptions: ComboboxOption[] = useMemo(() => [
+    { value: '', label: '전체 상태' },
+    ...Object.entries(ORGANIZATION_STATUSES).map(([, value]) => ({
+      value,
+      label: ORGANIZATION_STATUS_LABELS[value as keyof typeof ORGANIZATION_STATUS_LABELS],
+    })),
+  ], []);
+
+  // 유형 옵션
+  const typeOptions: ComboboxOption[] = useMemo(() => {
+    const getIcon = (orgType: string) => {
+      switch (orgType) {
+        case 'MANUFACTURER':
+          return <Factory className="h-4 w-4" />;
+        case 'HOSPITAL':
+          return <Hospital className="h-4 w-4" />;
+        default:
+          return <Building2 className="h-4 w-4" />;
+      }
+    };
+
+    return [
+      { value: '', label: '전체 유형' },
+      ...Object.entries(ORGANIZATION_TYPES)
+        .filter(([key]) => key !== 'ADMIN')
+        .map(([, value]) => ({
+          value,
+          label: ORGANIZATION_TYPE_LABELS[value as keyof typeof ORGANIZATION_TYPE_LABELS],
+          icon: getIcon(value),
+        })),
+    ];
+  }, []);
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -146,41 +174,25 @@ export function OrganizationsTableWrapper({
           </div>
         </form>
 
-        <Select
-          value={status || ''}
-          onValueChange={(value) => updateUrl({ status: value, type, search })}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="상태 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">전체 상태</SelectItem>
-            {Object.entries(ORGANIZATION_STATUSES).map(([key, value]) => (
-              <SelectItem key={key} value={value}>
-                {ORGANIZATION_STATUS_LABELS[value as keyof typeof ORGANIZATION_STATUS_LABELS]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-[180px]">
+          <Combobox
+            options={statusOptions}
+            value={status || ''}
+            onValueChange={(value) => updateUrl({ status: value, type, search })}
+            placeholder="상태 선택"
+            searchPlaceholder="상태 검색..."
+          />
+        </div>
 
-        <Select
-          value={type || ''}
-          onValueChange={(value) => updateUrl({ status, type: value, search })}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="유형 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">전체 유형</SelectItem>
-            {Object.entries(ORGANIZATION_TYPES)
-              .filter(([key]) => key !== 'ADMIN')
-              .map(([key, value]) => (
-                <SelectItem key={key} value={value}>
-                  {ORGANIZATION_TYPE_LABELS[value as keyof typeof ORGANIZATION_TYPE_LABELS]}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        <div className="w-[180px]">
+          <Combobox
+            options={typeOptions}
+            value={type || ''}
+            onValueChange={(value) => updateUrl({ status, type: value, search })}
+            placeholder="유형 선택"
+            searchPlaceholder="유형 검색..."
+          />
+        </div>
       </div>
 
       {/* 테이블 */}

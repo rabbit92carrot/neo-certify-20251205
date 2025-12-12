@@ -5,17 +5,11 @@
  * 제조사/유통사에서 출고할 제품을 선택하고 장바구니에 담아 출고합니다.
  */
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Package, Send } from 'lucide-react';
+import { Package, Send, Building2, Hospital } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +54,7 @@ export function ShipmentForm({
   const [isPending, startTransition] = useTransition();
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<ProductWithInventory | null>(null);
-  const [selectedLotId, setSelectedLotId] = useState<string>('');
+  const [selectedLotId, setSelectedLotId] = useState<string>('auto');
   const [quantity, setQuantity] = useState<string>('1');
 
   const {
@@ -109,7 +103,7 @@ export function ShipmentForm({
       return;
     }
 
-    const availableQty = getAvailableQuantity(selectedProduct, selectedLotId || undefined);
+    const availableQty = getAvailableQuantity(selectedProduct, selectedLotId === 'auto' ? undefined : selectedLotId);
     if (qty > availableQty) {
       toast.error(`재고가 부족합니다. 현재 재고: ${availableQty}개`);
       return;
@@ -117,7 +111,7 @@ export function ShipmentForm({
 
     // Lot 정보 조회
     let lotNumber: string | undefined;
-    if (selectedLotId && selectedProduct.lots) {
+    if (selectedLotId !== 'auto' && selectedProduct.lots) {
       const lot = selectedProduct.lots.find((l) => l.lotId === selectedLotId);
       lotNumber = lot?.lotNumber;
     }
@@ -126,7 +120,7 @@ export function ShipmentForm({
       productId: selectedProduct.id,
       productName: selectedProduct.name,
       quantity: qty,
-      lotId: selectedLotId || undefined,
+      lotId: selectedLotId === 'auto' ? undefined : selectedLotId,
       lotNumber,
     });
 
@@ -166,21 +160,39 @@ export function ShipmentForm({
     });
   };
 
-  // 조직 유형 라벨
-  const getOrgTypeLabel = (type: OrganizationType): string => {
-    switch (type) {
-      case 'DISTRIBUTOR':
-        return '유통사';
-      case 'HOSPITAL':
-        return '병원';
-      default:
-        return type;
-    }
-  };
+  // 조직 옵션 생성
+  const organizationOptions: ComboboxOption[] = useMemo(() => {
+    return targetOrganizations.map((org) => ({
+      value: org.id,
+      label: org.name,
+      icon: org.type === 'HOSPITAL' ? <Hospital className="h-4 w-4" /> : <Building2 className="h-4 w-4" />,
+      description: org.type === 'HOSPITAL' ? '병원' : '유통사',
+    }));
+  }, [targetOrganizations]);
+
+  // Lot 옵션 생성
+  const lotOptions: ComboboxOption[] = useMemo(() => {
+    if (!selectedProduct?.lots) return [];
+
+    const options: ComboboxOption[] = [
+      { value: 'auto', label: '자동 선택 (FIFO)' },
+    ];
+
+    selectedProduct.lots.forEach((lot) => {
+      const lotAvailableQty = getAvailableQuantity(selectedProduct, lot.lotId);
+      options.push({
+        value: lot.lotId,
+        label: `${lot.lotNumber} (재고: ${lotAvailableQty}개)`,
+        description: `유효기한: ${lot.expiryDate}`,
+      });
+    });
+
+    return options;
+  }, [selectedProduct, items]);
 
   // 현재 선택된 제품의 가용 수량
   const currentAvailableQty = selectedProduct
-    ? getAvailableQuantity(selectedProduct, selectedLotId || undefined)
+    ? getAvailableQuantity(selectedProduct, selectedLotId === 'auto' ? undefined : selectedLotId)
     : 0;
 
   return (
@@ -193,18 +205,14 @@ export function ShipmentForm({
             <CardTitle className="text-lg">출고 대상</CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={selectedOrganizationId} onValueChange={setSelectedOrganizationId}>
-              <SelectTrigger>
-                <SelectValue placeholder="출고할 대상을 선택하세요" />
-              </SelectTrigger>
-              <SelectContent>
-                {targetOrganizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    [{getOrgTypeLabel(org.type)}] {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={organizationOptions}
+              value={selectedOrganizationId}
+              onValueChange={setSelectedOrganizationId}
+              placeholder="출고할 대상을 선택하세요"
+              searchPlaceholder="조직명 검색..."
+              emptyMessage="검색 결과가 없습니다."
+            />
           </CardContent>
         </Card>
 
@@ -262,26 +270,14 @@ export function ShipmentForm({
               {canSelectLot && selectedProduct.lots && selectedProduct.lots.length > 0 && (
                 <div className="space-y-2">
                   <Label>Lot 선택 (선택사항)</Label>
-                  <Select value={selectedLotId} onValueChange={setSelectedLotId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="자동 선택 (FIFO)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">자동 선택 (FIFO)</SelectItem>
-                      {selectedProduct.lots.map((lot) => {
-                        const lotAvailableQty = getAvailableQuantity(selectedProduct, lot.lotId);
-                        return (
-                          <SelectItem
-                            key={lot.lotId}
-                            value={lot.lotId}
-                            disabled={lotAvailableQty === 0}
-                          >
-                            {lot.lotNumber} (재고: {lotAvailableQty}개, 유효기한: {lot.expiryDate})
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={lotOptions}
+                    value={selectedLotId}
+                    onValueChange={setSelectedLotId}
+                    placeholder="자동 선택 (FIFO)"
+                    searchPlaceholder="Lot 번호 검색..."
+                    emptyMessage="검색 결과가 없습니다."
+                  />
                   <p className="text-xs text-muted-foreground">
                     Lot을 선택하지 않으면 FIFO 방식으로 자동 출고됩니다.
                   </p>

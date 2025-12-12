@@ -5,20 +5,14 @@
  * 기간, 상태, 소유자, 제품 필터
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Calendar, Search, X, Filter } from 'lucide-react';
+import { Calendar, Search, X, Filter, Building2, Hospital, Factory } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import {
   Popover,
   PopoverContent,
@@ -117,6 +111,63 @@ export function AdminHistoryFilter({
   // 제조사 목록 (originalProducer 선택용)
   const manufacturers = organizations.filter((org) => org.type === 'MANUFACTURER');
 
+  // 조직 아이콘 헬퍼
+  const getOrgIcon = (type: OrganizationType) => {
+    switch (type) {
+      case 'MANUFACTURER':
+        return <Factory className="h-4 w-4" />;
+      case 'HOSPITAL':
+        return <Hospital className="h-4 w-4" />;
+      default:
+        return <Building2 className="h-4 w-4" />;
+    }
+  };
+
+  // 상태 옵션
+  const statusOptions: ComboboxOption[] = useMemo(() => [
+    { value: '', label: '전체' },
+    ...Object.entries(VIRTUAL_CODE_STATUS_LABELS).map(([value, label]) => ({
+      value,
+      label,
+    })),
+  ], []);
+
+  // 현재 소유자 옵션
+  const ownerOptions: ComboboxOption[] = useMemo(() => [
+    { value: '', label: '전체' },
+    ...organizations.map((org) => ({
+      value: org.id,
+      label: org.name,
+      icon: getOrgIcon(org.type),
+    })),
+  ], [organizations]);
+
+  // 최초 생산자 옵션
+  const manufacturerOptions: ComboboxOption[] = useMemo(() => [
+    { value: '', label: '전체' },
+    ...manufacturers.map((org) => ({
+      value: org.id,
+      label: org.name,
+      icon: <Factory className="h-4 w-4" />,
+    })),
+  ], [manufacturers]);
+
+  // 제품 옵션
+  const productOptions: ComboboxOption[] = useMemo(() => [
+    { value: '', label: '전체' },
+    ...products.map((product) => ({
+      value: product.id,
+      label: product.name,
+      description: product.manufacturerName,
+    })),
+  ], [products]);
+
+  // 회수 이력 옵션
+  const recallOptions: ComboboxOption[] = useMemo(() => [
+    { value: 'true', label: '포함' },
+    { value: 'false', label: '제외' },
+  ], []);
+
   return (
     <div className="space-y-4 p-4 border rounded-lg bg-gray-50/50">
       <div className="flex items-center justify-between">
@@ -195,90 +246,61 @@ export function AdminHistoryFilter({
         {/* 현재 상태 */}
         <div className="space-y-2">
           <Label className="text-xs">현재 상태</Label>
-          <Select value={currentStatus} onValueChange={setCurrentStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="전체" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">전체</SelectItem>
-              {Object.entries(VIRTUAL_CODE_STATUS_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={statusOptions}
+            value={currentStatus}
+            onValueChange={setCurrentStatus}
+            placeholder="전체"
+            searchPlaceholder="상태 검색..."
+          />
         </div>
 
         {/* 현재 소유자 */}
         <div className="space-y-2">
           <Label className="text-xs">현재 소유자</Label>
-          <Select value={currentOwnerId} onValueChange={setCurrentOwnerId}>
-            <SelectTrigger>
-              <SelectValue placeholder="전체" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">전체</SelectItem>
-              {organizations.map((org) => (
-                <SelectItem key={org.id} value={org.id}>
-                  {org.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={ownerOptions}
+            value={currentOwnerId}
+            onValueChange={setCurrentOwnerId}
+            placeholder="전체"
+            searchPlaceholder="조직명 검색..."
+          />
         </div>
 
         {/* 최초 생산자 */}
         <div className="space-y-2">
           <Label className="text-xs">최초 생산자</Label>
-          <Select value={originalProducerId} onValueChange={setOriginalProducerId}>
-            <SelectTrigger>
-              <SelectValue placeholder="전체" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">전체</SelectItem>
-              {manufacturers.map((org) => (
-                <SelectItem key={org.id} value={org.id}>
-                  {org.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={manufacturerOptions}
+            value={originalProducerId}
+            onValueChange={setOriginalProducerId}
+            placeholder="전체"
+            searchPlaceholder="제조사 검색..."
+          />
         </div>
 
         {/* 제품 종류 */}
         <div className="space-y-2">
           <Label className="text-xs">제품 종류</Label>
-          <Select value={productId} onValueChange={setProductId}>
-            <SelectTrigger>
-              <SelectValue placeholder="전체" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">전체</SelectItem>
-              {products.map((product) => (
-                <SelectItem key={product.id} value={product.id}>
-                  {product.name} ({product.manufacturerName})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={productOptions}
+            value={productId}
+            onValueChange={setProductId}
+            placeholder="전체"
+            searchPlaceholder="제품 검색..."
+          />
         </div>
 
         {/* 회수 포함 */}
         <div className="space-y-2">
           <Label className="text-xs">회수 이력</Label>
-          <Select
+          <Combobox
+            options={recallOptions}
             value={includeRecalled ? 'true' : 'false'}
             onValueChange={(v) => setIncludeRecalled(v === 'true')}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="true">포함</SelectItem>
-              <SelectItem value="false">제외</SelectItem>
-            </SelectContent>
-          </Select>
+            placeholder="선택"
+            searchPlaceholder="검색..."
+          />
         </div>
       </div>
 

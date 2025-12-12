@@ -26,13 +26,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { Factory, Building2, Hospital } from 'lucide-react';
 import {
   ORGANIZATION_TYPES,
   ORGANIZATION_TYPE_LABELS,
@@ -134,10 +129,10 @@ export function RegisterForm(): React.ReactElement {
   }
 
   // 조직 유형 옵션 (ADMIN 제외)
-  const organizationTypeOptions = [
-    { value: ORGANIZATION_TYPES.MANUFACTURER, label: ORGANIZATION_TYPE_LABELS.MANUFACTURER },
-    { value: ORGANIZATION_TYPES.DISTRIBUTOR, label: ORGANIZATION_TYPE_LABELS.DISTRIBUTOR },
-    { value: ORGANIZATION_TYPES.HOSPITAL, label: ORGANIZATION_TYPE_LABELS.HOSPITAL },
+  const organizationTypeOptions: ComboboxOption[] = [
+    { value: ORGANIZATION_TYPES.MANUFACTURER, label: ORGANIZATION_TYPE_LABELS.MANUFACTURER, icon: <Factory className="h-4 w-4" /> },
+    { value: ORGANIZATION_TYPES.DISTRIBUTOR, label: ORGANIZATION_TYPE_LABELS.DISTRIBUTOR, icon: <Building2 className="h-4 w-4" /> },
+    { value: ORGANIZATION_TYPES.HOSPITAL, label: ORGANIZATION_TYPE_LABELS.HOSPITAL, icon: <Hospital className="h-4 w-4" /> },
   ];
 
   return (
@@ -160,24 +155,16 @@ export function RegisterForm(): React.ReactElement {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>조직 유형 *</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  disabled={isLoading}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="조직 유형을 선택하세요" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {organizationTypeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Combobox
+                    options={organizationTypeOptions}
+                    value={field.value || ''}
+                    onValueChange={field.onChange}
+                    placeholder="조직 유형을 선택하세요"
+                    searchPlaceholder="유형 검색..."
+                    disabled={isLoading}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
