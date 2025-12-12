@@ -24,6 +24,9 @@ Thumbs.db
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
+/.auth/
 
 # next.js
 /.next/
