@@ -165,3 +165,37 @@ export async function deleteOrganizationAction(
 
   return result;
 }
+
+// ============================================================================
+// 회수 이력 Actions
+// ============================================================================
+
+/**
+ * 회수 이력 조회 Action
+ */
+export async function getRecallHistoryAction(query: {
+  page?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  type?: 'shipment' | 'treatment' | 'all';
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getRecallHistory({
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 20,
+    type: query.type ?? 'all',
+    startDate: query.startDate,
+    endDate: query.endDate,
+  });
+}

@@ -17,7 +17,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { RecallHistoryTable } from '@/components/tables/RecallHistoryTable';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import * as adminService from '@/services/admin.service';
+import { getRecallHistoryAction } from '../actions';
 import { cn } from '@/lib/utils';
 import type { RecallHistoryItem } from '@/types/api.types';
 
@@ -52,7 +52,7 @@ export function RecallTableWrapper({
 
     const fetchData = async (): Promise<void> => {
       setLoading(true);
-      const result = await adminService.getRecallHistory({
+      const result = await getRecallHistoryAction({
         page,
         pageSize: 20,
         startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
