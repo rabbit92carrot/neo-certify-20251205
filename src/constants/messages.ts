@@ -30,6 +30,7 @@ export const ERROR_MESSAGES = {
   // 조직
   ORGANIZATION: {
     DUPLICATE_BUSINESS_NUMBER: '이미 등록된 사업자등록번호입니다.',
+    DUPLICATE_NAME: '이미 등록된 조직명입니다. 다른 이름을 사용해주세요.',
     INVALID_BUSINESS_NUMBER: '사업자등록번호 형식이 올바르지 않습니다.',
     NOT_FOUND: '조직을 찾을 수 없습니다.',
   },

@@ -54,6 +54,23 @@ export async function register(
     };
   }
 
+  // 1-2. 조직명 중복 확인
+  const { data: existingName } = await adminClient
+    .from('organizations')
+    .select('id')
+    .eq('name', data.name)
+    .single();
+
+  if (existingName) {
+    return {
+      success: false,
+      error: {
+        code: 'DUPLICATE_ORGANIZATION_NAME',
+        message: ERROR_MESSAGES.ORGANIZATION.DUPLICATE_NAME,
+      },
+    };
+  }
+
   // 2. Supabase Auth 사용자 생성
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: data.email,
