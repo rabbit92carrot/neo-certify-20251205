@@ -167,6 +167,34 @@ export async function deleteOrganizationAction(
 }
 
 // ============================================================================
+// 승인 대기 조직 Actions
+// ============================================================================
+
+/**
+ * 승인 대기 조직 목록 조회 Action
+ */
+export async function getPendingOrganizationsAction(query: {
+  page?: number;
+  pageSize?: number;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getPendingOrganizations({
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 50,
+  });
+}
+
+// ============================================================================
 // 회수 이력 Actions
 // ============================================================================
 

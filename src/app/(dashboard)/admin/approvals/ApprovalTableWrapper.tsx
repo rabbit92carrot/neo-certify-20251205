@@ -6,8 +6,8 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import {
   approveOrganizationAction,
   rejectOrganizationAction,
+  getPendingOrganizationsAction,
 } from '../actions';
-import * as adminService from '@/services/admin.service';
 import type { Organization } from '@/types/api.types';
 
 export function ApprovalTableWrapper(): React.ReactElement {
@@ -21,7 +21,7 @@ export function ApprovalTableWrapper(): React.ReactElement {
 
     const fetchData = async (): Promise<void> => {
       setLoading(true);
-      const result = await adminService.getPendingOrganizations({
+      const result = await getPendingOrganizationsAction({
         page: 1,
         pageSize: 50,
       });
