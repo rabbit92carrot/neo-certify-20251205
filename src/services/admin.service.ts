@@ -94,19 +94,26 @@ export async function getOrganizations(
     };
   }
 
-  // 각 조직의 보유 코드 수 조회 (IN_STOCK 상태만)
-  // owner_id는 VARCHAR 타입이므로 문자열로 변환
-  const orgIds = (organizations || []).map((o) => o.id);
-  const { data: virtualCodes } = await supabase
-    .from('virtual_codes')
-    .select('owner_id')
-    .in('owner_id', orgIds)
-    .eq('status', 'IN_STOCK');
-
-  // 조직별 코드 수 집계
+  // 각 조직의 보유 코드 수를 DB에서 직접 집계 (count 쿼리 사용)
+  // Supabase 기본 limit(1000)으로 인해 select 후 JS 집계는 부정확하므로
+  // 조직별로 개별 count 쿼리를 병렬 실행
   const countByOrgId = new Map<string, number>();
-  for (const vc of virtualCodes || []) {
-    countByOrgId.set(vc.owner_id, (countByOrgId.get(vc.owner_id) || 0) + 1);
+
+  if (organizations && organizations.length > 0) {
+    const countPromises = organizations.map(async (org) => {
+      const { count: codeCount } = await supabase
+        .from('virtual_codes')
+        .select('*', { count: 'exact', head: true })
+        .eq('owner_id', org.id)
+        .eq('status', 'IN_STOCK');
+
+      return { orgId: org.id, count: codeCount || 0 };
+    });
+
+    const countResults = await Promise.all(countPromises);
+    for (const result of countResults) {
+      countByOrgId.set(result.orgId, result.count);
+    }
   }
 
   const organizationsWithStats: OrganizationWithStats[] = (organizations || []).map((org) => ({
