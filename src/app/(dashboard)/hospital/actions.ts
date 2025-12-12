@@ -92,7 +92,7 @@ export async function createTreatmentAction(
     patientPhone: normalizePhoneNumber(validation.data.patientPhone),
   };
 
-  const result = await treatmentService.createTreatment(organizationId, normalizedData);
+  const result = await treatmentService.createTreatment(normalizedData);
 
   if (result.success) {
     revalidatePath('/hospital/treatment');
@@ -128,7 +128,6 @@ export async function recallTreatmentAction(
   }
 
   const result = await treatmentService.recallTreatment(
-    organizationId,
     validation.data.treatmentId,
     validation.data.reason
   );

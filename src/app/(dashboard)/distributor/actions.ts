@@ -79,7 +79,7 @@ export async function createShipmentAction(
     return formatValidationError(validation.error);
   }
 
-  const result = await shipmentService.createShipment(organizationId, validation.data);
+  const result = await shipmentService.createShipment(validation.data);
 
   if (result.success) {
     revalidatePath('/distributor/shipment');
@@ -115,7 +115,6 @@ export async function recallShipmentAction(
   }
 
   const result = await shipmentService.recallShipment(
-    organizationId,
     validation.data.shipmentBatchId,
     validation.data.reason
   );

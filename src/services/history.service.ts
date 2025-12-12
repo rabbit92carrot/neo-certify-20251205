@@ -156,12 +156,12 @@ export async function getTransactionHistory(
   );
 
   if (historyError) {
-    console.error('거래이력 조회 실패:', historyError);
+    console.error('거래이력 조회 실패:', historyError.message || JSON.stringify(historyError));
     return {
       success: false,
       error: {
         code: 'QUERY_ERROR',
-        message: historyError.message,
+        message: historyError.message || '거래이력 조회에 실패했습니다.',
       },
     };
   }
@@ -180,7 +180,7 @@ export async function getTransactionHistory(
   );
 
   if (countError) {
-    console.error('거래이력 카운트 실패:', countError);
+    console.error('거래이력 카운트 실패:', countError.message || JSON.stringify(countError));
   }
 
   // 3. 조직 이름 일괄 조회

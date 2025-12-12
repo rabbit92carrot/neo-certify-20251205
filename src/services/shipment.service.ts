@@ -80,23 +80,23 @@ export async function getShipmentTargetOrganizations(
 }
 
 /**
- * 출고 생성
+ * 출고 생성 (원자적 DB 함수 사용)
  * FIFO 기반으로 가상 코드를 자동 할당하고 소유권을 즉시 이전합니다.
+ * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
+ * 발송 조직 ID는 DB 함수 내에서 auth.uid()로부터 도출됩니다.
  *
- * @param fromOrganizationId 발송 조직 ID
  * @param data 출고 데이터
  * @returns 생성된 출고 뭉치
  */
 export async function createShipment(
-  fromOrganizationId: string,
   data: ShipmentCreateData
 ): Promise<ApiResponse<{ shipmentBatchId: string; totalQuantity: number }>> {
   const supabase = await createClient();
 
-  // 1. 수신 조직 조회
+  // 1. 수신 조직 유형 조회 (원자적 함수 호출을 위해 필요)
   const { data: toOrg, error: toOrgError } = await supabase
     .from('organizations')
-    .select('id, type, status')
+    .select('type')
     .eq('id', data.toOrganizationId)
     .single();
 
@@ -110,161 +110,60 @@ export async function createShipment(
     };
   }
 
-  if (toOrg.status !== 'ACTIVE') {
+  // 2. 아이템 데이터 준비 (JSONB 형식)
+  const items = data.items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    lotId: item.lotId ?? null,
+  }));
+
+  // 3. 원자적 출고 생성 DB 함수 호출
+  // 발송 조직 ID는 DB 함수 내에서 get_user_organization_id()로 도출됨
+  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
+  type ShipmentAtomicResult = {
+    shipment_batch_id: string | null;
+    total_quantity: number;
+    error_code: string | null;
+    error_message: string | null;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: result, error } = await (supabase.rpc as any)('create_shipment_atomic', {
+    p_to_org_id: data.toOrganizationId,
+    p_to_org_type: toOrg.type,
+    p_items: items,
+  });
+
+  if (error) {
+    console.error('원자적 출고 생성 실패:', error);
     return {
       success: false,
       error: {
-        code: 'ORGANIZATION_INACTIVE',
-        message: '비활성 상태의 조직에는 출고할 수 없습니다.',
+        code: 'SHIPMENT_CREATE_FAILED',
+        message: '출고 생성에 실패했습니다.',
       },
     };
   }
 
-  // 자기 자신에게 출고 방지
-  if (fromOrganizationId === data.toOrganizationId) {
+  // 결과 확인 (DB 함수는 TABLE 반환)
+  const resultArray = result as unknown as ShipmentAtomicResult[];
+  const row = resultArray?.[0];
+
+  if (row?.error_code) {
     return {
       success: false,
       error: {
-        code: 'SELF_SHIPMENT',
-        message: '자기 자신에게는 출고할 수 없습니다.',
+        code: row.error_code,
+        message: row.error_message || '출고 생성에 실패했습니다.',
       },
     };
-  }
-
-  // 2. 출고 뭉치 생성
-  const { data: shipmentBatch, error: batchError } = await supabase
-    .from('shipment_batches')
-    .insert({
-      from_organization_id: fromOrganizationId,
-      to_organization_id: data.toOrganizationId,
-      to_organization_type: toOrg.type,
-    })
-    .select()
-    .single();
-
-  if (batchError || !shipmentBatch) {
-    console.error('출고 뭉치 생성 실패:', batchError);
-    return {
-      success: false,
-      error: {
-        code: 'BATCH_CREATE_FAILED',
-        message: '출고 뭉치 생성에 실패했습니다.',
-      },
-    };
-  }
-
-  // 3. 각 아이템별로 FIFO 선택 및 소유권 이전
-  let totalQuantity = 0;
-  const allSelectedCodes: string[] = [];
-
-  for (const item of data.items) {
-    // FIFO 선택 (DB 함수 호출)
-    const { data: selectedCodes, error: selectError } = await supabase.rpc('select_fifo_codes', {
-      p_product_id: item.productId,
-      p_owner_id: fromOrganizationId,
-      p_quantity: item.quantity,
-      p_lot_id: item.lotId ?? undefined,
-    });
-
-    if (selectError) {
-      console.error('FIFO 선택 실패:', selectError);
-      // 롤백: 이미 생성된 출고 뭉치 삭제
-      await supabase.from('shipment_batches').delete().eq('id', shipmentBatch.id);
-      return {
-        success: false,
-        error: {
-          code: 'FIFO_SELECT_FAILED',
-          message: 'FIFO 코드 선택에 실패했습니다.',
-        },
-      };
-    }
-
-    if (!selectedCodes || selectedCodes.length < item.quantity) {
-      // 롤백
-      await supabase.from('shipment_batches').delete().eq('id', shipmentBatch.id);
-      return {
-        success: false,
-        error: {
-          code: 'INSUFFICIENT_STOCK',
-          message: `재고가 부족합니다. 요청: ${item.quantity}개, 가능: ${selectedCodes?.length || 0}개`,
-        },
-      };
-    }
-
-    const codeIds = selectedCodes.map((c) => c.virtual_code_id);
-    allSelectedCodes.push(...codeIds);
-    totalQuantity += codeIds.length;
-
-    // 출고 상세 기록
-    const detailInserts = codeIds.map((virtualCodeId) => ({
-      shipment_batch_id: shipmentBatch.id,
-      virtual_code_id: virtualCodeId,
-    }));
-
-    const { error: detailError } = await supabase.from('shipment_details').insert(detailInserts);
-
-    if (detailError) {
-      console.error('출고 상세 기록 실패:', detailError);
-      // 롤백
-      await supabase.from('shipment_details').delete().eq('shipment_batch_id', shipmentBatch.id);
-      await supabase.from('shipment_batches').delete().eq('id', shipmentBatch.id);
-      return {
-        success: false,
-        error: {
-          code: 'DETAIL_CREATE_FAILED',
-          message: '출고 상세 기록에 실패했습니다.',
-        },
-      };
-    }
-
-    // 소유권 이전 (가상 코드 업데이트)
-    const { error: updateError } = await supabase
-      .from('virtual_codes')
-      .update({
-        owner_id: data.toOrganizationId,
-        owner_type: 'ORGANIZATION',
-      })
-      .in('id', codeIds);
-
-    if (updateError) {
-      console.error('소유권 이전 실패:', updateError);
-      // 롤백
-      await supabase.from('shipment_details').delete().eq('shipment_batch_id', shipmentBatch.id);
-      await supabase.from('shipment_batches').delete().eq('id', shipmentBatch.id);
-      return {
-        success: false,
-        error: {
-          code: 'OWNERSHIP_TRANSFER_FAILED',
-          message: '소유권 이전에 실패했습니다.',
-        },
-      };
-    }
-
-    // 이력 기록
-    const historyInserts = codeIds.map((virtualCodeId) => ({
-      virtual_code_id: virtualCodeId,
-      action_type: 'SHIPPED' as const,
-      from_owner_type: 'ORGANIZATION' as const,
-      from_owner_id: fromOrganizationId,
-      to_owner_type: 'ORGANIZATION' as const,
-      to_owner_id: data.toOrganizationId,
-      shipment_batch_id: shipmentBatch.id,
-      is_recall: false,
-    }));
-
-    const { error: historyError } = await supabase.from('histories').insert(historyInserts);
-
-    if (historyError) {
-      console.error('이력 기록 실패:', historyError);
-      // 이력 기록 실패는 치명적이지 않으므로 계속 진행
-    }
   }
 
   return {
     success: true,
     data: {
-      shipmentBatchId: shipmentBatch.id,
-      totalQuantity,
+      shipmentBatchId: row?.shipment_batch_id || '',
+      totalQuantity: row?.total_quantity || 0,
     },
   };
 }
@@ -492,161 +391,60 @@ async function getShipmentBatchSummary(
 }
 
 /**
- * 출고 회수
+ * 출고 회수 (원자적 DB 함수 사용)
  * 발송자만 24시간 이내 회수 가능
+ * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
+ * 발송자 검증은 DB 함수 내에서 auth.uid()로부터 수행됩니다.
  *
- * @param organizationId 현재 조직 ID (발송자여야 함)
  * @param shipmentBatchId 출고 뭉치 ID
  * @param reason 회수 사유
  * @returns 회수 결과
  */
 export async function recallShipment(
-  organizationId: string,
   shipmentBatchId: string,
   reason: string
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 1. 출고 뭉치 조회 및 권한 확인
-  const { data: batch, error: batchError } = await supabase
-    .from('shipment_batches')
-    .select('*')
-    .eq('id', shipmentBatchId)
-    .single();
+  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
+  type RecallAtomicResult = {
+    success: boolean;
+    recalled_count: number;
+    error_code: string | null;
+    error_message: string | null;
+  };
 
-  if (batchError || !batch) {
-    return {
-      success: false,
-      error: {
-        code: 'BATCH_NOT_FOUND',
-        message: '출고 뭉치를 찾을 수 없습니다.',
-      },
-    };
-  }
-
-  // 발송자 권한 확인
-  if (batch.from_organization_id !== organizationId) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '발송자만 회수할 수 있습니다.',
-      },
-    };
-  }
-
-  // 이미 회수됨
-  if (batch.is_recalled) {
-    return {
-      success: false,
-      error: {
-        code: 'ALREADY_RECALLED',
-        message: '이미 회수된 출고 뭉치입니다.',
-      },
-    };
-  }
-
-  // 2. 24시간 제한 확인 (DB 함수)
-  const { data: isAllowed, error: checkError } = await supabase.rpc('is_recall_allowed', {
+  // 원자적 회수 DB 함수 호출
+  // 발송자 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: result, error } = await (supabase.rpc as any)('recall_shipment_atomic', {
     p_shipment_batch_id: shipmentBatchId,
+    p_reason: reason,
   });
 
-  if (checkError || !isAllowed) {
+  if (error) {
+    console.error('원자적 출고 회수 실패:', error);
     return {
       success: false,
       error: {
-        code: 'RECALL_TIME_EXCEEDED',
-        message: '24시간 경과하여 처리할 수 없습니다. 관리자에게 연락해주세요.',
+        code: 'RECALL_FAILED',
+        message: '출고 회수에 실패했습니다.',
       },
     };
   }
 
-  // 3. 출고 상세에서 가상 코드 ID 조회
-  const { data: details, error: detailError } = await supabase
-    .from('shipment_details')
-    .select('virtual_code_id')
-    .eq('shipment_batch_id', shipmentBatchId);
+  // 결과 확인 (DB 함수는 TABLE 반환)
+  const resultArray = result as unknown as RecallAtomicResult[];
+  const row = resultArray?.[0];
 
-  if (detailError || !details || details.length === 0) {
+  if (!row?.success) {
     return {
       success: false,
       error: {
-        code: 'NO_DETAILS',
-        message: '회수할 제품이 없습니다.',
+        code: row?.error_code || 'RECALL_FAILED',
+        message: row?.error_message || '출고 회수에 실패했습니다.',
       },
     };
-  }
-
-  const codeIds = details.map((d) => d.virtual_code_id);
-
-  // 4. 소유권 복귀 (발송자에게)
-  const { error: updateError } = await supabase
-    .from('virtual_codes')
-    .update({
-      owner_id: organizationId,
-      owner_type: 'ORGANIZATION',
-    })
-    .in('id', codeIds);
-
-  if (updateError) {
-    console.error('소유권 복귀 실패:', updateError);
-    return {
-      success: false,
-      error: {
-        code: 'OWNERSHIP_REVERT_FAILED',
-        message: '소유권 복귀에 실패했습니다.',
-      },
-    };
-  }
-
-  // 5. 출고 뭉치 회수 처리
-  const { error: batchUpdateError } = await supabase
-    .from('shipment_batches')
-    .update({
-      is_recalled: true,
-      recall_reason: reason,
-      recall_date: new Date().toISOString(),
-    })
-    .eq('id', shipmentBatchId);
-
-  if (batchUpdateError) {
-    console.error('출고 뭉치 회수 처리 실패:', batchUpdateError);
-    // 롤백: 소유권 다시 이전
-    await supabase
-      .from('virtual_codes')
-      .update({
-        owner_id: batch.to_organization_id,
-        owner_type: 'ORGANIZATION',
-      })
-      .in('id', codeIds);
-
-    return {
-      success: false,
-      error: {
-        code: 'BATCH_UPDATE_FAILED',
-        message: '출고 뭉치 회수 처리에 실패했습니다.',
-      },
-    };
-  }
-
-  // 6. 회수 이력 기록
-  const historyInserts = codeIds.map((virtualCodeId) => ({
-    virtual_code_id: virtualCodeId,
-    action_type: 'RECALLED' as const,
-    from_owner_type: 'ORGANIZATION' as const,
-    from_owner_id: batch.to_organization_id,
-    to_owner_type: 'ORGANIZATION' as const,
-    to_owner_id: organizationId,
-    shipment_batch_id: shipmentBatchId,
-    is_recall: true,
-    recall_reason: reason,
-  }));
-
-  const { error: historyError } = await supabase.from('histories').insert(historyInserts);
-
-  if (historyError) {
-    console.error('회수 이력 기록 실패:', historyError);
-    // 이력 기록 실패는 치명적이지 않으므로 계속 진행
   }
 
   return { success: true };

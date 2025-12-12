@@ -105,221 +105,114 @@ ${productLines}
 // ============================================================================
 
 /**
- * 시술 생성
+ * 시술 생성 (원자적 DB 함수 사용)
  * FIFO 기반으로 가상 코드를 자동 할당하고 소유권을 환자에게 이전합니다.
+ * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
+ * 환자 생성도 ON CONFLICT로 원자적으로 처리됩니다.
+ * 병원 ID는 DB 함수 내에서 auth.uid()로부터 도출됩니다.
  *
- * @param hospitalId 병원 조직 ID
  * @param data 시술 데이터
  * @returns 생성된 시술 기록
  */
 export async function createTreatment(
-  hospitalId: string,
   data: TreatmentCreateData
 ): Promise<ApiResponse<{ treatmentId: string; totalQuantity: number }>> {
   const supabase = await createClient();
   const normalizedPhone = normalizePhoneNumber(data.patientPhone);
 
-  // 1. 병원 정보 조회
-  const { data: hospital, error: hospitalError } = await supabase
-    .from('organizations')
-    .select('id, name, type')
-    .eq('id', hospitalId)
-    .eq('type', 'HOSPITAL')
-    .single();
+  // 1. 아이템 데이터 준비 (JSONB 형식)
+  const items = data.items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+  }));
 
-  if (hospitalError || !hospital) {
-    return {
-      success: false,
-      error: {
-        code: 'HOSPITAL_NOT_FOUND',
-        message: '병원 정보를 찾을 수 없습니다.',
-      },
-    };
-  }
+  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
+  type TreatmentAtomicResult = {
+    treatment_id: string | null;
+    total_quantity: number;
+    error_code: string | null;
+    error_message: string | null;
+  };
 
-  // 2. 환자 존재 확인 → 없으면 생성
-  const { data: existingPatient } = await supabase
-    .from('patients')
-    .select('phone_number')
-    .eq('phone_number', normalizedPhone)
-    .single();
+  // 2. 원자적 시술 생성 DB 함수 호출 (환자 생성 포함)
+  // 병원 ID는 DB 함수 내에서 get_user_organization_id()로 도출됨
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: result, error } = await (supabase.rpc as any)('create_treatment_atomic', {
+    p_patient_phone: normalizedPhone,
+    p_treatment_date: data.treatmentDate,
+    p_items: items,
+  });
 
-  if (!existingPatient) {
-    const { error: patientError } = await supabase.from('patients').insert({
-      phone_number: normalizedPhone,
-    });
-
-    if (patientError) {
-      console.error('환자 생성 실패:', patientError);
-      return {
-        success: false,
-        error: {
-          code: 'PATIENT_CREATE_FAILED',
-          message: '환자 정보 생성에 실패했습니다.',
-        },
-      };
-    }
-  }
-
-  // 3. 시술 기록 생성
-  const { data: treatmentRecord, error: treatmentError } = await supabase
-    .from('treatment_records')
-    .insert({
-      hospital_id: hospitalId,
-      patient_phone: normalizedPhone,
-      treatment_date: data.treatmentDate,
-    })
-    .select()
-    .single();
-
-  if (treatmentError || !treatmentRecord) {
-    console.error('시술 기록 생성 실패:', treatmentError);
+  if (error) {
+    console.error('원자적 시술 생성 실패:', error);
     return {
       success: false,
       error: {
         code: 'TREATMENT_CREATE_FAILED',
-        message: '시술 기록 생성에 실패했습니다.',
+        message: '시술 생성에 실패했습니다.',
       },
     };
   }
 
-  // 4. 각 아이템별로 FIFO 선택 및 소유권 이전
-  let totalQuantity = 0;
-  const allSelectedCodes: string[] = [];
-  const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
+  // 결과 확인 (DB 함수는 TABLE 반환)
+  const resultArray = result as unknown as TreatmentAtomicResult[];
+  const row = resultArray?.[0];
 
-  for (const item of data.items) {
-    // FIFO 선택 (DB 함수 호출)
-    const { data: selectedCodes, error: selectError } = await supabase.rpc('select_fifo_codes', {
-      p_product_id: item.productId,
-      p_owner_id: hospitalId,
-      p_quantity: item.quantity,
-    });
-
-    if (selectError) {
-      console.error('FIFO 선택 실패:', selectError);
-      // 롤백: 시술 기록 삭제
-      await supabase.from('treatment_records').delete().eq('id', treatmentRecord.id);
-      return {
-        success: false,
-        error: {
-          code: 'FIFO_SELECT_FAILED',
-          message: 'FIFO 코드 선택에 실패했습니다.',
-        },
-      };
-    }
-
-    if (!selectedCodes || selectedCodes.length < item.quantity) {
-      // 롤백
-      await supabase.from('treatment_records').delete().eq('id', treatmentRecord.id);
-      return {
-        success: false,
-        error: {
-          code: 'INSUFFICIENT_STOCK',
-          message: `재고가 부족합니다. 요청: ${item.quantity}개, 가능: ${selectedCodes?.length || 0}개`,
-        },
-      };
-    }
-
-    const codeIds = selectedCodes.map((c) => c.virtual_code_id);
-    allSelectedCodes.push(...codeIds);
-    totalQuantity += codeIds.length;
-
-    // 시술 상세 기록
-    const detailInserts = codeIds.map((virtualCodeId) => ({
-      treatment_id: treatmentRecord.id,
-      virtual_code_id: virtualCodeId,
-    }));
-
-    const { error: detailError } = await supabase.from('treatment_details').insert(detailInserts);
-
-    if (detailError) {
-      console.error('시술 상세 기록 실패:', detailError);
-      // 롤백
-      await supabase.from('treatment_details').delete().eq('treatment_id', treatmentRecord.id);
-      await supabase.from('treatment_records').delete().eq('id', treatmentRecord.id);
-      return {
-        success: false,
-        error: {
-          code: 'DETAIL_CREATE_FAILED',
-          message: '시술 상세 기록에 실패했습니다.',
-        },
-      };
-    }
-
-    // 소유권 이전 (가상 코드 업데이트) - 상태를 USED로, 소유자를 환자로
-    const { error: updateError } = await supabase
-      .from('virtual_codes')
-      .update({
-        owner_id: normalizedPhone,
-        owner_type: 'PATIENT',
-        status: 'USED',
-      })
-      .in('id', codeIds);
-
-    if (updateError) {
-      console.error('소유권 이전 실패:', updateError);
-      // 롤백
-      await supabase.from('treatment_details').delete().eq('treatment_id', treatmentRecord.id);
-      await supabase.from('treatment_records').delete().eq('id', treatmentRecord.id);
-      return {
-        success: false,
-        error: {
-          code: 'OWNERSHIP_TRANSFER_FAILED',
-          message: '소유권 이전에 실패했습니다.',
-        },
-      };
-    }
-
-    // 이력 기록
-    const historyInserts = codeIds.map((virtualCodeId) => ({
-      virtual_code_id: virtualCodeId,
-      action_type: 'TREATED' as const,
-      from_owner_type: 'ORGANIZATION' as const,
-      from_owner_id: hospitalId,
-      to_owner_type: 'PATIENT' as const,
-      to_owner_id: normalizedPhone,
-      is_recall: false,
-    }));
-
-    const { error: historyError } = await supabase.from('histories').insert(historyInserts);
-
-    if (historyError) {
-      console.error('이력 기록 실패:', historyError);
-      // 이력 기록 실패는 치명적이지 않으므로 계속 진행
-    }
-
-    // 제품 정보 조회 (알림 메시지용)
-    const { data: productInfo } = await supabase
-      .from('products')
-      .select('name, organization:organizations!inner(name)')
-      .eq('id', item.productId)
-      .single();
-
-    if (productInfo) {
-      itemSummaryForMessage.push({
-        productName: productInfo.name,
-        manufacturerName: (productInfo.organization as { name: string }).name,
-        quantity: item.quantity,
-      });
-    }
+  if (row?.error_code) {
+    return {
+      success: false,
+      error: {
+        code: row.error_code,
+        message: row.error_message || '시술 생성에 실패했습니다.',
+      },
+    };
   }
 
-  // 5. 정품 인증 알림 메시지 기록
-  const certificationMessage = generateCertificationMessage({
-    treatmentDate: data.treatmentDate,
-    hospitalName: hospital.name,
-    itemSummary: itemSummaryForMessage,
-  });
+  const treatmentId = row?.treatment_id || '';
+  const totalQuantity = row?.total_quantity || 0;
 
-  const { error: notificationError } = await supabase.from('notification_messages').insert({
-    type: 'CERTIFICATION',
-    patient_phone: normalizedPhone,
-    content: certificationMessage,
-    is_sent: false,
-  });
+  // 3. 정품 인증 알림 메시지 기록 (트랜잭션 외부, 실패해도 시술은 유지)
+  try {
+    // 시술 기록에서 병원 정보 조회 (알림 메시지용)
+    const { data: treatmentRecord } = await supabase
+      .from('treatment_records')
+      .select('hospital:organizations!treatment_records_hospital_id_fkey(name)')
+      .eq('id', treatmentId)
+      .single();
 
-  if (notificationError) {
+    const hospitalName = (treatmentRecord?.hospital as { name: string } | null)?.name || '병원';
+
+    // 제품 정보 조회 (알림 메시지용)
+    const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
+    for (const item of data.items) {
+      const { data: productInfo } = await supabase
+        .from('products')
+        .select('name, organization:organizations!inner(name)')
+        .eq('id', item.productId)
+        .single();
+
+      if (productInfo) {
+        itemSummaryForMessage.push({
+          productName: productInfo.name,
+          manufacturerName: (productInfo.organization as { name: string }).name,
+          quantity: item.quantity,
+        });
+      }
+    }
+
+    const certificationMessage = generateCertificationMessage({
+      treatmentDate: data.treatmentDate,
+      hospitalName,
+      itemSummary: itemSummaryForMessage,
+    });
+
+    await supabase.from('notification_messages').insert({
+      type: 'CERTIFICATION',
+      patient_phone: normalizedPhone,
+      content: certificationMessage,
+      is_sent: false,
+    });
+  } catch (notificationError) {
     console.error('알림 메시지 기록 실패:', notificationError);
     // 알림 기록 실패는 치명적이지 않으므로 계속 진행
   }
@@ -327,7 +220,7 @@ export async function createTreatment(
   return {
     success: true,
     data: {
-      treatmentId: treatmentRecord.id,
+      treatmentId,
       totalQuantity,
     },
   };
@@ -482,25 +375,25 @@ async function getTreatmentSummary(
 // ============================================================================
 
 /**
- * 시술 회수
+ * 시술 회수 (원자적 DB 함수 사용)
  * 병원만 24시간 이내 회수 가능
+ * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
+ * 병원 검증은 DB 함수 내에서 auth.uid()로부터 수행됩니다.
  *
- * @param hospitalId 현재 병원 ID
  * @param treatmentId 시술 기록 ID
  * @param reason 회수 사유
  * @returns 회수 결과
  */
 export async function recallTreatment(
-  hospitalId: string,
   treatmentId: string,
   reason: string
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 1. 시술 기록 조회 및 권한 확인
+  // 1. 시술 기록 조회 (알림 메시지용 - 회수 전에 조회해야 함)
   const { data: treatment, error: treatmentError } = await supabase
     .from('treatment_records')
-    .select('*, hospital:organizations!treatment_records_hospital_id_fkey(id, name)')
+    .select('patient_phone, hospital:organizations!treatment_records_hospital_id_fkey(name)')
     .eq('id', treatmentId)
     .single();
 
@@ -514,144 +407,72 @@ export async function recallTreatment(
     };
   }
 
-  // 병원 권한 확인
-  if (treatment.hospital_id !== hospitalId) {
-    return {
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '해당 병원에서만 회수할 수 있습니다.',
-      },
-    };
-  }
-
-  // 2. 24시간 제한 확인
-  const hoursDiff = getHoursDifference(treatment.created_at);
-
-  if (hoursDiff > 24) {
-    return {
-      success: false,
-      error: {
-        code: 'RECALL_TIME_EXCEEDED',
-        message: '24시간 경과하여 처리할 수 없습니다. 관리자에게 연락해주세요.',
-      },
-    };
-  }
-
-  // 3. 시술 상세에서 가상 코드 ID 조회
-  const { data: details, error: detailError } = await supabase
+  // 2. 알림 메시지용 제품 요약 조회 (회수 전에 조회해야 함)
+  const { data: details } = await supabase
     .from('treatment_details')
     .select('virtual_code_id')
     .eq('treatment_id', treatmentId);
 
-  if (detailError || !details || details.length === 0) {
-    return {
-      success: false,
-      error: {
-        code: 'NO_DETAILS',
-        message: '회수할 제품이 없습니다.',
-      },
-    };
-  }
+  const codeIds = details?.map((d) => d.virtual_code_id) || [];
+  const summary = codeIds.length > 0 ? await getTreatmentSummaryFromCodes(codeIds) : [];
 
-  const codeIds = details.map((d) => d.virtual_code_id);
+  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
+  type RecallAtomicResult = {
+    success: boolean;
+    recalled_count: number;
+    error_code: string | null;
+    error_message: string | null;
+  };
 
-  // 4. 소유권 복귀 (병원에게) 및 상태 변경 (USED → IN_STOCK)
-  const { error: updateError } = await supabase
-    .from('virtual_codes')
-    .update({
-      owner_id: hospitalId,
-      owner_type: 'ORGANIZATION',
-      status: 'IN_STOCK',
-    })
-    .in('id', codeIds);
-
-  if (updateError) {
-    console.error('소유권 복귀 실패:', updateError);
-    return {
-      success: false,
-      error: {
-        code: 'OWNERSHIP_REVERT_FAILED',
-        message: '소유권 복귀에 실패했습니다.',
-      },
-    };
-  }
-
-  // 5. 시술 상세 삭제
-  const { error: deleteDetailError } = await supabase
-    .from('treatment_details')
-    .delete()
-    .eq('treatment_id', treatmentId);
-
-  if (deleteDetailError) {
-    console.error('시술 상세 삭제 실패:', deleteDetailError);
-    // 롤백: 소유권 다시 환자에게
-    await supabase
-      .from('virtual_codes')
-      .update({
-        owner_id: treatment.patient_phone,
-        owner_type: 'PATIENT',
-        status: 'USED',
-      })
-      .in('id', codeIds);
-
-    return {
-      success: false,
-      error: {
-        code: 'DETAIL_DELETE_FAILED',
-        message: '시술 상세 삭제에 실패했습니다.',
-      },
-    };
-  }
-
-  // 6. 시술 기록 삭제
-  const { error: deleteTreatmentError } = await supabase
-    .from('treatment_records')
-    .delete()
-    .eq('id', treatmentId);
-
-  if (deleteTreatmentError) {
-    console.error('시술 기록 삭제 실패:', deleteTreatmentError);
-    // 이미 시술 상세가 삭제되었으므로 복구가 어려움
-  }
-
-  // 7. 회수 이력 기록
-  const historyInserts = codeIds.map((virtualCodeId) => ({
-    virtual_code_id: virtualCodeId,
-    action_type: 'RECALLED' as const,
-    from_owner_type: 'PATIENT' as const,
-    from_owner_id: treatment.patient_phone,
-    to_owner_type: 'ORGANIZATION' as const,
-    to_owner_id: hospitalId,
-    is_recall: true,
-    recall_reason: reason,
-  }));
-
-  const { error: historyError } = await supabase.from('histories').insert(historyInserts);
-
-  if (historyError) {
-    console.error('회수 이력 기록 실패:', historyError);
-    // 이력 기록 실패는 치명적이지 않으므로 계속 진행
-  }
-
-  // 8. 환자에게 회수 알림 메시지 기록
-  const summary = await getTreatmentSummaryFromCodes(codeIds);
-  const hospitalInfo = treatment.hospital as { name: string };
-
-  const recallMessage = generateRecallMessage({
-    hospitalName: hospitalInfo.name,
-    reason,
-    itemSummary: summary,
+  // 3. 원자적 회수 DB 함수 호출
+  // 병원 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: result, error } = await (supabase.rpc as any)('recall_treatment_atomic', {
+    p_treatment_id: treatmentId,
+    p_reason: reason,
   });
 
-  const { error: notificationError } = await supabase.from('notification_messages').insert({
-    type: 'RECALL',
-    patient_phone: treatment.patient_phone,
-    content: recallMessage,
-    is_sent: false,
-  });
+  if (error) {
+    console.error('원자적 시술 회수 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'RECALL_FAILED',
+        message: '시술 회수에 실패했습니다.',
+      },
+    };
+  }
 
-  if (notificationError) {
+  // 결과 확인 (DB 함수는 TABLE 반환)
+  const resultArray = result as unknown as RecallAtomicResult[];
+  const row = resultArray?.[0];
+
+  if (!row?.success) {
+    return {
+      success: false,
+      error: {
+        code: row?.error_code || 'RECALL_FAILED',
+        message: row?.error_message || '시술 회수에 실패했습니다.',
+      },
+    };
+  }
+
+  // 4. 환자에게 회수 알림 메시지 기록 (트랜잭션 외부)
+  try {
+    const hospitalInfo = treatment.hospital as { name: string };
+    const recallMessage = generateRecallMessage({
+      hospitalName: hospitalInfo.name,
+      reason,
+      itemSummary: summary,
+    });
+
+    await supabase.from('notification_messages').insert({
+      type: 'RECALL',
+      patient_phone: treatment.patient_phone,
+      content: recallMessage,
+      is_sent: false,
+    });
+  } catch (notificationError) {
     console.error('회수 알림 기록 실패:', notificationError);
     // 알림 기록 실패는 치명적이지 않으므로 계속 진행
   }
