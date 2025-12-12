@@ -142,7 +142,7 @@ export async function getHospitalDashboardStats(
   const todayStart = getKoreaTodayStart();
   const todayEnd = getKoreaTodayEnd();
 
-  const [totalInventory, todayTreatmentsResult, totalPatientsResult, todayShipmentResult] =
+  const [totalInventory, todayTreatmentsResult, uniquePatientsResult, todayShipmentResult] =
     await Promise.all([
       // 총 재고량 (공통 함수 사용 - Single Source of Truth)
       getTotalInventoryCount(organizationId),
@@ -155,11 +155,8 @@ export async function getHospitalDashboardStats(
         .gte('treatment_date', todayStart)
         .lte('treatment_date', todayEnd),
 
-      // 전체 환자 수 (고유 전화번호)
-      supabase
-        .from('treatment_records')
-        .select('patient_phone')
-        .eq('hospital_id', organizationId),
+      // 전체 환자 수 (고유 전화번호) - DB 함수 사용으로 Supabase 1000 row limit 우회
+      supabase.rpc('count_unique_patients', { p_hospital_id: organizationId }),
 
       // 오늘 입고량 (출고받은 것)
       supabase
@@ -173,15 +170,12 @@ export async function getHospitalDashboardStats(
         .lte('shipment_batch.shipment_date', todayEnd),
     ]);
 
-  // 고유 환자 수 계산
-  const uniquePatients = new Set(totalPatientsResult.data?.map((r) => r.patient_phone) || []);
-
   return {
     success: true,
     data: {
       totalInventory,
       todayTreatments: todayTreatmentsResult.count || 0,
-      totalPatients: uniquePatients.size,
+      totalPatients: uniquePatientsResult.data || 0,
       todayShipments: todayShipmentResult.count || 0,
     },
   };
