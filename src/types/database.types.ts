@@ -519,32 +519,62 @@ export type Database = {
         Args: { p_hospital_id: string }
         Returns: number
       }
-      create_shipment_atomic: {
-        Args: {
-          p_items: Json
-          p_to_org_id: string
-          p_to_org_type: Database["public"]["Enums"]["organization_type"]
-        }
-        Returns: {
-          error_code: string
-          error_message: string
-          shipment_batch_id: string
-          total_quantity: number
-        }[]
-      }
-      create_treatment_atomic: {
-        Args: {
-          p_items: Json
-          p_patient_phone: string
-          p_treatment_date: string
-        }
-        Returns: {
-          error_code: string
-          error_message: string
-          total_quantity: number
-          treatment_id: string
-        }[]
-      }
+      create_shipment_atomic:
+        | {
+            Args: {
+              p_from_org_id: string
+              p_items: Json
+              p_to_org_id: string
+              p_to_org_type: Database["public"]["Enums"]["organization_type"]
+            }
+            Returns: {
+              error_code: string
+              error_message: string
+              shipment_batch_id: string
+              total_quantity: number
+            }[]
+          }
+        | {
+            Args: {
+              p_items: Json
+              p_to_org_id: string
+              p_to_org_type: Database["public"]["Enums"]["organization_type"]
+            }
+            Returns: {
+              error_code: string
+              error_message: string
+              shipment_batch_id: string
+              total_quantity: number
+            }[]
+          }
+      create_treatment_atomic:
+        | {
+            Args: {
+              p_hospital_id: string
+              p_items: Json
+              p_patient_phone: string
+              p_treatment_date: string
+            }
+            Returns: {
+              error_code: string
+              error_message: string
+              total_quantity: number
+              treatment_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_items: Json
+              p_patient_phone: string
+              p_treatment_date: string
+            }
+            Returns: {
+              error_code: string
+              error_message: string
+              total_quantity: number
+              treatment_id: string
+            }[]
+          }
       generate_lot_number: {
         Args: {
           p_manufacture_date?: string
@@ -554,6 +584,45 @@ export type Database = {
         Returns: string
       }
       generate_virtual_code: { Args: never; Returns: string }
+      get_admin_event_summary: {
+        Args: {
+          p_action_types?: string[]
+          p_end_date?: string
+          p_include_recalled?: boolean
+          p_limit?: number
+          p_lot_number?: string
+          p_offset?: number
+          p_organization_id?: string
+          p_product_id?: string
+          p_start_date?: string
+        }
+        Returns: {
+          action_type: string
+          event_time: string
+          from_owner_id: string
+          from_owner_type: string
+          group_key: string
+          is_recall: boolean
+          lot_summaries: Json
+          recall_reason: string
+          sample_code_ids: string[]
+          to_owner_id: string
+          to_owner_type: string
+          total_quantity: number
+        }[]
+      }
+      get_admin_event_summary_count: {
+        Args: {
+          p_action_types?: string[]
+          p_end_date?: string
+          p_include_recalled?: boolean
+          p_lot_number?: string
+          p_organization_id?: string
+          p_product_id?: string
+          p_start_date?: string
+        }
+        Returns: number
+      }
       get_history_summary: {
         Args: {
           p_action_types?: string[]
@@ -624,11 +693,52 @@ export type Database = {
         Args: { p_phone_number: string }
         Returns: string
       }
+      get_organization_code_counts: {
+        Args: { p_org_ids: string[] }
+        Returns: {
+          code_count: number
+          org_id: string
+        }[]
+      }
       get_organization_names: {
         Args: { p_org_ids: string[] }
         Returns: {
           org_id: string
           org_name: string
+        }[]
+      }
+      get_received_shipment_history: {
+        Args: { p_org_id: string; p_page?: number; p_page_size?: number }
+        Returns: {
+          batch_id: string
+          from_org_id: string
+          from_org_name: string
+          is_recalled: boolean
+          recall_reason: string
+          shipment_date: string
+          total_count: number
+        }[]
+      }
+      get_shipment_batch_summaries: {
+        Args: { p_batch_ids: string[] }
+        Returns: {
+          batch_id: string
+          lot_id: string
+          lot_number: string
+          product_id: string
+          product_name: string
+          quantity: number
+        }[]
+      }
+      get_treatment_summaries: {
+        Args: { p_treatment_ids: string[] }
+        Returns: {
+          lot_id: string
+          lot_number: string
+          product_id: string
+          product_name: string
+          quantity: number
+          treatment_id: string
         }[]
       }
       get_user_organization_id: { Args: never; Returns: string }
@@ -642,24 +752,52 @@ export type Database = {
         Returns: boolean
       }
       normalize_phone_number: { Args: { phone: string }; Returns: string }
-      recall_shipment_atomic: {
-        Args: { p_reason: string; p_shipment_batch_id: string }
-        Returns: {
-          error_code: string
-          error_message: string
-          recalled_count: number
-          success: boolean
-        }[]
-      }
-      recall_treatment_atomic: {
-        Args: { p_reason: string; p_treatment_id: string }
-        Returns: {
-          error_code: string
-          error_message: string
-          recalled_count: number
-          success: boolean
-        }[]
-      }
+      recall_shipment_atomic:
+        | {
+            Args: {
+              p_from_org_id: string
+              p_reason: string
+              p_shipment_batch_id: string
+            }
+            Returns: {
+              error_code: string
+              error_message: string
+              recalled_count: number
+              success: boolean
+            }[]
+          }
+        | {
+            Args: { p_reason: string; p_shipment_batch_id: string }
+            Returns: {
+              error_code: string
+              error_message: string
+              recalled_count: number
+              success: boolean
+            }[]
+          }
+      recall_treatment_atomic:
+        | {
+            Args: {
+              p_hospital_id: string
+              p_reason: string
+              p_treatment_id: string
+            }
+            Returns: {
+              error_code: string
+              error_message: string
+              recalled_count: number
+              success: boolean
+            }[]
+          }
+        | {
+            Args: { p_reason: string; p_treatment_id: string }
+            Returns: {
+              error_code: string
+              error_message: string
+              recalled_count: number
+              success: boolean
+            }[]
+          }
       select_fifo_codes: {
         Args: {
           p_lot_id?: string
