@@ -476,8 +476,9 @@ Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
 ---
 
 ### Phase 10.5: 성능 최적화 및 안정화 ✅ 완료
-**완료일**: 2025-12-12
+**완료일**: 2025-12-13
 
+#### 10.5.1 DB 쿼리 최적화 (2025-12-12)
 - [x] N+1 쿼리 제거 및 대량 데이터 처리 최적화
 - [x] DB 함수 벌크 처리 최적화 (atomic 함수들)
 - [x] 관리자 이벤트 요약 기능 (동시 작업 그룹핑)
@@ -485,15 +486,27 @@ Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
 - [x] 테스트 데이터 대규모 확장 (2,500+ 가상코드)
 - [x] 마이그레이션 파일 Supabase 표준 형식으로 변환
 
+#### 10.5.2 페이지 전환 지연시간 최소화 (2025-12-13)
+- [x] loading.tsx 파일 추가 (8개 페이지) - 즉시 체감 속도 개선
+- [x] 미들웨어 중복 조직 조회 제거 - 단일 쿼리로 통합
+- [x] React `cache()` 적용 - 레이아웃/페이지 간 중복 호출 방지
+- [x] `unstable_cache` 적용 - 제품/대상조직 목록 캐싱 (5~10분 TTL)
+
 **산출물**:
 - DB 함수 최적화: 89개 마이그레이션 파일
 - 관리자 이벤트 요약 DB 함수 및 인덱스
 - 서비스 레이어 쿼리 최적화
+- Skeleton UI 로딩 컴포넌트 8개
 
 **핵심 파일**:
 - `supabase/migrations/20251212100000_get_admin_event_summary.sql`
 - `supabase/migrations/20251212100001_get_admin_event_summary_count.sql`
 - `src/services/admin.service.ts` - 이벤트 요약 기능
+- `src/app/(dashboard)/*/loading.tsx` - 로딩 UI (8개)
+- `src/services/auth.service.ts` - getCachedCurrentUser
+- `src/services/product.service.ts` - getCachedActiveProducts
+- `src/services/shipment.service.ts` - getCachedShipmentTargetOrganizations
+- `middleware.ts` - 중복 조직 조회 제거
 
 ---
 
