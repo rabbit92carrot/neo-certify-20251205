@@ -120,6 +120,7 @@ const DEFAULT_PAGE_SIZE = 50;
 
 /**
  * 조직의 거래이력 조회 (DB 함수를 통한 서버 사이드 그룹화)
+ * 최적화: 이력 조회와 카운트 조회를 Promise.all로 병렬 실행 (Phase 13.2)
  *
  * @param organizationId 조직 ID
  * @param query 조회 옵션
@@ -140,20 +141,32 @@ export async function getTransactionHistory(
   } = query;
   const offset = (page - DEFAULT_PAGE) * pageSize;
 
-  // 1. DB 함수를 통해 그룹화된 이력 조회
+  // 공통 파라미터
+  const rpcParams = {
+    p_organization_id: organizationId,
+    p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : null,
+    p_start_date: startDate || null,
+    p_end_date: endDate || null,
+    p_is_recall: isRecall ?? null,
+  };
+
+  // 병렬로 이력 조회와 카운트 조회 실행 (Phase 13.2 최적화)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: historyData, error: historyError } = await (supabase.rpc as any)(
-    'get_history_summary',
-    {
-      p_organization_id: organizationId,
-      p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : null,
-      p_start_date: startDate || null,
-      p_end_date: endDate || null,
-      p_is_recall: isRecall ?? null,
+  const [historyResult, countResult] = await Promise.all([
+    // 1. DB 함수를 통해 그룹화된 이력 조회
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)('get_history_summary', {
+      ...rpcParams,
       p_limit: pageSize,
       p_offset: offset,
-    }
-  );
+    }),
+    // 2. 총 그룹 수 조회 (페이지네이션용)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)('get_history_summary_count', rpcParams),
+  ]);
+
+  const { data: historyData, error: historyError } = historyResult;
+  const { data: totalCount, error: countError } = countResult;
 
   if (historyError) {
     console.error('거래이력 조회 실패:', historyError.message || JSON.stringify(historyError));
@@ -165,19 +178,6 @@ export async function getTransactionHistory(
       },
     };
   }
-
-  // 2. 총 그룹 수 조회 (페이지네이션용)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: totalCount, error: countError } = await (supabase.rpc as any)(
-    'get_history_summary_count',
-    {
-      p_organization_id: organizationId,
-      p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : null,
-      p_start_date: startDate || null,
-      p_end_date: endDate || null,
-      p_is_recall: isRecall ?? null,
-    }
-  );
 
   if (countError) {
     console.error('거래이력 카운트 실패:', countError.message || JSON.stringify(countError));

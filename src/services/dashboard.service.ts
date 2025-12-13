@@ -409,3 +409,179 @@ export async function getAdminTotalVirtualCodes(): Promise<number> {
   const { count } = await supabase.from('virtual_codes').select('id', { count: 'exact', head: true });
   return count || 0;
 }
+
+// ============================================================================
+// 통합 대시보드 함수 (DB 함수 사용 - Phase 12 최적화)
+// 4개 쿼리를 1개 RPC 호출로 통합하여 DB 왕복 75% 감소
+// ============================================================================
+
+/**
+ * 제조사 대시보드 통계 통합 조회 (최적화)
+ * DB 함수로 4개 쿼리를 1회 왕복으로 처리
+ */
+export async function getManufacturerDashboardStatsOptimized(
+  organizationId: string
+): Promise<ApiResponse<ManufacturerDashboardStats>> {
+  const supabase = await createClient();
+
+  type StatsRow = {
+    total_inventory: number;
+    today_production: number;
+    today_shipments: number;
+    active_products: number;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_manufacturer', {
+    p_organization_id: organizationId,
+  });
+
+  if (error) {
+    console.error('제조사 대시보드 통계 조회 실패:', error);
+    // 폴백: 기존 함수 사용
+    return getManufacturerDashboardStats(organizationId);
+  }
+
+  const row = (data as StatsRow[])?.[0];
+
+  return {
+    success: true,
+    data: {
+      totalInventory: Number(row?.total_inventory) || 0,
+      todayProduction: Number(row?.today_production) || 0,
+      todayShipments: Number(row?.today_shipments) || 0,
+      activeProducts: Number(row?.active_products) || 0,
+    },
+  };
+}
+
+/**
+ * 유통사 대시보드 통계 통합 조회 (최적화)
+ * DB 함수로 4개 쿼리를 1회 왕복으로 처리
+ */
+export async function getDistributorDashboardStatsOptimized(
+  organizationId: string
+): Promise<ApiResponse<DistributorDashboardStats>> {
+  const supabase = await createClient();
+
+  type StatsRow = {
+    total_inventory: number;
+    today_received: number;
+    today_shipments: number;
+    unique_products: number;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_distributor', {
+    p_organization_id: organizationId,
+  });
+
+  if (error) {
+    console.error('유통사 대시보드 통계 조회 실패:', error);
+    // 폴백: 기존 함수 사용
+    return getDistributorDashboardStats(organizationId);
+  }
+
+  const row = (data as StatsRow[])?.[0];
+
+  return {
+    success: true,
+    data: {
+      totalInventory: Number(row?.total_inventory) || 0,
+      todayReceived: Number(row?.today_received) || 0,
+      todayShipments: Number(row?.today_shipments) || 0,
+    },
+  };
+}
+
+/**
+ * 병원 대시보드 통계 통합 조회 (최적화)
+ * DB 함수로 4개 쿼리를 1회 왕복으로 처리
+ */
+export async function getHospitalDashboardStatsOptimized(
+  organizationId: string
+): Promise<ApiResponse<HospitalDashboardStats>> {
+  const supabase = await createClient();
+
+  type StatsRow = {
+    total_inventory: number;
+    today_received: number;
+    today_treatments: number;
+    unique_patients: number;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_hospital', {
+    p_organization_id: organizationId,
+  });
+
+  if (error) {
+    console.error('병원 대시보드 통계 조회 실패:', error);
+    // 폴백: 기존 함수 사용
+    return getHospitalDashboardStats(organizationId);
+  }
+
+  const row = (data as StatsRow[])?.[0];
+
+  return {
+    success: true,
+    data: {
+      totalInventory: Number(row?.total_inventory) || 0,
+      todayTreatments: Number(row?.today_treatments) || 0,
+      totalPatients: Number(row?.unique_patients) || 0,
+      todayShipments: Number(row?.today_received) || 0,
+    },
+  };
+}
+
+/**
+ * Admin 대시보드 통계 통합 조회 (최적화)
+ * DB 함수로 4개 쿼리를 1회 왕복으로 처리
+ */
+export async function getAdminDashboardStatsOptimized(): Promise<
+  ApiResponse<AdminDashboardStats>
+> {
+  const supabase = await createClient();
+
+  type StatsRow = {
+    total_organizations: number;
+    pending_approvals: number;
+    today_recalls: number;
+    total_virtual_codes: number;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_admin');
+
+  if (error) {
+    console.error('Admin 대시보드 통계 조회 실패:', error);
+    // 폴백: 개별 쿼리 사용
+    const [totalOrgs, pending, recalls, codes] = await Promise.all([
+      getAdminTotalOrganizations(),
+      getAdminPendingApprovals(),
+      getAdminTodayRecalls(),
+      getAdminTotalVirtualCodes(),
+    ]);
+    return {
+      success: true,
+      data: {
+        totalOrganizations: totalOrgs,
+        pendingApprovals: pending,
+        todayRecalls: recalls,
+        totalVirtualCodes: codes,
+      },
+    };
+  }
+
+  const row = (data as StatsRow[])?.[0];
+
+  return {
+    success: true,
+    data: {
+      totalOrganizations: Number(row?.total_organizations) || 0,
+      pendingApprovals: Number(row?.pending_approvals) || 0,
+      todayRecalls: Number(row?.today_recalls) || 0,
+      totalVirtualCodes: Number(row?.total_virtual_codes) || 0,
+    },
+  };
+}
