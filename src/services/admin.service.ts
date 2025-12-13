@@ -49,6 +49,69 @@ const DEFAULT_PAGE_SIZE = 20;
 // ============================================================================
 
 /**
+ * 조직 상태별 통계 조회 (관리자 전용)
+ * 활성, 비활성, 승인 대기, 삭제된 조직 수 반환
+ */
+export async function getOrganizationStatusCounts(): Promise<
+  ApiResponse<{
+    total: number;
+    active: number;
+    inactive: number;
+    pendingApproval: number;
+    deleted: number;
+  }>
+> {
+  const supabase = await createClient();
+
+  // 관리자 제외한 모든 조직의 상태별 카운트
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('status')
+    .neq('type', 'ADMIN');
+
+  if (error) {
+    console.error('조직 상태 통계 조회 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: error.message,
+      },
+    };
+  }
+
+  const counts = {
+    total: data?.length || 0,
+    active: 0,
+    inactive: 0,
+    pendingApproval: 0,
+    deleted: 0,
+  };
+
+  for (const org of data || []) {
+    switch (org.status) {
+      case 'ACTIVE':
+        counts.active++;
+        break;
+      case 'INACTIVE':
+        counts.inactive++;
+        break;
+      case 'PENDING_APPROVAL':
+        counts.pendingApproval++;
+        break;
+      case 'DELETED':
+        counts.deleted++;
+        break;
+    }
+  }
+
+  return {
+    success: true,
+    data: counts,
+  };
+}
+
+/**
  * 전체 조직 목록 조회 (관리자 전용)
  *
  * @param query 조회 옵션 (페이지네이션, 필터)

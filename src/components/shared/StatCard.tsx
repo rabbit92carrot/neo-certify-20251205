@@ -23,6 +23,8 @@ interface StatCardProps {
   isLoading?: boolean;
   /** 추가 클래스 */
   className?: string;
+  /** 클릭 핸들러 */
+  onClick?: () => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export function StatCard({
   trend,
   isLoading = false,
   className,
+  onClick,
 }: StatCardProps): React.ReactElement {
   if (isLoading) {
     return (
@@ -53,7 +56,7 @@ export function StatCard({
   }
 
   return (
-    <Card className={cn('', className)}>
+    <Card className={cn('', className)} onClick={onClick}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
         {Icon && (

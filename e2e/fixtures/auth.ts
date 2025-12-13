@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+// Note: ESLint가 Playwright의 use()를 React Hook으로 잘못 인식함
 import { test as base, Page } from '@playwright/test';
 import path from 'path';
 
