@@ -4,6 +4,9 @@
  *
  * 모든 재고 조회는 getTotalInventoryCount()를 통해 수행하여
  * 단일 진실 원천(Single Source of Truth) 패턴을 적용합니다.
+ *
+ * 개별 통계 함수: Suspense 스트리밍을 위한 단일 통계 조회
+ * - getManufacturerTotalInventory, getManufacturerTodayProduction, etc.
  */
 
 import { createClient } from '@/lib/supabase/server';
@@ -223,4 +226,186 @@ export async function getAdminDashboardStats(): Promise<ApiResponse<AdminDashboa
       totalVirtualCodes: totalCodesResult.count || 0,
     },
   };
+}
+
+// ============================================================================
+// 개별 통계 함수 (Suspense 스트리밍용)
+// ============================================================================
+
+/**
+ * 제조사 총 재고량 조회
+ */
+export async function getManufacturerTotalInventory(organizationId: string): Promise<number> {
+  return getTotalInventoryCount(organizationId);
+}
+
+/**
+ * 제조사 오늘 생산량 조회
+ */
+export async function getManufacturerTodayProduction(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
+
+  const { data } = await supabase
+    .from('lots')
+    .select('quantity, product:products!inner(organization_id)')
+    .eq('product.organization_id', organizationId)
+    .gte('created_at', todayStart)
+    .lte('created_at', todayEnd);
+
+  return data?.reduce((sum, lot) => sum + lot.quantity, 0) || 0;
+}
+
+/**
+ * 제조사 오늘 출고량 조회
+ */
+export async function getManufacturerTodayShipments(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
+
+  const { count } = await supabase
+    .from('shipment_details')
+    .select('id, shipment_batch:shipment_batches!inner(from_organization_id, shipment_date)', {
+      count: 'exact',
+      head: true,
+    })
+    .eq('shipment_batch.from_organization_id', organizationId)
+    .gte('shipment_batch.shipment_date', todayStart)
+    .lte('shipment_batch.shipment_date', todayEnd);
+
+  return count || 0;
+}
+
+/**
+ * 제조사 활성 제품 수 조회
+ */
+export async function getManufacturerActiveProducts(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+
+  const { count } = await supabase
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
+    .eq('is_active', true);
+
+  return count || 0;
+}
+
+/**
+ * 유통사 오늘 입고량 조회
+ */
+export async function getDistributorTodayReceived(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
+
+  const { count } = await supabase
+    .from('shipment_details')
+    .select('id, shipment_batch:shipment_batches!inner(to_organization_id, shipment_date)', {
+      count: 'exact',
+      head: true,
+    })
+    .eq('shipment_batch.to_organization_id', organizationId)
+    .gte('shipment_batch.shipment_date', todayStart)
+    .lte('shipment_batch.shipment_date', todayEnd);
+
+  return count || 0;
+}
+
+/**
+ * 유통사 오늘 출고량 조회
+ */
+export async function getDistributorTodayShipments(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
+
+  const { count } = await supabase
+    .from('shipment_details')
+    .select('id, shipment_batch:shipment_batches!inner(from_organization_id, shipment_date)', {
+      count: 'exact',
+      head: true,
+    })
+    .eq('shipment_batch.from_organization_id', organizationId)
+    .gte('shipment_batch.shipment_date', todayStart)
+    .lte('shipment_batch.shipment_date', todayEnd);
+
+  return count || 0;
+}
+
+/**
+ * 병원 오늘 시술 건수 조회
+ */
+export async function getHospitalTodayTreatments(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
+
+  const { count } = await supabase
+    .from('treatment_records')
+    .select('id', { count: 'exact', head: true })
+    .eq('hospital_id', organizationId)
+    .gte('treatment_date', todayStart)
+    .lte('treatment_date', todayEnd);
+
+  return count || 0;
+}
+
+/**
+ * 병원 총 환자 수 조회
+ */
+export async function getHospitalTotalPatients(organizationId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('count_unique_patients', { p_hospital_id: organizationId });
+  return data || 0;
+}
+
+/**
+ * 관리자 총 조직 수 조회
+ */
+export async function getAdminTotalOrganizations(): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase.from('organizations').select('id', { count: 'exact', head: true });
+  return count || 0;
+}
+
+/**
+ * 관리자 승인 대기 수 조회
+ */
+export async function getAdminPendingApprovals(): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from('organizations')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'PENDING_APPROVAL');
+  return count || 0;
+}
+
+/**
+ * 관리자 오늘 회수 건수 조회
+ */
+export async function getAdminTodayRecalls(): Promise<number> {
+  const supabase = await createClient();
+  const todayStart = getKoreaTodayStart();
+  const todayEnd = getKoreaTodayEnd();
+
+  const { count } = await supabase
+    .from('shipment_batches')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_recalled', true)
+    .gte('recall_date', todayStart)
+    .lte('recall_date', todayEnd);
+
+  return count || 0;
+}
+
+/**
+ * 관리자 총 가상 코드 수 조회
+ */
+export async function getAdminTotalVirtualCodes(): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase.from('virtual_codes').select('id', { count: 'exact', head: true });
+  return count || 0;
 }
