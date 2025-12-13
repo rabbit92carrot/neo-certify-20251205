@@ -171,6 +171,25 @@ export async function deleteOrganizationAction(
 // ============================================================================
 
 /**
+ * 조직 상태별 통계 조회 Action
+ * 활성, 비활성, 승인 대기, 삭제된 조직 수 반환
+ */
+export async function getOrganizationStatusCountsAction() {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getOrganizationStatusCounts();
+}
+
+/**
  * 조직 목록 조회 Action (필터링 포함)
  */
 export async function getOrganizationsAction(query: {
