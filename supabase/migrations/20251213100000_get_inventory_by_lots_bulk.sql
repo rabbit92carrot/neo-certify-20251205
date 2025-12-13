@@ -27,8 +27,9 @@ AS $$
   INNER JOIN virtual_codes vc ON vc.lot_id = l.id
   WHERE
     l.product_id = ANY(p_product_ids)
-    AND vc.owner_id = p_owner_id
-    AND vc.status = 'ACTIVE'
+    AND vc.owner_id = p_owner_id::TEXT
+    AND vc.owner_type = 'ORGANIZATION'
+    AND vc.status = 'IN_STOCK'
   GROUP BY l.id, l.product_id, l.lot_number, l.manufacture_date, l.expiry_date
   HAVING COUNT(vc.id) > 0
   ORDER BY l.manufacture_date ASC, l.lot_number ASC;
