@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: '네오인증서',
-  description: 'PDO threads 정품 인증 시스템',
+  description: 'JAMBER 정품 인증 시스템',
 };
 
 export default function RootLayout({

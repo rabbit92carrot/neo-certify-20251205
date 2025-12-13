@@ -43,7 +43,7 @@ export default async function AuthLayout({
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900">네오인증서</h1>
-          <p className="mt-2 text-sm text-gray-600">PDO threads 정품 인증 시스템</p>
+          <p className="mt-2 text-sm text-gray-600">JAMBER 정품 인증 시스템</p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">{children}</div>
       </div>
