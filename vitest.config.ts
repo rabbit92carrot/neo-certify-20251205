@@ -2,6 +2,11 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+// 테스트 실행 전에 .env.local 환경 변수를 먼저 로드
+// override: true - 이미 설정된 환경 변수도 덮어씀
+import { config } from 'dotenv';
+config({ path: '.env.local', override: true });
+
 export default defineConfig({
   plugins: [react()],
   test: {

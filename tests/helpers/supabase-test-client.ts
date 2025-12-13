@@ -1,21 +1,33 @@
 /**
  * 테스트용 Supabase 클라이언트
- * 실제 로컬 Supabase 인스턴스에 연결합니다.
+ * 환경 변수에서 Supabase 인스턴스에 연결합니다.
+ * (.env.local의 Cloud 또는 로컬 Supabase)
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database.types';
 
-// 환경 변수 (로컬 Supabase)
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:55001';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+/**
+ * 환경 변수를 지연 평가로 가져옵니다.
+ * 모듈 로드 시점이 아닌 함수 호출 시점에 환경 변수를 읽습니다.
+ */
+function getSupabaseUrl(): string {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:55001';
+}
+
+function getSupabaseAnonKey(): string {
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+}
+
+function getSupabaseServiceRoleKey(): string {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+}
 
 /**
  * 테스트용 일반 클라이언트 (anon key)
  * RLS 정책이 적용됩니다.
  */
 export function createTestClient(): SupabaseClient<Database> {
-  return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createClient<Database>(getSupabaseUrl(), getSupabaseAnonKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -29,7 +41,7 @@ export function createTestClient(): SupabaseClient<Database> {
  * 테스트 데이터 생성/정리에 사용합니다.
  */
 export function createTestAdminClient(): SupabaseClient<Database> {
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient<Database>(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -73,10 +85,13 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 }
 
 /**
- * 테스트 환경 정보
+ * 테스트 환경 정보를 반환합니다.
+ * 환경 변수가 로드된 후 호출해야 합니다.
  */
-export const testEnv = {
-  supabaseUrl: SUPABASE_URL,
-  hasAnonKey: !!SUPABASE_ANON_KEY,
-  hasServiceRoleKey: !!SUPABASE_SERVICE_ROLE_KEY,
-};
+export function getTestEnv() {
+  return {
+    supabaseUrl: getSupabaseUrl(),
+    hasAnonKey: !!getSupabaseAnonKey(),
+    hasServiceRoleKey: !!getSupabaseServiceRoleKey(),
+  };
+}

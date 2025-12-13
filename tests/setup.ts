@@ -5,7 +5,8 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 
 // 환경 변수 로드 (.env.local)
-config({ path: resolve(process.cwd(), '.env.local') });
+// override: true - 이미 설정된 환경 변수도 .env.local의 값으로 덮어씀
+config({ path: resolve(process.cwd(), '.env.local'), override: true });
 
 // React 컴포넌트 테스트 후 자동 정리
 afterEach(() => {
