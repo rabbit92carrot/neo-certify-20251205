@@ -590,3 +590,53 @@ export async function checkTreatmentRecallAllowed(
 
   return { success: true, data: { allowed: true } };
 }
+
+// ============================================================================
+// 병원 환자 검색
+// ============================================================================
+
+/**
+ * 병원의 기존 환자 전화번호 검색
+ * 시술 이력이 있는 환자만 반환합니다.
+ *
+ * @param hospitalId 병원 ID
+ * @param searchTerm 검색어 (전화번호 일부)
+ * @param limit 결과 제한 (기본 10개)
+ * @returns 환자 전화번호 목록
+ */
+export async function getHospitalPatients(
+  hospitalId: string,
+  searchTerm?: string,
+  limit: number = 10
+): Promise<ApiResponse<string[]>> {
+  const supabase = await createClient();
+
+  // 검색어 정규화 (숫자만 추출)
+  const normalizedSearch = searchTerm ? normalizePhoneNumber(searchTerm) : null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('get_hospital_patients', {
+    p_hospital_id: hospitalId,
+    p_search_term: normalizedSearch,
+    p_limit: limit,
+  });
+
+  if (error) {
+    console.error('병원 환자 검색 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: error.message,
+      },
+    };
+  }
+
+  // 결과에서 전화번호만 추출
+  const phoneNumbers = (data as { phone_number: string }[]).map((row) => row.phone_number);
+
+  return {
+    success: true,
+    data: phoneNumbers,
+  };
+}

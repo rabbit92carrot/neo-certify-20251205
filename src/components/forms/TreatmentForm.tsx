@@ -5,9 +5,9 @@
  * 병원에서 시술한 제품을 선택하고 환자 정보를 입력하여 시술을 등록합니다.
  */
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Package, Stethoscope, Phone, Calendar } from 'lucide-react';
+import { Package, Stethoscope, Phone, Calendar, Loader2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,8 +15,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProductCard } from '@/components/shared/ProductCard';
 import { CartDisplay } from '@/components/shared/CartDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useCart } from '@/hooks/useCart';
-import { formatPhoneNumber } from '@/lib/validations/common';
+import { formatPhoneNumber, normalizePhoneNumber } from '@/lib/validations/common';
+import { searchHospitalPatientsAction } from '@/app/(dashboard)/hospital/actions';
 import type { Product } from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
 
@@ -51,6 +60,13 @@ export function TreatmentForm({
     return today ?? '';
   });
 
+  // 환자 검색 관련 상태
+  const [phoneInputValue, setPhoneInputValue] = useState<string>('');
+  const [patientSuggestions, setPatientSuggestions] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
   const {
     items,
     addItem,
@@ -68,13 +84,67 @@ export function TreatmentForm({
     return product.availableQuantity - cartQuantity;
   };
 
-  // 전화번호 입력 핸들러 (자동 포맷팅)
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '');
-    if (value.length <= 11) {
-      setPatientPhone(formatPhoneNumber(value));
+  // 환자 검색 핸들러 (debounce 300ms)
+  const handlePatientSearch = useCallback((value: string) => {
+    // 기존 타이머 취소
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
-  };
+
+    const normalized = normalizePhoneNumber(value);
+
+    // 3자리 미만이면 검색하지 않음
+    if (normalized.length < 3) {
+      setPatientSuggestions([]);
+      return;
+    }
+
+    // 300ms 후 검색 실행
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      const result = await searchHospitalPatientsAction(normalized);
+      if (result.success && result.data) {
+        setPatientSuggestions(result.data);
+      } else {
+        setPatientSuggestions([]);
+      }
+      setIsSearching(false);
+    }, 300);
+  }, []);
+
+  // 환자 선택 핸들러
+  const handlePatientSelect = useCallback((phone: string) => {
+    const formatted = formatPhoneNumber(phone);
+    setPatientPhone(formatted);
+    setPhoneInputValue(formatted);
+    setIsPopoverOpen(false);
+    setPatientSuggestions([]);
+  }, []);
+
+  // 전화번호 입력 핸들러 (자동 포맷팅 + 검색)
+  const handlePhoneInputChange = useCallback((value: string) => {
+    const digitsOnly = value.replace(/[^0-9]/g, '');
+    if (digitsOnly.length <= 11) {
+      const formatted = formatPhoneNumber(digitsOnly);
+      setPhoneInputValue(formatted);
+      setPatientPhone(formatted);
+      handlePatientSearch(digitsOnly);
+
+      // 입력값이 있으면 팝오버 열기
+      if (digitsOnly.length >= 3) {
+        setIsPopoverOpen(true);
+      }
+    }
+  }, [handlePatientSearch]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   const handleAddToCart = () => {
     if (!selectedProduct) {
@@ -134,6 +204,8 @@ export function TreatmentForm({
         toast.success(`${totalItems}개 제품 시술이 등록되었습니다.`);
         clearCart();
         setPatientPhone('');
+        setPhoneInputValue('');
+        setPatientSuggestions([]);
         setSelectedProduct(null);
         const today = new Date().toISOString().split('T')[0];
         setTreatmentDate(today ?? '');
@@ -164,15 +236,69 @@ export function TreatmentForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="patientPhone">전화번호</Label>
-                <Input
-                  id="patientPhone"
-                  type="tel"
-                  placeholder="010-0000-0000"
-                  value={patientPhone}
-                  onChange={handlePhoneChange}
-                />
+                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="patientPhone"
+                        type="tel"
+                        placeholder="010-0000-0000"
+                        value={phoneInputValue}
+                        onChange={(e) => handlePhoneInputChange(e.target.value)}
+                        onFocus={() => {
+                          if (normalizePhoneNumber(phoneInputValue).length >= 3) {
+                            setIsPopoverOpen(true);
+                          }
+                        }}
+                        className="pl-9"
+                      />
+                      {isSearching && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[--radix-popover-trigger-width] p-0"
+                    align="start"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <Command shouldFilter={false}>
+                      <CommandList>
+                        {patientSuggestions.length === 0 && !isSearching && (
+                          <CommandEmpty className="py-3 text-sm text-muted-foreground">
+                            {normalizePhoneNumber(phoneInputValue).length >= 3
+                              ? '기존 환자가 없습니다. 새 환자로 등록됩니다.'
+                              : '3자리 이상 입력하세요'}
+                          </CommandEmpty>
+                        )}
+                        {isSearching && (
+                          <div className="flex items-center justify-center py-3 gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            검색 중...
+                          </div>
+                        )}
+                        {patientSuggestions.length > 0 && (
+                          <CommandGroup heading="기존 환자">
+                            {patientSuggestions.map((phone) => (
+                              <CommandItem
+                                key={phone}
+                                value={phone}
+                                onSelect={() => handlePatientSelect(phone)}
+                                className="cursor-pointer"
+                              >
+                                <User className="h-4 w-4 mr-2" />
+                                {formatPhoneNumber(phone)}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <p className="text-xs text-muted-foreground">
-                  환자에게 정품 인증 알림이 발송됩니다.
+                  기존 환자를 검색하거나 새 전화번호를 입력하세요.
                 </p>
               </div>
               <div className="space-y-2">
