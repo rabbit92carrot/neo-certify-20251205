@@ -34,7 +34,7 @@ export default async function DistributorDashboardPage(): Promise<React.ReactEle
           <CardTitle>환영합니다, {user.organization.name}님</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-600">PDO threads 정품 인증 시스템에 로그인되었습니다.</p>
+          <p className="text-gray-600">JAMBER 정품 인증 시스템에 로그인되었습니다.</p>
           <div className="mt-4 space-y-2 text-sm text-gray-500">
             <p>이메일: {user.organization.email}</p>
             <p>사업자번호: {user.organization.business_number}</p>

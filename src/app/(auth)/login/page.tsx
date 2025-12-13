@@ -3,7 +3,7 @@ import { LoginForm } from '@/components/forms/LoginForm';
 
 export const metadata = {
   title: '로그인 | 네오인증서',
-  description: 'PDO threads 정품 인증 시스템 로그인',
+  description: 'JAMBER 정품 인증 시스템 로그인',
 };
 
 /**

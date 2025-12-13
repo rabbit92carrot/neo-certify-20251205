@@ -80,7 +80,7 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
           <CardTitle>환영합니다, {org?.name}님</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-600">PDO threads 정품 인증 시스템 관리자 페이지입니다.</p>
+          <p className="text-gray-600">JAMBER 정품 인증 시스템 관리자 페이지입니다.</p>
           <div className="mt-4 space-y-2 text-sm text-gray-500">
             <p>이메일: {org?.email}</p>
           </div>

@@ -2,7 +2,7 @@ import { RegisterForm } from '@/components/forms/RegisterForm';
 
 export const metadata = {
   title: '회원가입 | 네오인증서',
-  description: 'PDO threads 정품 인증 시스템 회원가입',
+  description: 'JAMBER 정품 인증 시스템 회원가입',
 };
 
 /**

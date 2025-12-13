@@ -9,7 +9,7 @@ export default function Home(): React.ReactElement {
         <Card className="w-full">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">네오인증서</CardTitle>
-            <CardDescription>PDO threads 정품 인증 시스템</CardDescription>
+            <CardDescription>JAMBER 정품 인증 시스템</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Button asChild className="w-full">
