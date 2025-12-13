@@ -249,6 +249,7 @@ export async function getPendingOrganizationsAction(query: {
 
 /**
  * 회수 이력 조회 Action
+ * Phase 17: 최적화된 DB 함수 사용 (정렬/페이지네이션을 DB에서 처리)
  */
 export async function getRecallHistoryAction(query: {
   page?: number;
@@ -268,7 +269,8 @@ export async function getRecallHistoryAction(query: {
     };
   }
 
-  return adminService.getRecallHistory({
+  // Phase 17: 최적화된 함수 사용 (DB에서 정렬/페이지네이션)
+  return adminService.getRecallHistoryOptimized({
     page: query.page ?? 1,
     pageSize: query.pageSize ?? 20,
     type: query.type ?? 'all',
