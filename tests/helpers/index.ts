@@ -8,7 +8,7 @@ export {
   createTestAdminClient,
   createAuthenticatedTestClient,
   checkSupabaseConnection,
-  testEnv,
+  getTestEnv,
 } from './supabase-test-client';
 
 // 테스트 데이터 팩토리
