@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getActiveProducts } from '@/services/product.service';
 import { PageHeader } from '@/components/shared';
 import { LotForm } from '@/components/forms/LotForm';
@@ -16,7 +16,7 @@ export const metadata = {
  * 생산 등록 페이지
  */
 export default async function ProductionPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'MANUFACTURER') {
     redirect('/login');

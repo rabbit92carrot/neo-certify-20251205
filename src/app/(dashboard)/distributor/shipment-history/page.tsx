@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getShipmentHistory } from '@/services/shipment.service';
 import { PageHeader } from '@/components/shared';
 import { ShipmentHistoryTable } from '@/components/tables/ShipmentHistoryTable';
@@ -14,7 +14,7 @@ export const metadata = {
  * 유통사 출고 이력 페이지
  */
 export default async function DistributorShipmentHistoryPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'DISTRIBUTOR') {
     redirect('/login');

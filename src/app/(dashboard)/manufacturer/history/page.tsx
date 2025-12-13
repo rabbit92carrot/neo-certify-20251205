@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getManufacturerHistory } from '@/services/history.service';
 import { PageHeader } from '@/components/shared';
 import { TransactionHistoryTable } from '@/components/tables/TransactionHistoryTable';
@@ -13,7 +13,7 @@ export const metadata = {
  * 제조사 거래이력 페이지
  */
 export default async function ManufacturerHistoryPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'MANUFACTURER') {
     redirect('/login');

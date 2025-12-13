@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getProducts } from '@/services/product.service';
 import { PageHeader } from '@/components/shared';
 import { ProductsTable } from '@/components/tables/ProductsTable';
@@ -14,7 +14,7 @@ export const metadata = {
  * 제품 관리 페이지
  */
 export default async function ProductsPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'MANUFACTURER') {
     redirect('/login');

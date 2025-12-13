@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getManufacturerSettings } from '@/services/manufacturer-settings.service';
 import { PageHeader } from '@/components/shared';
 import { ManufacturerSettingsForm } from '@/components/forms/ManufacturerSettingsForm';
@@ -14,7 +14,7 @@ export const metadata = {
  * 제조사 환경 설정 페이지
  */
 export default async function SettingsPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'MANUFACTURER') {
     redirect('/login');

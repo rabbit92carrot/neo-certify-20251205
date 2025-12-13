@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getTreatmentHistory } from '@/services/treatment.service';
 import { PageHeader } from '@/components/shared';
 import { TreatmentHistoryTable } from '@/components/tables/TreatmentHistoryTable';
@@ -14,7 +14,7 @@ export const metadata = {
  * 병원 시술 이력 페이지
  */
 export default async function HospitalTreatmentHistoryPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'HOSPITAL') {
     redirect('/login');
