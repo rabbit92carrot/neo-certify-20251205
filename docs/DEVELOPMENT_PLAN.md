@@ -492,20 +492,33 @@ Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
 - [x] React `cache()` 적용 - 레이아웃/페이지 간 중복 호출 방지
 - [x] `unstable_cache` 적용 - 제품/대상조직 목록 캐싱 (5~10분 TTL)
 
+#### 10.5.3 Suspense 스트리밍 및 N+1 쿼리 최적화 (2025-12-13)
+- [x] AsyncStatCard 컴포넌트 추가 - 독립적 비동기 통계 로딩
+- [x] 대시보드 Suspense 스트리밍 적용 (제조사/유통사/병원)
+- [x] 개별 통계 함수 추가 (dashboard.service.ts)
+- [x] getProductsWithLotsForShipment 함수 - N+1 쿼리 방지
+- [x] get_inventory_by_lots_bulk DB 함수 생성
+- [x] 출고 페이지 병렬 데이터 조회로 최적화
+
 **산출물**:
-- DB 함수 최적화: 89개 마이그레이션 파일
+- DB 함수 최적화: 90개 마이그레이션 파일
 - 관리자 이벤트 요약 DB 함수 및 인덱스
 - 서비스 레이어 쿼리 최적화
 - Skeleton UI 로딩 컴포넌트 8개
+- AsyncStatCard 컴포넌트
 
 **핵심 파일**:
 - `supabase/migrations/20251212100000_get_admin_event_summary.sql`
 - `supabase/migrations/20251212100001_get_admin_event_summary_count.sql`
+- `supabase/migrations/20251213100000_get_inventory_by_lots_bulk.sql`
 - `src/services/admin.service.ts` - 이벤트 요약 기능
 - `src/app/(dashboard)/*/loading.tsx` - 로딩 UI (8개)
 - `src/services/auth.service.ts` - getCachedCurrentUser
 - `src/services/product.service.ts` - getCachedActiveProducts
 - `src/services/shipment.service.ts` - getCachedShipmentTargetOrganizations
+- `src/services/dashboard.service.ts` - 개별 통계 함수들
+- `src/services/inventory.service.ts` - getProductsWithLotsForShipment
+- `src/components/shared/AsyncStatCard.tsx` - 비동기 통계 카드
 - `middleware.ts` - 중복 조직 조회 제거
 
 ---
