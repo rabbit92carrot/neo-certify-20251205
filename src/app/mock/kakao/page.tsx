@@ -2,6 +2,9 @@ import { getNotificationMessages, getNotificationStats } from '@/services/notifi
 import { KakaoMessageList } from '@/components/mock/KakaoMessageList';
 import { loadMoreMessages } from './actions';
 
+// 이 페이지는 cookies()를 사용하는 서비스를 호출하므로 동적 렌더링 필요
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: '카카오 알림톡 Mock | 네오인증서',
   description: '환자에게 발송되는 알림톡 메시지 미리보기',
