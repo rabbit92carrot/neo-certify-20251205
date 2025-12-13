@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getInventorySummary, getProductInventoryDetail } from '@/services/inventory.service';
 import { PageHeader } from '@/components/shared';
 import { InventoryTable } from '@/components/tables/InventoryTable';
@@ -13,7 +13,7 @@ export const metadata = {
  * 제조사 재고 조회 페이지
  */
 export default async function ManufacturerInventoryPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'MANUFACTURER') {
     redirect('/login');
