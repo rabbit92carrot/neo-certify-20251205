@@ -15,11 +15,10 @@ import { LOGIN_PATH } from '@/constants/routes';
  */
 export async function POST(request: NextRequest) {
   // 프록시/로드밸런서 환경에서 올바른 origin 결정
+  const forwardedHost = request.headers.get('x-forwarded-host');
   const origin =
     process.env.NEXT_PUBLIC_APP_URL ||
-    request.headers.get('x-forwarded-host')
-      ? `https://${request.headers.get('x-forwarded-host')}`
-      : request.url;
+    (forwardedHost ? `https://${forwardedHost}` : new URL(request.url).origin);
 
   const response = NextResponse.redirect(new URL(LOGIN_PATH, origin), {
     status: 302,
