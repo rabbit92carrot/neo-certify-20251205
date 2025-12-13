@@ -55,3 +55,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 supabase/migrations_backup/
+supabase/seed.sql
