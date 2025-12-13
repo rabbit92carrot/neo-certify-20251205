@@ -14,7 +14,14 @@ import { LOGIN_PATH } from '@/constants/routes';
  * HTML form의 action으로 직접 호출 가능 (JavaScript hydration 불필요)
  */
 export async function POST(request: NextRequest) {
-  const response = NextResponse.redirect(new URL(LOGIN_PATH, request.url), {
+  // 프록시/로드밸런서 환경에서 올바른 origin 결정
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    request.headers.get('x-forwarded-host')
+      ? `https://${request.headers.get('x-forwarded-host')}`
+      : request.url;
+
+  const response = NextResponse.redirect(new URL(LOGIN_PATH, origin), {
     status: 302,
   });
 
