@@ -11,6 +11,7 @@
 
 import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   ApiResponse,
   PaginatedResponse,
@@ -92,9 +93,59 @@ export async function getShipmentTargetOrganizations(
 }
 
 /**
+ * 출고 대상 조직 목록 조회 (Admin 클라이언트 사용)
+ * unstable_cache 내에서 호출되므로 cookies()를 사용하지 않는 Admin 클라이언트 필요
+ */
+async function getShipmentTargetOrganizationsWithAdmin(
+  organizationType: OrganizationType,
+  excludeOrganizationId?: string
+): Promise<ApiResponse<Pick<Organization, 'id' | 'name' | 'type'>[]>> {
+  const supabase = createAdminClient();
+
+  // 출고 가능 대상 유형 결정
+  let targetTypes: OrganizationType[] = [];
+
+  if (organizationType === 'MANUFACTURER') {
+    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
+  } else if (organizationType === 'DISTRIBUTOR') {
+    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
+  } else {
+    return { success: true, data: [] };
+  }
+
+  let query = supabase
+    .from('organizations')
+    .select('id, name, type')
+    .in('type', targetTypes)
+    .eq('status', 'ACTIVE');
+
+  if (excludeOrganizationId) {
+    query = query.neq('id', excludeOrganizationId);
+  }
+
+  const { data, error } = await query.order('name');
+
+  if (error) {
+    console.error('출고 대상 조직 조회 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: '출고 대상 조직 조회에 실패했습니다.',
+      },
+    };
+  }
+
+  return { success: true, data: data || [] };
+}
+
+/**
  * 캐싱된 출고 대상 조직 목록 조회
  * unstable_cache를 사용하여 10분간 캐싱
  * 조직 승인/비활성화 시 revalidateTag('organizations')로 무효화
+ *
+ * 주의: unstable_cache 내에서 cookies()를 사용할 수 없으므로
+ * Admin 클라이언트를 사용하는 내부 함수 호출
  *
  * @param organizationType 현재 조직 유형
  * @param excludeOrganizationId 제외할 조직 ID (자기 자신)
@@ -106,7 +157,7 @@ export const getCachedShipmentTargetOrganizations = (
 ) =>
   unstable_cache(
     async () => {
-      return getShipmentTargetOrganizations(organizationType, excludeOrganizationId);
+      return getShipmentTargetOrganizationsWithAdmin(organizationType, excludeOrganizationId);
     },
     [`target-orgs-${organizationType}-${excludeOrganizationId ?? 'all'}`],
     {

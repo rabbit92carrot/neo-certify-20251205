@@ -53,6 +53,7 @@ export async function getInventorySummary(
 
 /**
  * 특정 제품의 Lot별 재고 상세 조회
+ * 최적화: 제품 조회와 Lot 조회를 Promise.all로 병렬 실행
  *
  * @param organizationId 조직 ID
  * @param productId 제품 ID
@@ -64,12 +65,19 @@ export async function getProductInventoryDetail(
 ): Promise<ApiResponse<ProductInventoryDetail>> {
   const supabase = await createClient();
 
-  // 제품 정보 조회
-  const { data: product, error: productError } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', productId)
-    .single();
+  // 병렬로 제품 정보와 Lot별 재고 조회 (Phase 13.1 최적화)
+  const [productResult, lotResult] = await Promise.all([
+    // 제품 정보 조회
+    supabase.from('products').select('*').eq('id', productId).single(),
+    // DB 함수를 사용하여 Lot별 재고 조회
+    supabase.rpc('get_inventory_by_lot', {
+      p_owner_id: organizationId,
+      p_product_id: productId,
+    }),
+  ]);
+
+  const { data: product, error: productError } = productResult;
+  const { data: lotData, error: lotError } = lotResult;
 
   if (productError || !product) {
     return {
@@ -80,12 +88,6 @@ export async function getProductInventoryDetail(
       },
     };
   }
-
-  // DB 함수를 사용하여 Lot별 재고 조회
-  const { data: lotData, error: lotError } = await supabase.rpc('get_inventory_by_lot', {
-    p_owner_id: organizationId,
-    p_product_id: productId,
-  });
 
   if (lotError) {
     console.error('Lot별 재고 조회 실패:', lotError);
