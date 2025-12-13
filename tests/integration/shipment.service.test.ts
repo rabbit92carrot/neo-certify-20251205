@@ -500,9 +500,13 @@ describe('Shipment Service Integration Tests', () => {
       expect(isAllowed).toBe(false);
     });
 
-    it('24시간보다 1초 짧은 출고는 회수 가능해야 한다', async () => {
-      // 24시간 - 1초 전 (경계값 직전)
-      const justUnder24Hours = new Date(Date.now() - (24 * 60 * 60 * 1000 - 1000)).toISOString();
+    it.each([
+      { label: '10초', margin: 10 * 1000 },
+      { label: '30초', margin: 30 * 1000 },
+      { label: '1분', margin: 60 * 1000 },
+    ])('24시간보다 $label 짧은 출고는 회수 가능해야 한다', async ({ margin }) => {
+      // 24시간 - margin 전 (경계값 직전)
+      const timeBeforeDeadline = new Date(Date.now() - (24 * 60 * 60 * 1000 - margin)).toISOString();
 
       const { data: shipmentBatch } = await adminClient
         .from('shipment_batches')
@@ -510,7 +514,7 @@ describe('Shipment Service Integration Tests', () => {
           from_organization_id: manufacturer.id,
           to_organization_id: distributor.id,
           to_organization_type: ORGANIZATION_TYPES.DISTRIBUTOR,
-          shipment_date: justUnder24Hours,
+          shipment_date: timeBeforeDeadline,
         })
         .select()
         .single();
