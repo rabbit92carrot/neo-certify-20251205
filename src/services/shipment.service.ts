@@ -9,6 +9,7 @@
  * - 24시간 내 회수 가능
  */
 
+import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type {
   ApiResponse,
@@ -18,6 +19,9 @@ import type {
   OrganizationType,
 } from '@/types/api.types';
 import type { ShipmentCreateData, ShipmentHistoryQueryData } from '@/lib/validations/shipment';
+
+// 캐시 TTL 상수 (초)
+const TARGET_ORGS_CACHE_TTL = 600; // 10분 (조직 목록은 자주 변경되지 않음)
 
 /**
  * 출고 뭉치 + 요약 정보 타입
@@ -86,6 +90,30 @@ export async function getShipmentTargetOrganizations(
 
   return { success: true, data: data || [] };
 }
+
+/**
+ * 캐싱된 출고 대상 조직 목록 조회
+ * unstable_cache를 사용하여 10분간 캐싱
+ * 조직 승인/비활성화 시 revalidateTag('organizations')로 무효화
+ *
+ * @param organizationType 현재 조직 유형
+ * @param excludeOrganizationId 제외할 조직 ID (자기 자신)
+ * @returns 출고 가능한 조직 목록
+ */
+export const getCachedShipmentTargetOrganizations = (
+  organizationType: OrganizationType,
+  excludeOrganizationId?: string
+) =>
+  unstable_cache(
+    async () => {
+      return getShipmentTargetOrganizations(organizationType, excludeOrganizationId);
+    },
+    [`target-orgs-${organizationType}-${excludeOrganizationId ?? 'all'}`],
+    {
+      tags: ['organizations', `target-orgs-${organizationType}`],
+      revalidate: TARGET_ORGS_CACHE_TTL,
+    }
+  )();
 
 /**
  * 출고 생성 (원자적 DB 함수 사용)
