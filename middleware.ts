@@ -17,6 +17,8 @@ import {
  * 2. 공개 라우트는 통과 (/mock/*)
  * 3. 인증 라우트 처리 (로그인된 사용자는 대시보드로)
  * 4. 보호된 라우트 처리 (미인증 시 로그인으로, 권한 체크)
+ *
+ * 최적화: 조직 정보 조회를 한 번만 수행하여 중복 DB 호출 제거
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -62,35 +64,37 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // 2. 인증 라우트 처리 (로그인/회원가입)
+  // 라우트 유형 확인
   const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
+  const isProtectedRoute = Object.values(PROTECTED_ROUTES).some((route) =>
+    pathname.startsWith(route)
+  );
 
+  // 조직 정보 조회 필요 여부 확인 후 한 번만 조회
+  let org: { type: string; status: string } | null = null;
+  if (user && (isAuthRoute || isProtectedRoute)) {
+    const { data } = await supabase
+      .from('organizations')
+      .select('type, status')
+      .eq('auth_user_id', user.id)
+      .single();
+    org = data;
+  }
+
+  // 2. 인증 라우트 처리 (로그인/회원가입)
   if (isAuthRoute) {
-    if (user) {
-      // 이미 로그인된 사용자는 조직 정보 조회 후 대시보드로 리다이렉트
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('type, status')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (org) {
-        if (org.status === 'ACTIVE') {
-          const redirectPath = DEFAULT_REDIRECT[org.type as keyof typeof DEFAULT_REDIRECT];
-          return NextResponse.redirect(new URL(redirectPath, request.url));
-        } else if (org.status === 'PENDING_APPROVAL') {
-          return NextResponse.redirect(new URL(PENDING_PATH, request.url));
-        }
+    if (user && org) {
+      if (org.status === 'ACTIVE') {
+        const redirectPath = DEFAULT_REDIRECT[org.type as keyof typeof DEFAULT_REDIRECT];
+        return NextResponse.redirect(new URL(redirectPath, request.url));
+      } else if (org.status === 'PENDING_APPROVAL') {
+        return NextResponse.redirect(new URL(PENDING_PATH, request.url));
       }
     }
     return supabaseResponse;
   }
 
   // 3. 보호된 라우트 처리
-  const isProtectedRoute = Object.values(PROTECTED_ROUTES).some((route) =>
-    pathname.startsWith(route)
-  );
-
   if (isProtectedRoute) {
     // 미인증 사용자는 로그인 페이지로
     if (!user) {
@@ -98,13 +102,6 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
-
-    // 조직 정보 조회
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('type, status')
-      .eq('auth_user_id', user.id)
-      .single();
 
     // 조직 정보가 없는 경우
     if (!org) {

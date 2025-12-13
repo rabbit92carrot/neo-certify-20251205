@@ -3,6 +3,7 @@
  * 제품 CRUD 및 조회 관련 비즈니스 로직
  */
 
+import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { ApiResponse, Product, PaginatedResponse } from '@/types/api.types';
 import type {
@@ -10,6 +11,9 @@ import type {
   ProductUpdateData,
   ProductListQueryData,
 } from '@/lib/validations/product';
+
+// 캐시 TTL 상수 (초)
+const PRODUCTS_CACHE_TTL = 300; // 5분
 
 /**
  * 제품 목록 조회 (페이지네이션)
@@ -104,6 +108,27 @@ export async function getActiveProducts(
 
   return { success: true, data: data || [] };
 }
+
+/**
+ * 캐싱된 활성 제품 목록 조회
+ * unstable_cache를 사용하여 5분간 캐싱
+ * 제품 생성/수정/삭제 시 revalidateTag('products')로 무효화
+ *
+ * @param organizationId 제조사 조직 ID
+ * @returns 활성 제품 목록
+ */
+export const getCachedActiveProducts = (organizationId: string) =>
+  unstable_cache(
+    async () => {
+      const result = await getActiveProducts(organizationId);
+      return result;
+    },
+    [`products-${organizationId}`],
+    {
+      tags: ['products', `products-${organizationId}`],
+      revalidate: PRODUCTS_CACHE_TTL,
+    }
+  )();
 
 /**
  * 제품 상세 조회

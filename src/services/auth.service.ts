@@ -3,6 +3,7 @@
  * 회원가입, 로그인, 로그아웃, 현재 사용자 조회 등 인증 관련 비즈니스 로직
  */
 
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeBusinessNumber, normalizePhoneNumber } from '@/lib/validations/common';
@@ -299,6 +300,15 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     manufacturerSettings: manufacturerSettings || undefined,
   };
 }
+
+/**
+ * 캐싱된 현재 사용자 조회
+ * React의 cache()를 사용하여 동일 요청 내 중복 호출 방지
+ * 레이아웃과 페이지에서 동시에 호출해도 한 번만 DB 조회
+ */
+export const getCachedCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  return getCurrentUser();
+});
 
 /**
  * 이메일 중복 확인
