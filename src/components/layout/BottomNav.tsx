@@ -78,9 +78,7 @@ export function BottomNav({
               >
                 <NavItemIcon iconName={item.icon} className="h-5 w-5" />
                 <span className="text-[10px] font-medium leading-tight">
-                  {item.label.length > 4
-                    ? item.label.slice(0, 4)
-                    : item.label}
+                  {item.mobileLabel || item.label}
                 </span>
               </Link>
             );
