@@ -24,7 +24,7 @@ export function Sidebar({ organizationType, organizationName }: SidebarProps): R
   const navItems = getNavigationItems(organizationType);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r bg-white">
+    <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col border-r bg-white">
       {/* 로고 및 조직 정보 */}
       <div className="flex h-16 items-center px-6 border-b">
         <div className="flex flex-col">
