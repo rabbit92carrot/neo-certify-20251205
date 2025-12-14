@@ -102,6 +102,17 @@
 | `/` | 홈 (리다이렉트) | 모든 사용자 |
 | `/mock/kakao` | 카카오 알림톡 Mock | 인증 불필요 |
 
+### 샘플 페이지 (개발용)
+
+UI 패턴 비교 및 프로토타입 검토를 위한 샘플 페이지입니다:
+
+| 경로 | 설명 | 용도 |
+|------|------|------|
+| `/sample/mobile-nav` | 모바일 네비게이션 샘플 인덱스 | 3가지 패턴 비교 |
+| `/sample/mobile-nav/bottom-nav` | Bottom Navigation 패턴 | 하단 고정 네비게이션 바 |
+| `/sample/mobile-nav/hamburger` | Hamburger Menu 패턴 | 전체 화면 메뉴 |
+| `/sample/mobile-nav/top-tabs` | Top Tabs 패턴 | 상단 탭 네비게이션 |
+
 ---
 
 ## 배포 환경 URL
@@ -117,6 +128,12 @@ https://neo-certify-20251205.vercel.app/
 https://neo-certify-20251205.vercel.app/login
 https://neo-certify-20251205.vercel.app/register
 https://neo-certify-20251205.vercel.app/mock/kakao
+
+# 샘플 페이지 (개발용)
+https://neo-certify-20251205.vercel.app/sample/mobile-nav
+https://neo-certify-20251205.vercel.app/sample/mobile-nav/bottom-nav
+https://neo-certify-20251205.vercel.app/sample/mobile-nav/hamburger
+https://neo-certify-20251205.vercel.app/sample/mobile-nav/top-tabs
 
 # 제조사
 https://neo-certify-20251205.vercel.app/manufacturer/dashboard
