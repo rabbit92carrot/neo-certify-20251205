@@ -398,14 +398,37 @@ export interface RecallHistoryItem {
 // ============================================================================
 
 /**
- * Lot 요약 정보 - 이벤트 내 Lot별 수량
+ * Lot 요약 정보 - 이벤트 내 Lot별 수량 및 해당 이벤트의 코드 ID들
  */
 export interface AdminEventLotSummary {
   lotId: string;
   lotNumber: string;
   productId: string;
   productName: string;
+  modelName: string;
   quantity: number;
+  codeIds: string[]; // 해당 이벤트에서 처리된 코드 ID 배열
+}
+
+/**
+ * Lot 코드 정보 - 페이지네이션된 고유식별코드
+ */
+export interface LotCodeItem {
+  id: string;
+  code: string;
+  currentStatus: VirtualCodeStatus;
+  currentOwnerName: string;
+  currentOwnerType: 'ORGANIZATION' | 'PATIENT';
+}
+
+/**
+ * Lot 코드 페이지네이션 응답
+ */
+export interface LotCodesPaginatedResponse {
+  codes: LotCodeItem[];
+  total: number;
+  totalPages: number;
+  page: number;
 }
 
 /**

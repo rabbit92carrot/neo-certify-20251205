@@ -10,7 +10,6 @@ import { useRouter } from 'next/navigation';
 import { Download, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminEventSummaryTable } from '@/components/tables/AdminEventSummaryTable';
 import { AdminEventSummaryFilter } from '@/components/shared/AdminEventSummaryFilter';
-import { EventDetailModal } from '@/components/shared/EventDetailModal';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { generateCsvString, downloadCsv, formatDateTimeKorea } from '@/lib/utils';
@@ -68,10 +67,6 @@ export function HistoryTableWrapper({
   >([]);
   const [loading, setLoading] = useState(true);
   const [csvLoading, setCsvLoading] = useState(false);
-
-  // 상세 모달 상태
-  const [selectedEvent, setSelectedEvent] = useState<AdminEventSummary | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
 
   // actionTypes 문자열을 배열로 변환
   const actionTypesArray = actionTypes ? actionTypes.split(',').filter(Boolean) : undefined;
@@ -131,12 +126,6 @@ export function HistoryTableWrapper({
     productId,
     includeRecalled,
   ]);
-
-  // 상세 모달 열기
-  const handleViewDetail = useCallback((event: AdminEventSummary) => {
-    setSelectedEvent(event);
-    setModalOpen(true);
-  }, []);
 
   // 페이지 이동 헬퍼
   const buildPageUrl = useCallback(
@@ -241,7 +230,7 @@ export function HistoryTableWrapper({
       </div>
 
       {/* 테이블 */}
-      <AdminEventSummaryTable events={events} onViewDetail={handleViewDetail} />
+      <AdminEventSummaryTable events={events} />
 
       {/* 페이지네이션 */}
       {totalPages > 1 && (
@@ -269,13 +258,6 @@ export function HistoryTableWrapper({
           </Button>
         </div>
       )}
-
-      {/* 상세 모달 */}
-      <EventDetailModal
-        event={selectedEvent}
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-      />
     </div>
   );
 }

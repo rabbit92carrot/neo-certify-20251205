@@ -27,6 +27,8 @@ import type {
   AdminEventSummary,
   AdminEventLotSummary,
   AdminEventSampleCode,
+  LotCodeItem,
+  LotCodesPaginatedResponse,
 } from '@/types/api.types';
 import type {
   AdminOrganizationQueryData,
@@ -1298,4 +1300,113 @@ export async function getEventSampleCodes(
   });
 
   return { success: true, data: sampleCodes };
+}
+
+/**
+ * 이벤트별 고유식별코드 페이지네이션 조회
+ * 이벤트 상세의 Lot 확장 영역에서 사용
+ * codeIds 배열을 기반으로 해당 이벤트에서 처리된 코드만 조회
+ *
+ * @param codeIds 조회할 코드 ID 배열
+ * @param page 페이지 번호 (1부터 시작)
+ * @param pageSize 페이지당 개수 (기본 20)
+ * @returns 페이지네이션된 코드 목록
+ */
+export async function getEventCodesPaginated(
+  codeIds: string[],
+  page: number = 1,
+  pageSize: number = 20
+): Promise<ApiResponse<LotCodesPaginatedResponse>> {
+  const supabase = await createClient();
+
+  // 전체 개수 계산
+  const total = codeIds.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const offset = (page - 1) * pageSize;
+
+  // 현재 페이지의 코드 ID들만 추출
+  const pageCodeIds = codeIds.slice(offset, offset + pageSize);
+
+  if (pageCodeIds.length === 0) {
+    return {
+      success: true,
+      data: {
+        codes: [],
+        total,
+        totalPages,
+        page,
+      },
+    };
+  }
+
+  // 코드 정보 조회 (현재 상태 및 소유자 포함)
+  const { data, error } = await supabase
+    .from('virtual_codes')
+    .select(`
+      id,
+      code,
+      status,
+      owner_type,
+      owner_id
+    `)
+    .in('id', pageCodeIds);
+
+  if (error) {
+    console.error('이벤트 코드 조회 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: error.message || '코드 조회에 실패했습니다.',
+      },
+    };
+  }
+
+  // 조직 이름 일괄 조회
+  const orgIds = new Set<string>();
+  for (const row of data || []) {
+    if (row.owner_type === 'ORGANIZATION' && row.owner_id) {
+      orgIds.add(row.owner_id);
+    }
+  }
+
+  const orgNameMap = new Map<string, string>();
+  if (orgIds.size > 0) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .in('id', [...orgIds]);
+
+    for (const org of orgData || []) {
+      orgNameMap.set(org.id, org.name);
+    }
+  }
+
+  // 원본 순서 유지를 위한 맵 생성
+  const dataMap = new Map(data?.map((row) => [row.id, row]) || []);
+
+  // 결과 매핑 (원본 순서 유지)
+  const codes: LotCodeItem[] = pageCodeIds
+    .map((id) => dataMap.get(id))
+    .filter((row): row is NonNullable<typeof row> => row !== undefined)
+    .map((row) => ({
+      id: row.id,
+      code: row.code,
+      currentStatus: row.status as VirtualCodeStatus,
+      currentOwnerName:
+        row.owner_type === 'PATIENT'
+          ? maskPhoneNumber(row.owner_id)
+          : orgNameMap.get(row.owner_id) || '알 수 없음',
+      currentOwnerType: row.owner_type as 'ORGANIZATION' | 'PATIENT',
+    }));
+
+  return {
+    success: true,
+    data: {
+      codes,
+      total,
+      totalPages,
+      page,
+    },
+  };
 }
