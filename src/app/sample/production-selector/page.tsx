@@ -2,7 +2,7 @@
 
 /**
  * 생산 등록 제품 선택 UI 패턴 샘플 페이지
- * 4가지 UX 개선 옵션을 비교하여 선택할 수 있는 샘플 페이지
+ * 5가지 UX 개선 옵션을 비교하여 선택할 수 있는 샘플 페이지
  */
 
 import { useState } from 'react';
@@ -22,6 +22,7 @@ import { OptionA_SearchDropdown } from './_components/OptionA_SearchDropdown';
 import { OptionB_TwoColumn } from './_components/OptionB_TwoColumn';
 import { OptionC_Accordion } from './_components/OptionC_Accordion';
 import { OptionD_TwoColumnSearch } from './_components/OptionD_TwoColumnSearch';
+import { OptionE_AccordionTwoColumn } from './_components/OptionE_AccordionTwoColumn';
 
 const OPTIONS = [
   {
@@ -64,6 +65,16 @@ const OPTIONS = [
     cons: ['여전히 스크롤 필요', '모바일 불편'],
     reference: 'https://www.nngroup.com/articles/search-visible-and-simple/',
   },
+  {
+    id: 'e',
+    title: 'E: 아코디언 + 2열',
+    description: '아코디언 그룹 + 2열 레이아웃',
+    recommended: false,
+    mobileOptimized: false,
+    pros: ['제품군 그룹화', '생산 정보 항상 보임', '검색 필터 지원'],
+    cons: ['클릭 2번 필요', '모바일에서 좁아짐'],
+    reference: 'https://www.nngroup.com/articles/accordions-complex-content/',
+  },
 ];
 
 export default function ProductionSelectorSamplePage(): React.ReactElement {
@@ -85,13 +96,13 @@ export default function ProductionSelectorSamplePage(): React.ReactElement {
             생산 등록 제품 선택 UI 패턴 비교
           </h1>
           <p className="text-gray-600">
-            제품이 많을 때 효율적으로 선택할 수 있는 4가지 UX 패턴을 비교합니다.
+            제품이 많을 때 효율적으로 선택할 수 있는 5가지 UX 패턴을 비교합니다.
             각 탭을 클릭하여 실제 동작을 확인해보세요.
           </p>
         </div>
 
         {/* 옵션 개요 카드 */}
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-8">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5 mb-8">
           {OPTIONS.map((option) => (
             <Card
               key={option.id}
@@ -152,6 +163,9 @@ export default function ProductionSelectorSamplePage(): React.ReactElement {
               </TabsContent>
               <TabsContent value="d" className="mt-0">
                 <OptionD_TwoColumnSearch />
+              </TabsContent>
+              <TabsContent value="e" className="mt-0">
+                <OptionE_AccordionTwoColumn />
               </TabsContent>
             </div>
 
