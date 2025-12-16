@@ -80,24 +80,32 @@ function ProductInventoryCard({
         className="cursor-pointer hover:bg-gray-50"
         onClick={handleExpand}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-6 w-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
                 <ChevronRight className="h-4 w-4" />
               )}
             </Button>
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-gray-400" />
-              <span className="font-medium">{summary.productName}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <Package className="h-5 w-5 text-gray-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <span className="font-medium">{summary.productName}</span>
+                {summary.modelName && (
+                  <div className="text-xs text-muted-foreground truncate">{summary.modelName}</div>
+                )}
+                {summary.udiDi && (
+                  <div className="text-xs text-muted-foreground truncate">UDI: {summary.udiDi}</div>
+                )}
+              </div>
             </div>
           </div>
 
           <Badge
             variant={summary.totalQuantity > 0 ? 'default' : 'secondary'}
-            className="text-sm"
+            className="text-sm flex-shrink-0"
           >
             {summary.totalQuantity}개
           </Badge>

@@ -205,6 +205,8 @@ export interface HistoryWithDetails extends History {
 export interface InventorySummary {
   productId: string;
   productName: string;
+  modelName: string;
+  udiDi: string;
   totalQuantity: number;
 }
 

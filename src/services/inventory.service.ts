@@ -40,10 +40,20 @@ export async function getInventorySummary(
     };
   }
 
-  const summaries: InventorySummary[] = (data || []).map(
-    (row: { product_id: string; product_name: string; quantity: number }) => ({
+  type InventorySummaryRow = {
+    product_id: string;
+    product_name: string;
+    model_name: string;
+    udi_di: string;
+    quantity: number;
+  };
+
+  const summaries: InventorySummary[] = ((data || []) as InventorySummaryRow[]).map(
+    (row) => ({
       productId: row.product_id,
       productName: row.product_name,
+      modelName: row.model_name || '',
+      udiDi: row.udi_di || '',
       totalQuantity: Number(row.quantity),
     })
   );
