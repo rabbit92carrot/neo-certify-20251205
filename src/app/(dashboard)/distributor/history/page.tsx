@@ -31,7 +31,7 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
     <div className="space-y-6">
       <PageHeader
         title="거래 이력"
-        description="입고, 출고, 회수 이력을 확인할 수 있습니다."
+        description="입고, 출고, 회수 이력을 확인할 수 있습니다. 제품을 클릭하여 고유식별코드를 확인하세요."
       />
 
       <TransactionHistoryTable
