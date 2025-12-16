@@ -420,6 +420,26 @@ export async function getEventSampleCodesAction(codeIds: string[]) {
 }
 
 /**
+ * 이벤트별 고유식별코드 조회 Action
+ * 이벤트 상세의 Lot 확장 영역에서 사용
+ * codeIds 배열을 기반으로 해당 이벤트에서 처리된 코드만 조회
+ */
+export async function getEventCodesAction(codeIds: string[], page: number = 1) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getEventCodesPaginated(codeIds, page, 20);
+}
+
+/**
  * 이벤트 요약 CSV 내보내기 Action
  * 필터 적용된 전체 이벤트 요약 목록을 반환 (CSV 생성은 클라이언트에서)
  */
