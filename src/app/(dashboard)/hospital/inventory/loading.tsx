@@ -1,8 +1,9 @@
 /**
  * 병원 재고 조회 페이지 로딩 UI
+ * 요약 + 제품별 카드 리스트 형태
  */
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 
 export default function InventoryLoading(): React.ReactElement {
   return (
@@ -13,35 +14,38 @@ export default function InventoryLoading(): React.ReactElement {
         <Skeleton className="h-4 w-96" />
       </div>
 
-      {/* 재고 테이블 스켈레톤 */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-10 w-48" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* 테이블 헤더 */}
-          <div className="border-b pb-3 mb-4">
-            <div className="grid grid-cols-4 gap-4">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-16" />
-            </div>
-          </div>
-          {/* 테이블 행 */}
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="grid grid-cols-4 gap-4 py-3 border-b last:border-0">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-5 w-20" />
-              <Skeleton className="h-5 w-28" />
-              <Skeleton className="h-5 w-16" />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {/* 재고 요약 */}
+      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-5" />
+          <Skeleton className="h-5 w-20" />
+        </div>
+        <div className="text-right space-y-1">
+          <Skeleton className="h-8 w-24 ml-auto" />
+          <Skeleton className="h-4 w-12 ml-auto" />
+        </div>
+      </div>
+
+      {/* 제품별 카드 */}
+      <div className="space-y-3">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardHeader className="cursor-pointer">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <Skeleton className="h-6 w-6" />
+                  <Skeleton className="h-5 w-5" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+                <Skeleton className="h-6 w-16 rounded-full" />
+              </div>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
