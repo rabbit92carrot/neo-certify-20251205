@@ -27,10 +27,12 @@ npm run dev              # Start dev server (Turbopack)
 npm run dev:webpack      # Start dev server (Webpack)
 npm run build            # Production build
 
-# Type checking and linting
+# Type checking, linting, formatting
 npm run type-check       # TypeScript type check
 npm run lint             # ESLint
 npm run lint:fix         # ESLint with auto-fix
+npm run format           # Prettier format
+npm run format:check     # Prettier check
 
 # Testing
 npm test                 # Run Vitest in watch mode
@@ -173,6 +175,13 @@ E2E tests run against the dev server with seed data accounts:
 | Hospital | hospital@neocert.com | test123 |
 
 Tests run sequentially (`workers: 1`) to preserve DB state.
+
+For comprehensive E2E testing guidance, see `docs/E2E_TESTING_GUIDE.md`.
+
+## Deployment
+
+- **Production**: https://neo-certify-20251205.vercel.app
+- **Local**: http://localhost:3000
 
 ## Path Aliases
 

@@ -112,6 +112,8 @@ UI 패턴 비교 및 프로토타입 검토를 위한 샘플 페이지입니다:
 | `/sample/mobile-nav/bottom-nav` | Bottom Navigation 패턴 | 하단 고정 네비게이션 바 |
 | `/sample/mobile-nav/hamburger` | Hamburger Menu 패턴 | 전체 화면 메뉴 |
 | `/sample/mobile-nav/top-tabs` | Top Tabs 패턴 | 상단 탭 네비게이션 |
+| `/sample/admin-history-detail` | 관리자 이력 상세 UI 패턴 | 5가지 Lot 상세 뷰 옵션 비교 |
+| `/sample/history-scroll-comparison` | 이력 테이블 반응형 비교 | 가로스크롤/반응형 페이지네이션 비교 |
 
 ---
 
