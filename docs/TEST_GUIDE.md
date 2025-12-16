@@ -114,6 +114,7 @@ UI 패턴 비교 및 프로토타입 검토를 위한 샘플 페이지입니다:
 | `/sample/mobile-nav/top-tabs` | Top Tabs 패턴 | 상단 탭 네비게이션 |
 | `/sample/admin-history-detail` | 관리자 이력 상세 UI 패턴 | 5가지 Lot 상세 뷰 옵션 비교 |
 | `/sample/history-scroll-comparison` | 이력 테이블 반응형 비교 | 가로스크롤/반응형 페이지네이션 비교 |
+| `/sample/org-history-detail` | 조직 거래이력 상세보기 | 제품 코드 목록 표시 UI 테스트 |
 
 ---
 
@@ -136,6 +137,9 @@ https://neo-certify-20251205.vercel.app/sample/mobile-nav
 https://neo-certify-20251205.vercel.app/sample/mobile-nav/bottom-nav
 https://neo-certify-20251205.vercel.app/sample/mobile-nav/hamburger
 https://neo-certify-20251205.vercel.app/sample/mobile-nav/top-tabs
+https://neo-certify-20251205.vercel.app/sample/admin-history-detail
+https://neo-certify-20251205.vercel.app/sample/history-scroll-comparison
+https://neo-certify-20251205.vercel.app/sample/org-history-detail
 
 # 제조사
 https://neo-certify-20251205.vercel.app/manufacturer/dashboard
