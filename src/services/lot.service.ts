@@ -141,6 +141,8 @@ export async function createLot(
 
 /**
  * 사용기한 계산 (제조사 설정 기반)
+ * 유효기간 N개월의 경우, 제조일 + N개월의 **하루 전**으로 계산
+ * 예: 2024-01-15 + 24개월 = 2026-01-14 (2026-01-15의 하루 전)
  */
 async function calculateExpiryDate(
   organizationId: string,
@@ -158,6 +160,8 @@ async function calculateExpiryDate(
 
   const date = new Date(manufactureDate);
   date.setMonth(date.getMonth() + expiryMonths);
+  // 유효기간 만료일은 N개월 후의 하루 전
+  date.setDate(date.getDate() - 1);
 
   const isoDate = date.toISOString().split('T')[0];
   return isoDate ?? manufactureDate;
