@@ -5,7 +5,7 @@
  * 제품 선택 + 생산 정보 입력
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -39,6 +39,7 @@ const lotFormInputSchema = z.object({
   productId: z.string().min(1, '제품을 선택해주세요.'),
   quantity: z.string().min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('수량')),
   manufactureDate: z.string().min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('생산일자')),
+  expiryDate: z.string().min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('사용기한')),
 });
 
 type LotFormInputData = z.infer<typeof lotFormInputSchema>;
@@ -54,29 +55,35 @@ export function LotForm({ products, settings }: LotFormProps): React.ReactElemen
   const today = new Date().toISOString().split('T')[0] ?? '';
   const expiryMonths = settings?.expiry_months || CONFIG.DEFAULT_EXPIRY_MONTHS;
 
+  // 기본 사용기한 계산 (오늘 + N개월 - 1일)
+  const calculateDefaultExpiryDate = useCallback((baseDate: string): string => {
+    const date = new Date(baseDate);
+    date.setMonth(date.getMonth() + expiryMonths);
+    date.setDate(date.getDate() - 1);
+    return date.toISOString().split('T')[0] ?? '';
+  }, [expiryMonths]);
+
+  const defaultExpiryDate = calculateDefaultExpiryDate(today);
+
   const form = useForm<LotFormInputData>({
     resolver: zodResolver(lotFormInputSchema),
     defaultValues: {
       productId: '',
       quantity: '',
       manufactureDate: today,
+      expiryDate: defaultExpiryDate,
     },
   });
 
-  // 생산일자 변경 시 사용기한 자동 계산
+  // 생산일자 변경 시 사용기한 자동 계산 (항상 덮어씌움)
   const manufactureDate = form.watch('manufactureDate');
-  const [calculatedExpiryDate, setCalculatedExpiryDate] = useState<string>(today);
 
   useEffect(() => {
     if (manufactureDate) {
-      const date = new Date(manufactureDate);
-      date.setMonth(date.getMonth() + expiryMonths);
-      // 유효기간 만료일은 N개월 후의 하루 전
-      date.setDate(date.getDate() - 1);
-      const expiry = date.toISOString().split('T')[0] ?? '';
-      setCalculatedExpiryDate(expiry);
+      const expiry = calculateDefaultExpiryDate(manufactureDate);
+      form.setValue('expiryDate', expiry);
     }
-  }, [manufactureDate, expiryMonths]);
+  }, [manufactureDate, form, calculateDefaultExpiryDate]);
 
   // 제품 선택 시 productId 업데이트
   const handleProductSelect = (productId: string) => {
@@ -111,7 +118,7 @@ export function LotForm({ products, settings }: LotFormProps): React.ReactElemen
       formData.append('productId', selectedProductId);
       formData.append('quantity', data.quantity);
       formData.append('manufactureDate', data.manufactureDate);
-      formData.append('expiryDate', calculatedExpiryDate);
+      formData.append('expiryDate', data.expiryDate);
 
       const result = await createLotAction(formData);
 
@@ -121,6 +128,7 @@ export function LotForm({ products, settings }: LotFormProps): React.ReactElemen
           productId: '',
           quantity: '',
           manufactureDate: today,
+          expiryDate: defaultExpiryDate,
         });
         setSelectedProductId(null);
         router.refresh();
@@ -241,20 +249,27 @@ export function LotForm({ products, settings }: LotFormProps): React.ReactElemen
                 )}
               />
 
-              <FormItem>
-                <FormLabel>사용기한 (자동 계산)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="date"
-                    value={calculatedExpiryDate}
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </FormControl>
-                <FormDescription>
-                  생산일자 + {expiryMonths}개월 - 1일 (제조사 설정 기준)
-                </FormDescription>
-              </FormItem>
+              <FormField
+                control={form.control}
+                name="expiryDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>사용기한 *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        disabled={isLoading}
+                        {...field}
+                        onChange={(e) => field.onChange(e)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      기본값: 생산일자 + {expiryMonths}개월 (수동 수정 가능)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <Button
                 type="submit"
