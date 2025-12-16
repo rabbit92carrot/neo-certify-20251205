@@ -71,6 +71,8 @@ export function LotForm({ products, settings }: LotFormProps): React.ReactElemen
     if (manufactureDate) {
       const date = new Date(manufactureDate);
       date.setMonth(date.getMonth() + expiryMonths);
+      // 유효기간 만료일은 N개월 후의 하루 전
+      date.setDate(date.getDate() - 1);
       const expiry = date.toISOString().split('T')[0] ?? '';
       setCalculatedExpiryDate(expiry);
     }
@@ -250,7 +252,7 @@ export function LotForm({ products, settings }: LotFormProps): React.ReactElemen
                   />
                 </FormControl>
                 <FormDescription>
-                  생산일자 + {expiryMonths}개월 (제조사 설정 기준)
+                  생산일자 + {expiryMonths}개월 - 1일 (제조사 설정 기준)
                 </FormDescription>
               </FormItem>
 
