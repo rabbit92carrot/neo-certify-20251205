@@ -201,28 +201,28 @@ function EventCodeTable({
       </div>
       {/* 코드 테이블 - 고정 높이 + 내부 스크롤 */}
       <div className="relative rounded border bg-white overflow-hidden">
-        <div className="max-h-[200px] overflow-y-auto">
-          <table className="w-full text-xs">
+        <div className="max-h-[200px] overflow-y-auto overflow-x-auto">
+          <table className="w-full text-xs table-fixed min-w-[280px]">
             <thead className="bg-gray-50 sticky top-0">
               <tr>
-                <th className="h-8 py-1 px-3 text-left font-medium text-muted-foreground">코드</th>
-                <th className="h-8 py-1 px-3 text-left font-medium text-muted-foreground w-[80px]">상태</th>
-                <th className="h-8 py-1 px-3 text-left font-medium text-muted-foreground">현재 소유</th>
+                <th className="h-8 py-1 px-2 text-left font-medium text-muted-foreground w-[35%]">코드</th>
+                <th className="h-8 py-1 px-2 text-left font-medium text-muted-foreground w-[20%]">상태</th>
+                <th className="h-8 py-1 px-2 text-left font-medium text-muted-foreground w-[45%]">현재 소유</th>
               </tr>
             </thead>
             <tbody>
               {codes.map((code) => (
                 <tr key={code.id} className="border-t hover:bg-gray-50/50">
-                  <td className="py-1.5 px-3 font-mono">
+                  <td className="py-1.5 px-2 font-mono truncate">
                     {code.code}
                   </td>
-                  <td className="py-1.5 px-3">
+                  <td className="py-1.5 px-2">
                     {getStatusBadge(code.currentStatus)}
                   </td>
-                  <td className="py-1.5 px-3">
-                    <div className="flex items-center gap-1">
-                      {getOwnerIcon(code.currentOwnerType)}
-                      <span className="truncate max-w-[120px]">
+                  <td className="py-1.5 px-2">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="flex-shrink-0">{getOwnerIcon(code.currentOwnerType)}</span>
+                      <span className="truncate">
                         {code.currentOwnerName}
                       </span>
                     </div>
@@ -250,29 +250,32 @@ function LotSummaryRow({ lot }: { lot: AdminEventLotSummary }): React.ReactEleme
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className="border rounded-lg bg-white">
+    <div className="border rounded-lg bg-white overflow-hidden">
       {/* Lot 헤더 (클릭하여 확장) */}
       <div
-        className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-start justify-between p-3 gap-2 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0 mt-0.5">
             {isExpanded ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
           </Button>
-          <code className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">
-            {lot.lotNumber}
-          </code>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{lot.productName}</span>
-            <span className="text-xs text-muted-foreground">{lot.modelName || '-'}</span>
+          {/* 모바일: 세로 배치 / 데스크톱: 가로 배치 */}
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <code className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded w-fit break-all">
+              {lot.lotNumber}
+            </code>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+              <span className="text-sm font-medium truncate">{lot.productName}</span>
+              <span className="text-xs text-muted-foreground truncate">{lot.modelName || '-'}</span>
+            </div>
           </div>
         </div>
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="outline" className="text-xs flex-shrink-0">
           {formatNumber(lot.quantity)}개
         </Badge>
       </div>
@@ -394,8 +397,8 @@ function EventRow({
       {/* 확장 콘텐츠 - Lot별 상세 (고유식별코드 포함) */}
       {isOpen && (
         <TableRow>
-          <TableCell colSpan={6} className="p-0">
-            <div className="px-6 py-4 space-y-3 bg-gray-50/50">
+          <TableCell colSpan={6} className="p-0 max-w-0">
+            <div className="px-6 py-4 space-y-3 bg-gray-50/50 overflow-hidden w-full">
               <div className="text-xs font-medium text-muted-foreground">
                 Lot별 상세 ({event.lotSummaries.length}개) - 클릭하여 고유식별코드 확인
               </div>
@@ -531,16 +534,16 @@ export function AdminEventSummaryTable({
   return (
     <>
       {/* 데스크톱: 테이블 뷰 */}
-      <div className="hidden md:block rounded-md border">
-        <Table>
+      <div className="hidden md:block rounded-md border overflow-x-auto">
+        <Table className="min-w-[700px] table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[100px]">일시</TableHead>
-              <TableHead className="w-[140px]">이벤트</TableHead>
-              <TableHead className="w-[100px]">수량</TableHead>
-              <TableHead>출발</TableHead>
-              <TableHead>도착</TableHead>
-              <TableHead>Lot 번호</TableHead>
+              <TableHead className="w-[120px]">이벤트</TableHead>
+              <TableHead className="w-[80px]">수량</TableHead>
+              <TableHead className="w-[18%]">출발</TableHead>
+              <TableHead className="w-[18%]">도착</TableHead>
+              <TableHead className="w-auto">Lot 번호</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
