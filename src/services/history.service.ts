@@ -102,6 +102,7 @@ export interface TransactionHistorySummary {
     productId: string;
     productName: string;
     quantity: number;
+    codes: string[]; // 제품 코드 문자열 배열 (NC-XXXXXXXX 형식)
   }[];
 
   totalQuantity: number;
@@ -209,7 +210,7 @@ export async function getTransactionHistory(
       recall_reason: string;
       created_at: string;
       total_quantity: number;
-      product_summaries: Array<{ productId: string; productName: string; quantity: number }>;
+      product_summaries: Array<{ productId: string; productName: string; quantity: number; codes?: string[] }>;
     }) => {
       // 소유자 정보 포맷팅
       const fromOwner = row.from_owner_id
@@ -243,7 +244,10 @@ export async function getTransactionHistory(
         recallReason: row.recall_reason || undefined,
         fromOwner,
         toOwner,
-        items: row.product_summaries || [],
+        items: (row.product_summaries || []).map((item) => ({
+          ...item,
+          codes: item.codes || [],
+        })),
         totalQuantity: Number(row.total_quantity),
       };
     }
