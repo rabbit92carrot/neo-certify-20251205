@@ -248,7 +248,7 @@ export function ManufacturerSettingsForm({
                       />
                     </FormControl>
                     <FormDescription>
-                      생산일자 기준으로 자동 계산되는 사용기한 (개월)
+                      생산일자 + N개월 - 1일로 자동 계산됩니다
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
