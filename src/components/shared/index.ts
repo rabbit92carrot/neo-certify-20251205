@@ -11,4 +11,5 @@ export { DataTable, type ColumnDef } from './DataTable';
 export { CartDisplay } from './CartDisplay';
 export { CollapsibleCard } from './CollapsibleCard';
 export { ProductCard } from './ProductCard';
+export { PaginatedProductGrid } from './PaginatedProductGrid';
 export { AsyncStatCard } from './AsyncStatCard';

@@ -5,17 +5,17 @@
  * 제조사/유통사에서 출고할 제품을 선택하고 장바구니에 담아 출고합니다.
  */
 
-import { useState, useTransition, useMemo, useCallback } from 'react';
+import { useState, useTransition, useMemo, useCallback, useDeferredValue, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Package, Send, Building2, Hospital } from 'lucide-react';
+import { Package, Send, Building2, Hospital, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProductCard } from '@/components/shared/ProductCard';
 import { CartDisplay } from '@/components/shared/CartDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PaginatedProductGrid } from '@/components/shared/PaginatedProductGrid';
 import { useCart } from '@/hooks/useCart';
 import type { Product, Organization, OrganizationType, InventoryByLot } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
@@ -56,6 +56,25 @@ export function ShipmentForm({
   const [selectedProduct, setSelectedProduct] = useState<ProductWithInventory | null>(null);
   const [selectedLotId, setSelectedLotId] = useState<string>('auto');
   const [quantity, setQuantity] = useState<string>('1');
+  const [productSearchInput, setProductSearchInput] = useState<string>('');
+  const [productSearch, setProductSearch] = useState<string>('');
+  const deferredProductSearch = useDeferredValue(productSearch);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 검색어 디바운스 (150ms)
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setProductSearch(productSearchInput);
+    }, 150);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [productSearchInput]);
 
   const {
     items,
@@ -195,6 +214,17 @@ export function ShipmentForm({
     ? getAvailableQuantity(selectedProduct, selectedLotId === 'auto' ? undefined : selectedLotId)
     : 0;
 
+  // 검색 필터링된 제품 목록 (useDeferredValue로 입력 응답성 유지)
+  const filteredProducts = useMemo(() => {
+    if (!deferredProductSearch.trim()) return products;
+    const searchLower = deferredProductSearch.toLowerCase();
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(searchLower) ||
+        product.model_name.toLowerCase().includes(searchLower)
+    );
+  }, [products, deferredProductSearch]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* 왼쪽: 제품 선택 및 수량 입력 */}
@@ -218,8 +248,19 @@ export function ShipmentForm({
 
         {/* 제품 선택 */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="text-lg">제품 선택</CardTitle>
+            {products.length > 0 && (
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="제품명, 모델명 검색..."
+                  value={productSearchInput}
+                  onChange={(e) => setProductSearchInput(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {products.length === 0 ? (
@@ -228,26 +269,22 @@ export function ShipmentForm({
                 title="출고 가능한 제품이 없습니다"
                 description="재고가 있는 제품이 없습니다."
               />
+            ) : filteredProducts.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="검색 결과가 없습니다"
+                description="다른 검색어로 시도해보세요."
+              />
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {products.map((product) => {
-                  const availableQty = getAvailableQuantity(product);
-                  return (
-                    <ProductCard
-                      key={product.id}
-                      name={product.name}
-                      modelName={product.model_name}
-                      additionalInfo={`재고: ${availableQty}개`}
-                      isSelected={selectedProduct?.id === product.id}
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setSelectedLotId('');
-                      }}
-                      disabled={availableQty === 0}
-                    />
-                  );
-                })}
-              </div>
+              <PaginatedProductGrid
+                products={filteredProducts}
+                selectedProductId={selectedProduct?.id}
+                onSelect={(product) => {
+                  setSelectedProduct(product);
+                  setSelectedLotId('');
+                }}
+                getAvailableQuantity={getAvailableQuantity}
+              />
             )}
           </CardContent>
         </Card>

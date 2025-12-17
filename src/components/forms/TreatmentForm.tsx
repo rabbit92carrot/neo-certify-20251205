@@ -5,16 +5,16 @@
  * 병원에서 시술한 제품을 선택하고 환자 정보를 입력하여 시술을 등록합니다.
  */
 
-import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
+import { useState, useTransition, useRef, useCallback, useEffect, useMemo, useDeferredValue } from 'react';
 import { toast } from 'sonner';
-import { Package, Stethoscope, Phone, Calendar, Loader2, User } from 'lucide-react';
+import { Package, Stethoscope, Phone, Calendar, Loader2, User, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProductCard } from '@/components/shared/ProductCard';
 import { CartDisplay } from '@/components/shared/CartDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PaginatedProductGrid } from '@/components/shared/PaginatedProductGrid';
 import {
   Command,
   CommandEmpty,
@@ -59,13 +59,32 @@ export function TreatmentForm({
     const today = new Date().toISOString().split('T')[0];
     return today ?? '';
   });
+  const [productSearchInput, setProductSearchInput] = useState<string>('');
+  const [productSearch, setProductSearch] = useState<string>('');
+  const deferredProductSearch = useDeferredValue(productSearch);
+  const productDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 제품 검색어 디바운스 (150ms)
+  useEffect(() => {
+    if (productDebounceRef.current) {
+      clearTimeout(productDebounceRef.current);
+    }
+    productDebounceRef.current = setTimeout(() => {
+      setProductSearch(productSearchInput);
+    }, 150);
+    return () => {
+      if (productDebounceRef.current) {
+        clearTimeout(productDebounceRef.current);
+      }
+    };
+  }, [productSearchInput]);
 
   // 환자 검색 관련 상태
   const [phoneInputValue, setPhoneInputValue] = useState<string>('');
   const [patientSuggestions, setPatientSuggestions] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const patientDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     items,
@@ -87,8 +106,8 @@ export function TreatmentForm({
   // 환자 검색 핸들러 (debounce 300ms)
   const handlePatientSearch = useCallback((value: string) => {
     // 기존 타이머 취소
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
+    if (patientDebounceRef.current) {
+      clearTimeout(patientDebounceRef.current);
     }
 
     const normalized = normalizePhoneNumber(value);
@@ -100,7 +119,7 @@ export function TreatmentForm({
     }
 
     // 300ms 후 검색 실행
-    debounceRef.current = setTimeout(async () => {
+    patientDebounceRef.current = setTimeout(async () => {
       setIsSearching(true);
       const result = await searchHospitalPatientsAction(normalized);
       if (result.success && result.data) {
@@ -140,8 +159,8 @@ export function TreatmentForm({
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
+      if (patientDebounceRef.current) {
+        clearTimeout(patientDebounceRef.current);
       }
     };
   }, []);
@@ -219,6 +238,17 @@ export function TreatmentForm({
   const currentAvailableQty = selectedProduct
     ? getAvailableQuantity(selectedProduct)
     : 0;
+
+  // 검색 필터링된 제품 목록 (useDeferredValue로 입력 응답성 유지)
+  const filteredProducts = useMemo(() => {
+    if (!deferredProductSearch.trim()) return products;
+    const searchLower = deferredProductSearch.toLowerCase();
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(searchLower) ||
+        product.model_name.toLowerCase().includes(searchLower)
+    );
+  }, [products, deferredProductSearch]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -320,8 +350,19 @@ export function TreatmentForm({
 
         {/* 제품 선택 */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="text-lg">제품 선택</CardTitle>
+            {products.length > 0 && (
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="제품명, 모델명 검색..."
+                  value={productSearchInput}
+                  onChange={(e) => setProductSearchInput(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {products.length === 0 ? (
@@ -330,23 +371,19 @@ export function TreatmentForm({
                 title="시술 가능한 제품이 없습니다"
                 description="재고가 있는 제품이 없습니다."
               />
+            ) : filteredProducts.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="검색 결과가 없습니다"
+                description="다른 검색어로 시도해보세요."
+              />
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {products.map((product) => {
-                  const availableQty = getAvailableQuantity(product);
-                  return (
-                    <ProductCard
-                      key={product.id}
-                      name={product.name}
-                      modelName={product.model_name}
-                      additionalInfo={`재고: ${availableQty}개`}
-                      isSelected={selectedProduct?.id === product.id}
-                      onClick={() => setSelectedProduct(product)}
-                      disabled={availableQty === 0}
-                    />
-                  );
-                })}
-              </div>
+              <PaginatedProductGrid
+                products={filteredProducts}
+                selectedProductId={selectedProduct?.id}
+                onSelect={setSelectedProduct}
+                getAvailableQuantity={getAvailableQuantity}
+              />
             )}
           </CardContent>
         </Card>

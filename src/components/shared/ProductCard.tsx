@@ -3,8 +3,10 @@
 /**
  * 제품 선택 카드 컴포넌트 (박스형 UI)
  * 생산 등록 시 제품 선택에 사용
+ * memo로 감싸서 useDeferredValue와 함께 사용 시 불필요한 리렌더링 방지
  */
 
+import { memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Package, Check } from 'lucide-react';
@@ -29,7 +31,7 @@ export interface ProductCardProps {
   disabled?: boolean;
 }
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   product,
   name,
   modelName,
@@ -79,4 +81,4 @@ export function ProductCard({
       </CardContent>
     </Card>
   );
-}
+});
