@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Download, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 import { AdminEventSummaryTable } from '@/components/tables/AdminEventSummaryTable';
 import { AdminEventSummaryFilter } from '@/components/shared/AdminEventSummaryFilter';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
@@ -193,8 +194,8 @@ export function HistoryTableWrapper({
         const filename = `이벤트이력_${new Date().toISOString().split('T')[0]}.csv`;
         downloadCsv(csvString, filename);
       }
-    } catch (error) {
-      console.error('CSV download failed:', error);
+    } catch {
+      toast.error('CSV 다운로드에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setCsvLoading(false);
     }
