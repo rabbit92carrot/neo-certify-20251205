@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { ApiResponse, PaginatedResponse, NotificationMessage } from '@/types/api.types';
 import type { Enums } from '@/types/database.types';
 import { ERROR_CODES } from '@/constants/errors';
+import { CONFIG } from '@/constants/config';
 import { createErrorResponse, createSuccessResponse } from './common.service';
 
 // ============================================================================
@@ -50,7 +51,7 @@ export interface NotificationItem {
 // 상수
 // ============================================================================
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;
 
 const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   CERTIFICATION: '정품 인증',

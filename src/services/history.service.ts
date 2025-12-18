@@ -33,6 +33,7 @@ import type {
 } from '@/types/api.types';
 import type { TransactionHistoryQueryData } from '@/lib/validations/history';
 import { HistorySummaryRowSchema } from '@/lib/validations/rpc-schemas';
+import { CONFIG } from '@/constants/config';
 
 // ProductSummaryItem 타입은 HistorySummaryRowSchema에서 추론됨
 // codes 필드는 20251219100000_restore_codes_in_history_summary.sql에서 복원됨
@@ -123,7 +124,7 @@ export interface TransactionHistorySummary {
 // ============================================================================
 
 const DEFAULT_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;
 
 // ============================================================================
 // 거래이력 조회 (DB 함수 사용)

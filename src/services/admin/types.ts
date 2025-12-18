@@ -3,6 +3,7 @@
  */
 
 import type { Database } from '@/types/database.types';
+import { CONFIG } from '@/constants/config';
 
 // RPC 반환 타입 정의
 export type OrgStatusCountRow = Database['public']['Functions']['get_organization_status_counts']['Returns'][number];
@@ -12,4 +13,4 @@ export type LotCodesPaginatedRow = Database['public']['Functions']['get_lot_code
 
 // 상수
 export const DEFAULT_PAGE = 1;
-export const DEFAULT_PAGE_SIZE = 20;
+export const DEFAULT_PAGE_SIZE = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;

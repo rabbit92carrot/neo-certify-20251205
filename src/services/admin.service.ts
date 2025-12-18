@@ -44,6 +44,7 @@ import type {
 } from '@/lib/validations/admin';
 import { getActionTypeLabel } from './common.service';
 import { ORGANIZATION_STATUSES } from '@/constants/organization';
+import { CONFIG } from '@/constants/config';
 import {
   OrgStatusCountRowSchema,
   OrgCodeCountRowSchema,
@@ -56,7 +57,7 @@ import {
 // ============================================================================
 
 const DEFAULT_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;
 
 // ============================================================================
 // 조직 관리
