@@ -19,6 +19,13 @@ import type {
   HospitalDashboardStats,
   AdminDashboardStats,
 } from '@/types/api.types';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type ManufacturerStatsRow = Database['public']['Functions']['get_dashboard_stats_manufacturer']['Returns'][number];
+type DistributorStatsRow = Database['public']['Functions']['get_dashboard_stats_distributor']['Returns'][number];
+type HospitalStatsRow = Database['public']['Functions']['get_dashboard_stats_hospital']['Returns'][number];
+type AdminStatsRow = Database['public']['Functions']['get_dashboard_stats_admin']['Returns'][number];
 
 /**
  * 제조사 대시보드 통계 조회
@@ -424,15 +431,7 @@ export async function getManufacturerDashboardStatsOptimized(
 ): Promise<ApiResponse<ManufacturerDashboardStats>> {
   const supabase = await createClient();
 
-  type StatsRow = {
-    total_inventory: number;
-    today_production: number;
-    today_shipments: number;
-    active_products: number;
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_manufacturer', {
+  const { data, error } = await supabase.rpc('get_dashboard_stats_manufacturer', {
     p_organization_id: organizationId,
   });
 
@@ -442,7 +441,8 @@ export async function getManufacturerDashboardStatsOptimized(
     return getManufacturerDashboardStats(organizationId);
   }
 
-  const row = (data as StatsRow[])?.[0];
+  const typedData = data as ManufacturerStatsRow[] | null;
+  const row = typedData?.[0];
 
   return {
     success: true,
@@ -464,15 +464,7 @@ export async function getDistributorDashboardStatsOptimized(
 ): Promise<ApiResponse<DistributorDashboardStats>> {
   const supabase = await createClient();
 
-  type StatsRow = {
-    total_inventory: number;
-    today_received: number;
-    today_shipments: number;
-    unique_products: number;
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_distributor', {
+  const { data, error } = await supabase.rpc('get_dashboard_stats_distributor', {
     p_organization_id: organizationId,
   });
 
@@ -482,7 +474,8 @@ export async function getDistributorDashboardStatsOptimized(
     return getDistributorDashboardStats(organizationId);
   }
 
-  const row = (data as StatsRow[])?.[0];
+  const typedData = data as DistributorStatsRow[] | null;
+  const row = typedData?.[0];
 
   return {
     success: true,
@@ -503,15 +496,7 @@ export async function getHospitalDashboardStatsOptimized(
 ): Promise<ApiResponse<HospitalDashboardStats>> {
   const supabase = await createClient();
 
-  type StatsRow = {
-    total_inventory: number;
-    today_received: number;
-    today_treatments: number;
-    unique_patients: number;
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_hospital', {
+  const { data, error } = await supabase.rpc('get_dashboard_stats_hospital', {
     p_organization_id: organizationId,
   });
 
@@ -521,7 +506,8 @@ export async function getHospitalDashboardStatsOptimized(
     return getHospitalDashboardStats(organizationId);
   }
 
-  const row = (data as StatsRow[])?.[0];
+  const typedData = data as HospitalStatsRow[] | null;
+  const row = typedData?.[0];
 
   return {
     success: true,
@@ -543,15 +529,7 @@ export async function getAdminDashboardStatsOptimized(): Promise<
 > {
   const supabase = await createClient();
 
-  type StatsRow = {
-    total_organizations: number;
-    pending_approvals: number;
-    today_recalls: number;
-    total_virtual_codes: number;
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_dashboard_stats_admin');
+  const { data, error } = await supabase.rpc('get_dashboard_stats_admin');
 
   if (error) {
     console.error('Admin 대시보드 통계 조회 실패:', error);
@@ -573,7 +551,8 @@ export async function getAdminDashboardStatsOptimized(): Promise<
     };
   }
 
-  const row = (data as StatsRow[])?.[0];
+  const typedData = data as AdminStatsRow[] | null;
+  const row = typedData?.[0];
 
   return {
     success: true,

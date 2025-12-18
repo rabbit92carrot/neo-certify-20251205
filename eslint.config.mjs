@@ -50,6 +50,8 @@ const eslintConfig = defineConfig([
         allowExpressions: true,
         allowTypedFunctionExpressions: true,
         allowHigherOrderFunctions: true,
+        allowDirectConstAssertionInArrowFunctions: true,
+        allowConciseArrowFunctionExpressionsStartingWithVoid: true,
       }],
       "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
@@ -59,9 +61,10 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/prefer-optional-chain": "warn",
 
       // No Magic Numbers - 개발 원칙 준수
+      // 자주 사용되는 숫자: 페이지네이션(20,50), 시간(24,60,1000,3000), 그리드(3,4,5,10)
       "no-magic-numbers": "off",
       "@typescript-eslint/no-magic-numbers": ["warn", {
-        ignore: [0, 1, -1, 2, 100],
+        ignore: [0, 1, -1, 2, 3, 4, 5, 10, 20, 24, 50, 60, 100, 1000, 3000],
         ignoreArrayIndexes: true,
         ignoreDefaultValues: true,
         ignoreEnums: true,

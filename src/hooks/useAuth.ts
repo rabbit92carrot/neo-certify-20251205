@@ -78,13 +78,14 @@ export function useAuth(): UseAuthReturn {
           .single();
 
         if (org) {
-          // manufacturer_settings 분리
-          const settings = Array.isArray(org.manufacturer_settings)
-            ? org.manufacturer_settings[0]
-            : org.manufacturer_settings;
+          // manufacturer_settings 분리 - Supabase 조인 결과 타입 처리
+          const rawSettings = org.manufacturer_settings as ManufacturerSettings | ManufacturerSettings[] | null;
+          const settings = Array.isArray(rawSettings)
+            ? rawSettings[0]
+            : rawSettings;
 
           setOrganization(org as Organization);
-          setManufacturerSettings(settings || null);
+          setManufacturerSettings(settings ?? null);
         } else {
           setOrganization(null);
           setManufacturerSettings(null);

@@ -11,6 +11,10 @@ import type {
   InventoryByLot,
   Product,
 } from '@/types/api.types';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type InventoryByLotsBulkRow = Database['public']['Functions']['get_inventory_by_lots_bulk']['Returns'][number];
 
 /**
  * 제품별 재고 요약 조회
@@ -264,8 +268,7 @@ export async function getProductsWithLotsForShipment(
   const productIds = products.map((p) => p.id);
 
   // 모든 제품의 Lot별 재고를 한 번에 조회하는 DB 함수 호출
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allLotsData, error: lotsError } = await (supabase.rpc as any)(
+  const { data: allLotsData, error: lotsError } = await supabase.rpc(
     'get_inventory_by_lots_bulk',
     {
       p_owner_id: organizationId,
@@ -293,16 +296,9 @@ export async function getProductsWithLotsForShipment(
   // 3. Lot 데이터를 제품별로 그룹화
   const lotsByProduct = new Map<string, InventoryByLot[]>();
 
-  type LotData = {
-    product_id: string;
-    lot_id: string;
-    lot_number: string;
-    manufacture_date: string;
-    expiry_date: string;
-    quantity: number;
-  };
+  const typedLotsData = (allLotsData ?? []) as InventoryByLotsBulkRow[];
 
-  for (const lot of (allLotsData || []) as LotData[]) {
+  for (const lot of typedLotsData) {
     const productId = lot.product_id;
     if (!lotsByProduct.has(productId)) {
       lotsByProduct.set(productId, []);

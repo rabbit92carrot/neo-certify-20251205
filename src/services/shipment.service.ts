@@ -20,6 +20,10 @@ import type {
   OrganizationType,
 } from '@/types/api.types';
 import type { ShipmentCreateData, ShipmentHistoryQueryData } from '@/lib/validations/shipment';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type ShipmentBatchSummariesRow = Database['public']['Functions']['get_shipment_batch_summaries']['Returns'][number];
 
 // 캐시 TTL 상수 (초)
 const TARGET_ORGS_CACHE_TTL = 600; // 10분 (조직 목록은 자주 변경되지 않음)
@@ -214,8 +218,7 @@ export async function createShipment(
     error_message: string | null;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: result, error } = await (supabase.rpc as any)('create_shipment_atomic', {
+  const { data: result, error } = await supabase.rpc('create_shipment_atomic', {
     p_to_org_id: data.toOrganizationId,
     p_to_org_type: toOrg.type,
     p_items: items,
@@ -233,7 +236,7 @@ export async function createShipment(
   }
 
   // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as unknown as ShipmentAtomicResult[];
+  const resultArray = result as ShipmentAtomicResult[] | null;
   const row = resultArray?.[0];
 
   if (row?.error_code) {
@@ -443,17 +446,7 @@ async function getShipmentBatchSummariesBulk(
   const supabase = await createClient();
 
   // DB 함수 호출로 모든 뭉치의 요약을 한 번에 조회
-  type SummaryRow = {
-    batch_id: string;
-    product_id: string;
-    product_name: string;
-    lot_id: string;
-    lot_number: string;
-    quantity: number;
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_shipment_batch_summaries', {
+  const { data, error } = await supabase.rpc('get_shipment_batch_summaries', {
     p_batch_ids: batchIds,
   });
 
@@ -463,7 +456,7 @@ async function getShipmentBatchSummariesBulk(
     return result;
   }
 
-  const rows = data as SummaryRow[];
+  const rows = data as ShipmentBatchSummariesRow[];
 
   // 뭉치별로 그룹화
   const batchMap = new Map<string, Map<string, { name: string; quantity: number }>>();
@@ -528,8 +521,7 @@ export async function recallShipment(
 
   // 원자적 회수 DB 함수 호출
   // 발송자 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: result, error } = await (supabase.rpc as any)('recall_shipment_atomic', {
+  const { data: result, error } = await supabase.rpc('recall_shipment_atomic', {
     p_shipment_batch_id: shipmentBatchId,
     p_reason: reason,
   });
@@ -546,7 +538,7 @@ export async function recallShipment(
   }
 
   // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as unknown as RecallAtomicResult[];
+  const resultArray = result as RecallAtomicResult[] | null;
   const row = resultArray?.[0];
 
   if (!row?.success) {

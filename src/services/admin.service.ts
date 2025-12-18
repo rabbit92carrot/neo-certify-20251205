@@ -40,6 +40,11 @@ import type {
 } from '@/lib/validations/admin';
 import { getActionTypeLabel } from './common.service';
 import { ORGANIZATION_STATUSES } from '@/constants/organization';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type OrgStatusCountRow = Database['public']['Functions']['get_organization_status_counts']['Returns'][number];
+type AllRecallsRow = Database['public']['Functions']['get_all_recalls']['Returns'][number];
 
 // ============================================================================
 // 상수
@@ -70,8 +75,7 @@ export async function getOrganizationStatusCounts(): Promise<
   const supabase = await createClient();
 
   // SQL GROUP BY를 사용하여 상태별 카운트 집계
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_organization_status_counts');
+  const { data, error } = await supabase.rpc('get_organization_status_counts');
 
   if (error) {
     console.error('조직 상태 통계 조회 실패:', error);
@@ -93,7 +97,8 @@ export async function getOrganizationStatusCounts(): Promise<
     deleted: 0,
   };
 
-  for (const row of data || []) {
+  const typedData = data as OrgStatusCountRow[] | null;
+  for (const row of typedData ?? []) {
     const count = Number(row.count);
     counts.total += count;
 
@@ -177,19 +182,16 @@ export async function getOrganizations(
   if (organizations && organizations.length > 0) {
     const orgIds = organizations.map((org) => org.id);
 
-    type CodeCountRow = {
-      org_id: string;
-      code_count: number;
-    };
+    type CodeCountRow = Database['public']['Functions']['get_organization_code_counts']['Returns'][number];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: countResults, error: countError } = await (supabase.rpc as any)(
+    const { data: countResults, error: countError } = await supabase.rpc(
       'get_organization_code_counts',
       { p_org_ids: orgIds }
     );
 
     if (!countError && countResults) {
-      for (const row of countResults as CodeCountRow[]) {
+      const typedResults = countResults as CodeCountRow[];
+      for (const row of typedResults) {
         countByOrgId.set(row.org_id, Number(row.code_count));
       }
     } else if (countError) {
@@ -906,21 +908,19 @@ export async function getRecallHistoryOptimized(
 
   // RPC 파라미터
   const rpcParams = {
-    p_start_date: startDate ? `${startDate}T00:00:00Z` : null,
-    p_end_date: endDate ? `${endDate}T23:59:59Z` : null,
+    p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
+    p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
     p_type: type,
   };
 
   // 병렬로 데이터 + 카운트 조회
   const [dataResult, countResult] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.rpc as any)('get_all_recalls', {
+    supabase.rpc('get_all_recalls', {
       ...rpcParams,
       p_limit: pageSize,
       p_offset: offset,
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.rpc as any)('get_all_recalls_count', rpcParams),
+    supabase.rpc('get_all_recalls_count', rpcParams),
   ]);
 
   const { data: recalls, error: dataError } = dataResult;
@@ -937,24 +937,11 @@ export async function getRecallHistoryOptimized(
   }
 
   // DB 함수 결과를 RecallHistoryItem 형태로 변환
-  type RecallRow = {
-    recall_id: string;
-    recall_type: 'shipment' | 'treatment';
-    recall_date: string;
-    recall_reason: string | null;
-    quantity: number;
-    from_org_id: string;
-    from_org_name: string;
-    from_org_type: string;
-    to_id: string;
-    to_name: string;
-    to_type: string;
-    product_summary: { productName: string; quantity: number }[] | null;
-  };
+  const typedRecalls = recalls as AllRecallsRow[] | null;
 
-  const items: RecallHistoryItem[] = ((recalls as RecallRow[]) || []).map((row) => ({
+  const items: RecallHistoryItem[] = (typedRecalls ?? []).map((row) => ({
     id: row.recall_id,
-    type: row.recall_type,
+    type: row.recall_type as 'shipment' | 'treatment',
     recallDate: row.recall_date,
     recallReason: row.recall_reason || '',
     quantity: Number(row.quantity),
@@ -970,7 +957,7 @@ export async function getRecallHistoryOptimized(
           type: row.to_type as OrganizationType | 'PATIENT',
         }
       : null,
-    items: row.product_summary || [],
+    items: (row.product_summary as { productName: string; quantity: number }[] | null) ?? [],
   }));
 
   const totalCount = Number(total) || 0;
