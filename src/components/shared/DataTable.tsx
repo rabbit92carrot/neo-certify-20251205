@@ -3,8 +3,10 @@
 /**
  * 데이터 테이블 컴포넌트
  * 무한 스크롤을 지원하는 테이블 컴포넌트입니다.
+ * React.memo를 활용하여 불필요한 리렌더링을 방지합니다.
  */
 
+import React, { memo, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -57,7 +59,102 @@ interface DataTableProps<T> {
 }
 
 /**
+ * 메모이제이션된 테이블 셀 컴포넌트
+ * 셀 렌더러의 결과가 동일하면 리렌더링을 건너뜁니다.
+ */
+interface MemoizedCellProps {
+  cellContent: React.ReactNode;
+  cellClassName?: string;
+}
+
+const MemoizedCell = memo(function MemoizedCell({ cellContent, cellClassName }: MemoizedCellProps) {
+  return (
+    <TableCell className={cellClassName}>
+      {cellContent}
+    </TableCell>
+  );
+});
+
+/**
+ * 메모이제이션된 테이블 행 컴포넌트
+ * 행 데이터가 변경되지 않으면 리렌더링을 건너뜁니다.
+ */
+interface MemoizedRowProps<T> {
+  row: T;
+  columns: ColumnDef<T>[];
+}
+
+function MemoizedRowComponent<T>({ row, columns }: MemoizedRowProps<T>) {
+  return (
+    <TableRow>
+      {columns.map((column) => (
+        <MemoizedCell
+          key={column.id}
+          cellContent={column.cell(row)}
+          cellClassName={column.cellClassName}
+        />
+      ))}
+    </TableRow>
+  );
+}
+
+/**
+ * 스켈레톤 로딩 행 컴포넌트
+ */
+interface SkeletonRowProps {
+  columnCount: number;
+  cellClassNames: (string | undefined)[];
+}
+
+const SkeletonRow = memo(function SkeletonRow({ columnCount, cellClassNames }: SkeletonRowProps) {
+  return (
+    <TableRow>
+      {Array.from({ length: columnCount }).map((_, index) => (
+        <TableCell key={index} className={cellClassNames[index]}>
+          <Skeleton className="h-4 w-full" />
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+});
+
+/**
+ * 테이블 헤더 컴포넌트
+ */
+interface TableHeaderProps {
+  headers: Array<{ id: string; header: string; headerClassName?: string }>;
+}
+
+const TableHeaderComponent = memo(function TableHeaderComponent({ headers }: TableHeaderProps) {
+  return (
+    <TableHeader>
+      <TableRow>
+        {headers.map((column) => (
+          <TableHead key={column.id} className={column.headerClassName}>
+            {column.header}
+          </TableHead>
+        ))}
+      </TableRow>
+    </TableHeader>
+  );
+});
+
+/**
  * 데이터 테이블 컴포넌트
+ *
+ * @example
+ * ```tsx
+ * const columns = useMemo(() => [
+ *   { id: 'name', header: '이름', cell: (row) => row.name },
+ *   { id: 'email', header: '이메일', cell: (row) => row.email },
+ * ], []);
+ *
+ * <DataTable
+ *   columns={columns}
+ *   data={data}
+ *   getRowKey={(row) => row.id}
+ * />
+ * ```
  */
 export function DataTable<T>({
   columns,
@@ -76,29 +173,38 @@ export function DataTable<T>({
     onLoadMore,
   });
 
+  // 헤더 정보 메모이제이션
+  const headers = useMemo(() =>
+    columns.map(col => ({
+      id: col.id,
+      header: col.header,
+      headerClassName: col.headerClassName
+    })),
+    [columns]
+  );
+
+  // 셀 클래스 이름 배열 메모이제이션
+  const cellClassNames = useMemo(() =>
+    columns.map(col => col.cellClassName),
+    [columns]
+  );
+
+  // 스켈레톤 행 인덱스 배열 메모이제이션
+  const skeletonRows = useMemo(() => Array.from({ length: 5 }, (_, i) => i), []);
+
   // 초기 로딩
   if (isLoading && data.length === 0) {
     return (
       <div className={cn('rounded-md border', className)}>
         <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((column) => (
-                <TableHead key={column.id} className={column.headerClassName}>
-                  {column.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
+          <TableHeaderComponent headers={headers} />
           <TableBody>
-            {Array.from({ length: 5 }).map((_, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {columns.map((column) => (
-                  <TableCell key={column.id} className={column.cellClassName}>
-                    <Skeleton className="h-4 w-full" />
-                  </TableCell>
-                ))}
-              </TableRow>
+            {skeletonRows.map((rowIndex) => (
+              <SkeletonRow
+                key={rowIndex}
+                columnCount={columns.length}
+                cellClassNames={cellClassNames}
+              />
             ))}
           </TableBody>
         </Table>
@@ -118,25 +224,18 @@ export function DataTable<T>({
   return (
     <div className={cn('rounded-md border', className)}>
       <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead key={column.id} className={column.headerClassName}>
-                {column.header}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
+        <TableHeaderComponent headers={headers} />
         <TableBody>
-          {data.map((row) => (
-            <TableRow key={getRowKey(row)}>
-              {columns.map((column) => (
-                <TableCell key={column.id} className={column.cellClassName}>
-                  {column.cell(row)}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
+          {data.map((row) => {
+            const rowKey = getRowKey(row);
+            return (
+              <MemoizedRowComponent
+                key={rowKey}
+                row={row}
+                columns={columns}
+              />
+            );
+          })}
         </TableBody>
       </Table>
 
@@ -152,3 +251,12 @@ export function DataTable<T>({
     </div>
   );
 }
+
+/**
+ * 메모이제이션된 DataTable
+ * 부모 컴포넌트의 리렌더링으로 인한 불필요한 렌더링을 방지합니다.
+ *
+ * 주의: 이 컴포넌트를 사용할 때 columns와 getRowKey는
+ * 부모 컴포넌트에서 useMemo/useCallback으로 메모이제이션해야 합니다.
+ */
+export const MemoizedDataTable = memo(DataTable) as typeof DataTable;
