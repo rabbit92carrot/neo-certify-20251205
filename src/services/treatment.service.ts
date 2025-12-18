@@ -178,21 +178,25 @@ export async function createTreatment(
 
     const hospitalName = (treatmentRecord?.hospital as { name: string } | null)?.name || '병원';
 
-    // 제품 정보 조회 (알림 메시지용)
+    // 제품 정보 조회 (알림 메시지용) - 벌크 쿼리로 N+1 최적화
     const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
-    for (const item of data.items) {
-      const { data: productInfo } = await supabase
-        .from('products')
-        .select('name, organization:organizations!inner(name)')
-        .eq('id', item.productId)
-        .single();
+    const productIds = data.items.map(item => item.productId);
+    const { data: productsInfo } = await supabase
+      .from('products')
+      .select('id, name, organization:organizations!inner(name)')
+      .in('id', productIds);
 
-      if (productInfo) {
-        itemSummaryForMessage.push({
-          productName: productInfo.name,
-          manufacturerName: (productInfo.organization as { name: string }).name,
-          quantity: item.quantity,
-        });
+    if (productsInfo) {
+      const productMap = new Map(productsInfo.map(p => [p.id, p]));
+      for (const item of data.items) {
+        const productInfo = productMap.get(item.productId);
+        if (productInfo) {
+          itemSummaryForMessage.push({
+            productName: productInfo.name,
+            manufacturerName: (productInfo.organization as { name: string }).name,
+            quantity: item.quantity,
+          });
+        }
       }
     }
 
