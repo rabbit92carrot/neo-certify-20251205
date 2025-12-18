@@ -1,14 +1,10 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard, AsyncStatCard } from '@/components/shared';
+import { StatCard } from '@/components/shared';
 import { Package, PackageCheck, Truck } from 'lucide-react';
 import { getCachedCurrentUser } from '@/services/auth.service';
-import { getTotalInventoryCount } from '@/services/inventory.service';
-import {
-  getDistributorTodayReceived,
-  getDistributorTodayShipments,
-} from '@/services/dashboard.service';
+import { getDistributorDashboardStatsOptimized } from '@/services/dashboard.service';
 
 export const metadata = {
   title: '대시보드 | 유통사',
@@ -16,15 +12,59 @@ export const metadata = {
 };
 
 /**
- * 통계 카드 스켈레톤
+ * 통계 카드 그리드 컴포넌트 (통합 RPC 호출 사용)
+ * 3개 쿼리를 1개 DB 왕복으로 처리하여 성능 향상
  */
-function StatCardSkeleton(): React.ReactElement {
-  return <StatCard title="" value="" isLoading />;
+async function StatsCardsGrid({ orgId }: { orgId: string }): Promise<React.ReactElement> {
+  const statsResult = await getDistributorDashboardStatsOptimized(orgId);
+  const stats = statsResult.success
+    ? statsResult.data!
+    : {
+        totalInventory: 0,
+        todayReceived: 0,
+        todayShipments: 0,
+      };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <StatCard
+        title="총 재고량"
+        value={stats.totalInventory}
+        icon={Package}
+        description="현재 보유 중인 총 재고"
+      />
+      <StatCard
+        title="오늘 입고량"
+        value={stats.todayReceived}
+        icon={PackageCheck}
+        description="오늘 입고된 수량"
+      />
+      <StatCard
+        title="오늘 출고량"
+        value={stats.todayShipments}
+        icon={Truck}
+        description="오늘 출고된 수량"
+      />
+    </div>
+  );
+}
+
+/**
+ * 통계 카드 그리드 스켈레톤
+ */
+function StatsCardsGridSkeleton(): React.ReactElement {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <StatCard title="" value="" isLoading />
+      <StatCard title="" value="" isLoading />
+      <StatCard title="" value="" isLoading />
+    </div>
+  );
 }
 
 /**
  * 유통사 대시보드 페이지
- * Suspense를 사용하여 각 통계 카드를 독립적으로 스트리밍
+ * 통합 DB 함수로 3개 통계를 1회 왕복으로 조회 (Phase 15 최적화)
  */
 export default async function DistributorDashboardPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
@@ -34,7 +74,6 @@ export default async function DistributorDashboardPage(): Promise<React.ReactEle
   }
 
   const org = user.organization;
-  const orgId = org.id;
 
   return (
     <div className="space-y-6">
@@ -53,33 +92,10 @@ export default async function DistributorDashboardPage(): Promise<React.ReactEle
         </CardContent>
       </Card>
 
-      {/* 통계 카드 - 각각 독립적으로 스트리밍 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Suspense fallback={<StatCardSkeleton />}>
-          <AsyncStatCard
-            title="총 재고량"
-            getValue={() => getTotalInventoryCount(orgId)}
-            icon={Package}
-            description="현재 보유 중인 총 재고"
-          />
-        </Suspense>
-        <Suspense fallback={<StatCardSkeleton />}>
-          <AsyncStatCard
-            title="오늘 입고량"
-            getValue={() => getDistributorTodayReceived(orgId)}
-            icon={PackageCheck}
-            description="오늘 입고된 수량"
-          />
-        </Suspense>
-        <Suspense fallback={<StatCardSkeleton />}>
-          <AsyncStatCard
-            title="오늘 출고량"
-            getValue={() => getDistributorTodayShipments(orgId)}
-            icon={Truck}
-            description="오늘 출고된 수량"
-          />
-        </Suspense>
-      </div>
+      {/* 통계 카드 - 통합 RPC로 1회 DB 왕복 (Phase 15 최적화) */}
+      <Suspense fallback={<StatsCardsGridSkeleton />}>
+        <StatsCardsGrid orgId={org.id} />
+      </Suspense>
     </div>
   );
 }
