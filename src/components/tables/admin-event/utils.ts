@@ -40,12 +40,21 @@ export function getActionTypeBadgeVariant(
 
 /**
  * 조직/환자 타입별 아이콘
+ * OrganizationType (MANUFACTURER, DISTRIBUTOR, HOSPITAL, ADMIN)와 PATIENT 지원
  */
-export function getOwnerIcon(type: 'ORGANIZATION' | 'PATIENT' | string): React.ReactNode {
-  if (type === 'PATIENT') {
-    return React.createElement(User, { className: 'h-3 w-3' });
+export function getOwnerIcon(type: string): React.ReactNode {
+  switch (type) {
+    case 'MANUFACTURER':
+      return React.createElement(Factory, { className: 'h-3 w-3' });
+    case 'DISTRIBUTOR':
+      return React.createElement(Truck, { className: 'h-3 w-3' });
+    case 'HOSPITAL':
+      return React.createElement(Stethoscope, { className: 'h-3 w-3' });
+    case 'PATIENT':
+      return React.createElement(User, { className: 'h-3 w-3' });
+    default:
+      return React.createElement(Building2, { className: 'h-3 w-3' });
   }
-  return React.createElement(Building2, { className: 'h-3 w-3' });
 }
 
 /**
