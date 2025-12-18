@@ -24,22 +24,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Package } from 'lucide-react';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Package, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { ProductForm } from '@/components/forms/ProductForm';
+import { ProductDeactivateDialog } from '@/components/forms/ProductDeactivateDialog';
 import {
   deactivateProductAction,
   activateProductAction,
 } from '@/app/(dashboard)/manufacturer/actions';
-import type { Product } from '@/types/api.types';
+import type { Product, ProductDeactivationReason } from '@/types/api.types';
+import { DEACTIVATION_REASON_LABELS } from '@/types/api.types';
 
 interface ProductsTableProps {
   /** 제품 목록 */
@@ -50,22 +48,15 @@ export function ProductsTable({ products }: ProductsTableProps): React.ReactElem
   const router = useRouter();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deactivatingProduct, setDeactivatingProduct] = useState<Product | null>(null);
-  const [isDeactivating, setIsDeactivating] = useState(false);
 
   // 비활성화 처리
-  const handleDeactivate = async (): Promise<void> => {
-    if (!deactivatingProduct) {
-      return;
-    }
-
-    setIsDeactivating(true);
-    try {
-      await deactivateProductAction(deactivatingProduct.id);
-      router.refresh();
-    } finally {
-      setIsDeactivating(false);
-      setDeactivatingProduct(null);
-    }
+  const handleDeactivate = async (
+    productId: string,
+    reason: ProductDeactivationReason,
+    note?: string
+  ): Promise<void> => {
+    await deactivateProductAction(productId, reason, note);
+    router.refresh();
   };
 
   // 활성화 처리
@@ -81,6 +72,56 @@ export function ProductsTable({ products }: ProductsTableProps): React.ReactElem
       month: '2-digit',
       day: '2-digit',
     });
+  };
+
+  // 비활성화 사유 아이콘
+  const getDeactivationIcon = (reason: string | null) => {
+    switch (reason) {
+      case 'SAFETY_ISSUE':
+        return <AlertOctagon className="h-4 w-4 text-red-500" />;
+      case 'QUALITY_ISSUE':
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      default:
+        return null;
+    }
+  };
+
+  // 상태 배지 렌더링
+  const renderStatusBadge = (product: Product) => {
+    if (product.is_active) {
+      return <Badge variant="default">활성</Badge>;
+    }
+
+    // 마이그레이션 적용 후 타입이 생성됨
+    const productAny = product as Record<string, unknown>;
+    const reason = (productAny.deactivation_reason as ProductDeactivationReason) || null;
+    const deactivationNote = productAny.deactivation_note as string | null;
+    const icon = getDeactivationIcon(reason);
+    const label = reason ? DEACTIVATION_REASON_LABELS[reason] : '비활성';
+
+    if (reason && (reason === 'SAFETY_ISSUE' || reason === 'QUALITY_ISSUE')) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="destructive" className="gap-1">
+                {icon}
+                {label}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {deactivationNote || `${label}로 비활성화됨`}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return (
+      <Badge variant="secondary">
+        {label}
+      </Badge>
+    );
   };
 
   if (products.length === 0) {
@@ -114,9 +155,7 @@ export function ProductsTable({ products }: ProductsTableProps): React.ReactElem
                 <TableCell className="font-mono text-sm">{product.udi_di}</TableCell>
                 <TableCell>{product.model_name}</TableCell>
                 <TableCell>
-                  <Badge variant={product.is_active ? 'default' : 'secondary'}>
-                    {product.is_active ? '활성' : '비활성'}
-                  </Badge>
+                  {renderStatusBadge(product)}
                 </TableCell>
                 <TableCell className="text-gray-500 text-sm">
                   {formatDate(product.created_at)}
@@ -165,36 +204,13 @@ export function ProductsTable({ products }: ProductsTableProps): React.ReactElem
         onSuccess={() => router.refresh()}
       />
 
-      {/* 비활성화 확인 다이얼로그 */}
-      <AlertDialog
+      {/* 비활성화 다이얼로그 (사유 선택) */}
+      <ProductDeactivateDialog
+        product={deactivatingProduct}
         open={!!deactivatingProduct}
-        onOpenChange={(open: boolean) => !open && setDeactivatingProduct(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>제품 비활성화</AlertDialogTitle>
-            <AlertDialogDescription>
-              <span className="font-semibold">{deactivatingProduct?.name}</span> 제품을
-              비활성화하시겠습니까?
-              <br />
-              <br />
-              비활성화된 제품은 생산 등록 목록에서 표시되지 않습니다.
-              <br />
-              기존 이력은 유지되며, 필요 시 다시 활성화할 수 있습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeactivating}>취소</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeactivate}
-              disabled={isDeactivating}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDeactivating ? '처리 중...' : '비활성화'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={(open) => !open && setDeactivatingProduct(null)}
+        onConfirm={handleDeactivate}
+      />
     </>
   );
 }
