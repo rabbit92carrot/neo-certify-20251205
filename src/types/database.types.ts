@@ -34,6 +34,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       histories: {
         Row: {
           action_type: Database["public"]["Enums"]["history_action_type"]
@@ -465,6 +489,33 @@ export type Database = {
           },
         ]
       }
+      virtual_code_verification_logs: {
+        Row: {
+          code: string
+          context: string | null
+          context_id: string | null
+          created_at: string
+          id: string
+          verification_result: boolean
+        }
+        Insert: {
+          code: string
+          context?: string | null
+          context_id?: string | null
+          created_at?: string
+          id?: string
+          verification_result: boolean
+        }
+        Update: {
+          code?: string
+          context?: string | null
+          context_id?: string | null
+          created_at?: string
+          id?: string
+          verification_result?: boolean
+        }
+        Relationships: []
+      }
       virtual_codes: {
         Row: {
           code: string
@@ -575,6 +626,7 @@ export type Database = {
               treatment_id: string
             }[]
           }
+      generate_hmac_signature: { Args: { payload: string }; Returns: string }
       generate_lot_number: {
         Args: {
           p_manufacture_date?: string
@@ -623,6 +675,69 @@ export type Database = {
         }
         Returns: number
       }
+      get_all_recalls: {
+        Args: {
+          p_end_date?: string
+          p_limit?: number
+          p_offset?: number
+          p_start_date?: string
+          p_type?: string
+        }
+        Returns: {
+          from_org_id: string
+          from_org_name: string
+          from_org_type: string
+          product_summary: Json
+          quantity: number
+          recall_date: string
+          recall_id: string
+          recall_reason: string
+          recall_type: string
+          to_id: string
+          to_name: string
+          to_type: string
+        }[]
+      }
+      get_all_recalls_count: {
+        Args: { p_end_date?: string; p_start_date?: string; p_type?: string }
+        Returns: number
+      }
+      get_dashboard_stats_admin: {
+        Args: never
+        Returns: {
+          pending_approvals: number
+          today_recalls: number
+          total_organizations: number
+          total_virtual_codes: number
+        }[]
+      }
+      get_dashboard_stats_distributor: {
+        Args: { p_organization_id: string }
+        Returns: {
+          today_received: number
+          today_shipments: number
+          total_inventory: number
+          unique_products: number
+        }[]
+      }
+      get_dashboard_stats_hospital: {
+        Args: { p_organization_id: string }
+        Returns: {
+          today_received: number
+          today_treatments: number
+          total_inventory: number
+          unique_patients: number
+        }[]
+      }
+      get_dashboard_stats_manufacturer: {
+        Args: { p_organization_id: string }
+        Returns: {
+          active_products: number
+          today_production: number
+          today_shipments: number
+          total_inventory: number
+        }[]
+      }
       get_history_summary: {
         Args: {
           p_action_types?: string[]
@@ -657,6 +772,16 @@ export type Database = {
         }
         Returns: number
       }
+      get_hospital_patients: {
+        Args: {
+          p_hospital_id: string
+          p_limit?: number
+          p_search_term?: string
+        }
+        Returns: {
+          phone_number: string
+        }[]
+      }
       get_inventory_by_lot: {
         Args: { p_owner_id: string; p_product_id: string }
         Returns: {
@@ -667,6 +792,17 @@ export type Database = {
           quantity: number
         }[]
       }
+      get_inventory_by_lots_bulk: {
+        Args: { p_owner_id: string; p_product_ids: string[] }
+        Returns: {
+          expiry_date: string
+          lot_id: string
+          lot_number: string
+          manufacture_date: string
+          product_id: string
+          quantity: number
+        }[]
+      }
       get_inventory_count: {
         Args: { p_owner_id: string; p_product_id: string }
         Returns: number
@@ -674,9 +810,22 @@ export type Database = {
       get_inventory_summary: {
         Args: { p_owner_id: string }
         Returns: {
+          model_name: string
           product_id: string
           product_name: string
           quantity: number
+          udi_di: string
+        }[]
+      }
+      get_lot_codes_paginated: {
+        Args: { p_lot_id: string; p_page?: number; p_page_size?: number }
+        Returns: {
+          code: string
+          current_owner_name: string
+          current_owner_type: string
+          current_status: string
+          id: string
+          total_count: number
         }[]
       }
       get_notification_stats: {
@@ -705,6 +854,13 @@ export type Database = {
         Returns: {
           org_id: string
           org_name: string
+        }[]
+      }
+      get_organization_status_counts: {
+        Args: never
+        Returns: {
+          count: number
+          status: string
         }[]
       }
       get_received_shipment_history: {
@@ -746,6 +902,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["organization_type"]
       }
+      get_virtual_code_secret: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_recall_allowed: {
         Args: { p_shipment_batch_id: string }
@@ -827,6 +984,7 @@ export type Database = {
       user_is_lot_manufacturer: { Args: { lot_uuid: string }; Returns: boolean }
       user_owns_codes_in_lot: { Args: { lot_uuid: string }; Returns: boolean }
       validate_business_number: { Args: { bn: string }; Returns: boolean }
+      verify_virtual_code: { Args: { code: string }; Returns: boolean }
     }
     Enums: {
       history_action_type:
