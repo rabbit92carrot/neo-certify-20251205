@@ -77,7 +77,8 @@ src/
 ├── services/               # Business logic (server-side)
 ├── lib/
 │   ├── supabase/           # Supabase client setup (client, server, admin)
-│   └── validations/        # Zod validation schemas
+│   ├── validations/        # Zod validation schemas
+│   └── utils/              # Domain-split utilities (ui, date, time, format, csv, validation)
 ├── types/
 │   ├── api.types.ts        # API response types
 │   ├── forms.types.ts      # Form data types (inferred from Zod)
@@ -86,7 +87,7 @@ src/
 └── hooks/                  # Custom hooks (useCart, useInfiniteScroll)
 
 supabase/
-├── migrations/             # SQL migrations (timestamped, 40+ files)
+├── migrations/             # SQL migrations (timestamped, 100+ files)
 └── seed.sql                # Seed data for testing
 
 tests/
@@ -111,6 +112,7 @@ e2e/                        # Playwright E2E tests
 - All database operations go through `src/services/*.service.ts`
 - Services use `createClient()` from `@/lib/supabase/server` for server-side operations
 - Return `ApiResponse<T>` type with `success` flag and either `data` or `error`
+- Use SSOT helpers from `common.service.ts`: `createSuccessResponse()`, `createErrorResponse()`, `handlePostgrestError()`
 
 **Server Actions**
 - Located in `src/app/(dashboard)/*/actions.ts` per route group
@@ -133,6 +135,7 @@ Key functions across `supabase/migrations/`:
 - `create_shipment_atomic()`: Atomic shipment creation with FIFO selection
 - `get_dashboard_stats_*()`: Role-specific dashboard statistics
 - `get_admin_event_summary()`: Admin event history aggregation
+- `get_history_summary()`: Organization history with cursor-based pagination
 
 ### Organization Types and Routes
 
