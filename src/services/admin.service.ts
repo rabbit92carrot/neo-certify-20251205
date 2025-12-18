@@ -1052,8 +1052,7 @@ export async function getInactiveProductUsageLogs(
   const { page = 1, pageSize = 20, acknowledged, manufacturerOrgId } = options;
   const offset = (page - 1) * pageSize;
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  let queryBuilder = (supabase as any)
+  let queryBuilder = supabase
     .from('inactive_product_usage_logs')
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false });
@@ -1086,8 +1085,7 @@ export async function getInactiveProductUsageLogs(
 
   const total = count || 0;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const logs: InactiveProductUsageLog[] = (data || []).map((row: any) => ({
+  const logs: InactiveProductUsageLog[] = (data || []).map((row) => ({
     id: row.id,
     usageType: row.usage_type as 'SHIPMENT' | 'TREATMENT',
     usageId: row.usage_id,
@@ -1099,8 +1097,8 @@ export async function getInactiveProductUsageLogs(
     manufacturerOrgId: row.manufacturer_org_id,
     quantity: row.quantity,
     createdAt: row.created_at,
-    acknowledgedAt: row.acknowledged_at,
-    acknowledgedBy: row.acknowledged_by,
+    acknowledgedAt: row.acknowledged_at ?? undefined,
+    acknowledgedBy: row.acknowledged_by ?? undefined,
   }));
 
   return {
@@ -1131,8 +1129,7 @@ export async function acknowledgeUsageLog(
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('inactive_product_usage_logs')
     .update({
       acknowledged_at: new Date().toISOString(),

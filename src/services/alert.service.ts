@@ -35,8 +35,7 @@ export async function getOrganizationAlerts(
   const { page = 1, pageSize = 20, isRead, alertType } = options;
   const offset = (page - 1) * pageSize;
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  let queryBuilder = (supabase as any)
+  let queryBuilder = supabase
     .from('organization_alerts')
     .select('*', { count: 'exact' })
     .eq('recipient_org_id', organizationId)
@@ -67,8 +66,7 @@ export async function getOrganizationAlerts(
   const total = count || 0;
 
   // DB 데이터를 API 타입으로 변환
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const alerts: OrganizationAlert[] = (data || []).map((row: any) => ({
+  const alerts: OrganizationAlert[] = (data || []).map((row) => ({
     id: row.id,
     alertType: row.alert_type as OrganizationAlertType,
     recipientOrgId: row.recipient_org_id,
@@ -76,7 +74,7 @@ export async function getOrganizationAlerts(
     content: row.content,
     metadata: row.metadata as OrganizationAlert['metadata'],
     isRead: row.is_read,
-    readAt: row.read_at,
+    readAt: row.read_at ?? undefined,
     createdAt: row.created_at,
   }));
 
@@ -108,8 +106,7 @@ export async function markAlertAsRead(
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('organization_alerts')
     .update({
       is_read: true,
@@ -144,8 +141,7 @@ export async function markAlertsAsRead(
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('organization_alerts')
     .update({
       is_read: true,
@@ -178,8 +174,7 @@ export async function markAllAlertsAsRead(
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('organization_alerts')
     .update({
       is_read: true,
@@ -212,8 +207,7 @@ export async function getUnreadAlertCount(
 ): Promise<ApiResponse<number>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { count, error } = await (supabase as any)
+  const { count, error } = await supabase
     .from('organization_alerts')
     .select('*', { count: 'exact', head: true })
     .eq('recipient_org_id', organizationId)
@@ -264,8 +258,7 @@ export async function getAlertDetail(
 ): Promise<ApiResponse<OrganizationAlert>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('organization_alerts')
     .select('*')
     .eq('id', alertId)
@@ -290,7 +283,7 @@ export async function getAlertDetail(
     content: data.content,
     metadata: data.metadata as OrganizationAlert['metadata'],
     isRead: data.is_read,
-    readAt: data.read_at,
+    readAt: data.read_at ?? undefined,
     createdAt: data.created_at,
   };
 

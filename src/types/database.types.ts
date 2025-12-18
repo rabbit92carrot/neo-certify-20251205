@@ -115,6 +115,83 @@ export type Database = {
           },
         ]
       }
+      inactive_product_usage_logs: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          deactivation_reason: Database["public"]["Enums"]["product_deactivation_reason"]
+          id: string
+          manufacturer_org_id: string
+          organization_id: string
+          organization_name: string
+          product_id: string
+          product_name: string
+          quantity: number
+          usage_id: string
+          usage_type: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          deactivation_reason: Database["public"]["Enums"]["product_deactivation_reason"]
+          id?: string
+          manufacturer_org_id: string
+          organization_id: string
+          organization_name: string
+          product_id: string
+          product_name: string
+          quantity: number
+          usage_id: string
+          usage_type: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          deactivation_reason?: Database["public"]["Enums"]["product_deactivation_reason"]
+          id?: string
+          manufacturer_org_id?: string
+          organization_id?: string
+          organization_name?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          usage_id?: string
+          usage_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inactive_product_usage_logs_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inactive_product_usage_logs_manufacturer_org_id_fkey"
+            columns: ["manufacturer_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inactive_product_usage_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inactive_product_usage_logs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lots: {
         Row: {
           created_at: string
@@ -229,6 +306,50 @@ export type Database = {
           },
         ]
       }
+      organization_alerts: {
+        Row: {
+          alert_type: Database["public"]["Enums"]["organization_alert_type"]
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          metadata: Json | null
+          read_at: string | null
+          recipient_org_id: string
+          title: string
+        }
+        Insert: {
+          alert_type: Database["public"]["Enums"]["organization_alert_type"]
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          read_at?: string | null
+          recipient_org_id: string
+          title: string
+        }
+        Update: {
+          alert_type?: Database["public"]["Enums"]["organization_alert_type"]
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          read_at?: string | null
+          recipient_org_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_alerts_recipient_org_id_fkey"
+            columns: ["recipient_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           address: string
@@ -295,6 +416,11 @@ export type Database = {
       products: {
         Row: {
           created_at: string
+          deactivated_at: string | null
+          deactivation_note: string | null
+          deactivation_reason:
+            | Database["public"]["Enums"]["product_deactivation_reason"]
+            | null
           id: string
           is_active: boolean
           model_name: string
@@ -305,6 +431,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivation_note?: string | null
+          deactivation_reason?:
+            | Database["public"]["Enums"]["product_deactivation_reason"]
+            | null
           id?: string
           is_active?: boolean
           model_name: string
@@ -315,6 +446,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivation_note?: string | null
+          deactivation_reason?:
+            | Database["public"]["Enums"]["product_deactivation_reason"]
+            | null
           id?: string
           is_active?: boolean
           model_name?: string
@@ -636,6 +772,7 @@ export type Database = {
         Returns: string
       }
       generate_virtual_code: { Args: never; Returns: string }
+      generate_virtual_code_v2: { Args: never; Returns: string }
       get_admin_event_summary: {
         Args: {
           p_action_types?: string[]
@@ -903,10 +1040,24 @@ export type Database = {
         Returns: Database["public"]["Enums"]["organization_type"]
       }
       get_virtual_code_secret: { Args: never; Returns: string }
+      has_inventory_for_product: {
+        Args: { p_organization_id: string; p_product_id: string }
+        Returns: boolean
+      }
       is_admin: { Args: never; Returns: boolean }
       is_recall_allowed: {
         Args: { p_shipment_batch_id: string }
         Returns: boolean
+      }
+      log_inactive_product_usage: {
+        Args: {
+          p_organization_id: string
+          p_product_id: string
+          p_quantity: number
+          p_usage_id: string
+          p_usage_type: string
+        }
+        Returns: undefined
       }
       normalize_phone_number: { Args: { phone: string }; Returns: string }
       recall_shipment_atomic:
@@ -995,6 +1146,10 @@ export type Database = {
         | "RECALLED"
         | "DISPOSED"
       notification_type: "CERTIFICATION" | "RECALL"
+      organization_alert_type:
+        | "INACTIVE_PRODUCT_USAGE"
+        | "SYSTEM_NOTICE"
+        | "CUSTOM_MESSAGE"
       organization_status:
         | "PENDING_APPROVAL"
         | "ACTIVE"
@@ -1002,6 +1157,11 @@ export type Database = {
         | "DELETED"
       organization_type: "MANUFACTURER" | "DISTRIBUTOR" | "HOSPITAL" | "ADMIN"
       owner_type: "ORGANIZATION" | "PATIENT"
+      product_deactivation_reason:
+        | "DISCONTINUED"
+        | "SAFETY_ISSUE"
+        | "QUALITY_ISSUE"
+        | "OTHER"
       virtual_code_status: "IN_STOCK" | "USED" | "DISPOSED"
     }
     CompositeTypes: {
@@ -1142,6 +1302,11 @@ export const Constants = {
         "DISPOSED",
       ],
       notification_type: ["CERTIFICATION", "RECALL"],
+      organization_alert_type: [
+        "INACTIVE_PRODUCT_USAGE",
+        "SYSTEM_NOTICE",
+        "CUSTOM_MESSAGE",
+      ],
       organization_status: [
         "PENDING_APPROVAL",
         "ACTIVE",
@@ -1150,6 +1315,12 @@ export const Constants = {
       ],
       organization_type: ["MANUFACTURER", "DISTRIBUTOR", "HOSPITAL", "ADMIN"],
       owner_type: ["ORGANIZATION", "PATIENT"],
+      product_deactivation_reason: [
+        "DISCONTINUED",
+        "SAFETY_ISSUE",
+        "QUALITY_ISSUE",
+        "OTHER",
+      ],
       virtual_code_status: ["IN_STOCK", "USED", "DISPOSED"],
     },
   },
