@@ -5,7 +5,10 @@
 -- - 예상 개선: DB 왕복 1회 감소, 120ms → 80ms (33% 개선)
 -- =====================================================
 
--- 기존 함수 대체 (from_owner_name, to_owner_name 추가)
+-- 기존 함수 삭제 (반환 타입 변경을 위해 필수)
+DROP FUNCTION IF EXISTS get_history_summary(UUID, TEXT[], TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, INT, INT);
+
+-- 새 함수 생성 (from_owner_name, to_owner_name 추가)
 CREATE OR REPLACE FUNCTION get_history_summary(
   p_organization_id UUID,
   p_action_types TEXT[] DEFAULT NULL,
