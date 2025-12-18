@@ -2,13 +2,14 @@
 
 /**
  * 관리자 Server Actions
- * 조직 관리, 승인 처리
+ * 조직 관리, 승인 처리, 알림 관리
  */
 
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/services/auth.service';
 import * as adminService from '@/services/admin.service';
-import type { ApiResponse } from '@/types/api.types';
+import * as alertService from '@/services/alert.service';
+import type { ApiResponse, OrganizationAlertType } from '@/types/api.types';
 
 // ============================================================================
 // 헬퍼 함수
@@ -475,4 +476,216 @@ export async function exportEventSummaryCsvAction(query: {
     organizationId: query.organizationId,
     includeRecalled: query.includeRecalled ?? true,
   });
+}
+
+// ============================================================================
+// 비활성 제품 사용 로그 Actions
+// ============================================================================
+
+/**
+ * 비활성 제품 사용 로그 조회 Action
+ */
+export async function getInactiveProductUsageLogsAction(query: {
+  page?: number;
+  pageSize?: number;
+  acknowledged?: boolean;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getInactiveProductUsageLogs({
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 20,
+    acknowledged: query.acknowledged,
+  });
+}
+
+/**
+ * 비활성 제품 사용 로그 확인 처리 Action
+ */
+export async function acknowledgeUsageLogAction(logId: string) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await adminService.acknowledgeUsageLog(logId, adminId);
+
+  if (result.success) {
+    revalidatePath('/admin/alerts');
+  }
+
+  return result;
+}
+
+/**
+ * 미확인 비활성 제품 사용 로그 카운트 Action
+ */
+export async function getUnacknowledgedUsageLogCountAction() {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getUnacknowledgedUsageLogCount();
+}
+
+// ============================================================================
+// 알림 보관함 Actions
+// ============================================================================
+
+/**
+ * 조직 알림 목록 조회 Action
+ */
+export async function getOrganizationAlertsAction(query: {
+  page?: number;
+  pageSize?: number;
+  isRead?: boolean;
+  alertType?: string;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return alertService.getOrganizationAlerts(adminId, {
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 20,
+    isRead: query.isRead,
+    alertType: query.alertType as OrganizationAlertType | undefined,
+  });
+}
+
+/**
+ * 알림 읽음 처리 Action
+ */
+export async function markAlertAsReadAction(alertId: string) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await alertService.markAlertAsRead(adminId, alertId);
+
+  if (result.success) {
+    revalidatePath('/admin/inbox');
+  }
+
+  return result;
+}
+
+/**
+ * 여러 알림 읽음 처리 Action
+ */
+export async function markAlertsAsReadAction(alertIds: string[]) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await alertService.markAlertsAsRead(adminId, alertIds);
+
+  if (result.success) {
+    revalidatePath('/admin/inbox');
+  }
+
+  return result;
+}
+
+/**
+ * 모든 알림 읽음 처리 Action
+ */
+export async function markAllAlertsAsReadAction() {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await alertService.markAllAlertsAsRead(adminId);
+
+  if (result.success) {
+    revalidatePath('/admin/inbox');
+  }
+
+  return result;
+}
+
+/**
+ * 미읽은 알림 카운트 조회 Action
+ */
+export async function getUnreadAlertCountAction() {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return alertService.getUnreadAlertCount(adminId);
+}
+
+/**
+ * 알림 상세 조회 Action
+ */
+export async function getAlertDetailAction(alertId: string) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return alertService.getAlertDetail(adminId, alertId);
 }
