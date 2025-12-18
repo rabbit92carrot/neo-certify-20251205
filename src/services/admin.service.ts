@@ -29,6 +29,8 @@ import type {
   AdminEventSampleCode,
   LotCodeItem,
   LotCodesPaginatedResponse,
+  InactiveProductUsageLog,
+  ProductDeactivationReason,
 } from '@/types/api.types';
 import type {
   AdminOrganizationQueryData,
@@ -1026,6 +1028,193 @@ export async function getAllOrganizationsForSelect(): Promise<
       type: org.type as OrganizationType,
     })),
   };
+}
+
+// ============================================================================
+// 비활성 제품 사용 로그
+// ============================================================================
+
+/**
+ * 비활성 제품 사용 로그 조회
+ *
+ * @param options 조회 옵션
+ * @returns 페이지네이션된 사용 로그
+ */
+export async function getInactiveProductUsageLogs(
+  options: {
+    page?: number;
+    pageSize?: number;
+    acknowledged?: boolean;
+    manufacturerOrgId?: string;
+  } = {}
+): Promise<ApiResponse<PaginatedResponse<InactiveProductUsageLog>>> {
+  const supabase = await createClient();
+  const { page = 1, pageSize = 20, acknowledged, manufacturerOrgId } = options;
+  const offset = (page - 1) * pageSize;
+
+  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
+  let queryBuilder = (supabase as any)
+    .from('inactive_product_usage_logs')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false });
+
+  // 확인 여부 필터
+  if (acknowledged !== undefined) {
+    if (acknowledged) {
+      queryBuilder = queryBuilder.not('acknowledged_at', 'is', null);
+    } else {
+      queryBuilder = queryBuilder.is('acknowledged_at', null);
+    }
+  }
+
+  // 제조사 필터 (제조사 페이지용)
+  if (manufacturerOrgId) {
+    queryBuilder = queryBuilder.eq('manufacturer_org_id', manufacturerOrgId);
+  }
+
+  const { data, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
+
+  if (error) {
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: '사용 로그 조회에 실패했습니다.',
+      },
+    };
+  }
+
+  const total = count || 0;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const logs: InactiveProductUsageLog[] = (data || []).map((row: any) => ({
+    id: row.id,
+    usageType: row.usage_type as 'SHIPMENT' | 'TREATMENT',
+    usageId: row.usage_id,
+    productId: row.product_id,
+    productName: row.product_name,
+    deactivationReason: row.deactivation_reason as ProductDeactivationReason,
+    organizationId: row.organization_id,
+    organizationName: row.organization_name,
+    manufacturerOrgId: row.manufacturer_org_id,
+    quantity: row.quantity,
+    createdAt: row.created_at,
+    acknowledgedAt: row.acknowledged_at,
+    acknowledgedBy: row.acknowledged_by,
+  }));
+
+  return {
+    success: true,
+    data: {
+      items: logs,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        hasMore: offset + pageSize < total,
+      },
+    },
+  };
+}
+
+/**
+ * 비활성 제품 사용 로그 확인 처리
+ *
+ * @param logId 로그 ID
+ * @param adminOrgId 확인 처리하는 관리자 조직 ID
+ * @returns 성공 여부
+ */
+export async function acknowledgeUsageLog(
+  logId: string,
+  adminOrgId: string
+): Promise<ApiResponse<void>> {
+  const supabase = await createClient();
+
+  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
+  const { error } = await (supabase as any)
+    .from('inactive_product_usage_logs')
+    .update({
+      acknowledged_at: new Date().toISOString(),
+      acknowledged_by: adminOrgId,
+    })
+    .eq('id', logId)
+    .is('acknowledged_at', null); // 아직 확인 안된 것만
+
+  if (error) {
+    return {
+      success: false,
+      error: {
+        code: 'UPDATE_FAILED',
+        message: '확인 처리에 실패했습니다.',
+      },
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * 여러 비활성 제품 사용 로그 일괄 확인 처리
+ *
+ * @param logIds 로그 ID 배열
+ * @param adminOrgId 확인 처리하는 관리자 조직 ID
+ * @returns 성공 여부
+ */
+export async function acknowledgeUsageLogs(
+  logIds: string[],
+  adminOrgId: string
+): Promise<ApiResponse<void>> {
+  const supabase = await createClient();
+
+  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
+  const { error } = await (supabase as any)
+    .from('inactive_product_usage_logs')
+    .update({
+      acknowledged_at: new Date().toISOString(),
+      acknowledged_by: adminOrgId,
+    })
+    .in('id', logIds)
+    .is('acknowledged_at', null);
+
+  if (error) {
+    return {
+      success: false,
+      error: {
+        code: 'UPDATE_FAILED',
+        message: '확인 처리에 실패했습니다.',
+      },
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * 미확인 비활성 제품 사용 로그 카운트
+ *
+ * @returns 미확인 로그 개수
+ */
+export async function getUnacknowledgedUsageLogCount(): Promise<ApiResponse<number>> {
+  const supabase = await createClient();
+
+  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
+  const { count, error } = await (supabase as any)
+    .from('inactive_product_usage_logs')
+    .select('*', { count: 'exact', head: true })
+    .is('acknowledged_at', null);
+
+  if (error) {
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: '카운트 조회에 실패했습니다.',
+      },
+    };
+  }
+
+  return { success: true, data: count || 0 };
 }
 
 /**

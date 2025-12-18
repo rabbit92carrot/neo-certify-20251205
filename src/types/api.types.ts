@@ -105,6 +105,8 @@ export type VirtualCodeStatus = Enums<'virtual_code_status'>;
 export type OwnerType = Enums<'owner_type'>;
 export type HistoryActionType = Enums<'history_action_type'>;
 export type NotificationType = Enums<'notification_type'>;
+export type ProductDeactivationReason = 'DISCONTINUED' | 'SAFETY_ISSUE' | 'QUALITY_ISSUE' | 'OTHER';
+export type OrganizationAlertType = 'INACTIVE_PRODUCT_USAGE' | 'SYSTEM_NOTICE' | 'CUSTOM_MESSAGE';
 
 // ============================================================================
 // 조인된 엔티티 타입 (API 응답용)
@@ -484,3 +486,70 @@ export interface AdminEventCsvItem {
   productNames: string;
   isRecall: string;
 }
+
+// ============================================================================
+// 조직 알림 타입
+// ============================================================================
+
+/**
+ * 조직 알림 (보관함용)
+ */
+export interface OrganizationAlert {
+  id: string;
+  alertType: OrganizationAlertType;
+  recipientOrgId: string;
+  title: string;
+  content: string;
+  metadata?: {
+    productId?: string;
+    productName?: string;
+    usageType?: 'SHIPMENT' | 'TREATMENT';
+    usageId?: string;
+    quantity?: number;
+    organizationId?: string;
+    organizationName?: string;
+    deactivationReason?: ProductDeactivationReason;
+    [key: string]: unknown;
+  };
+  isRead: boolean;
+  readAt?: string;
+  createdAt: string;
+}
+
+/**
+ * 비활성 제품 사용 로그
+ */
+export interface InactiveProductUsageLog {
+  id: string;
+  usageType: 'SHIPMENT' | 'TREATMENT';
+  usageId: string;
+  productId: string;
+  productName: string;
+  deactivationReason: ProductDeactivationReason;
+  organizationId: string;
+  organizationName: string;
+  manufacturerOrgId: string;
+  quantity: number;
+  createdAt: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+}
+
+/**
+ * 비활성화 사유 라벨
+ */
+export const DEACTIVATION_REASON_LABELS: Record<ProductDeactivationReason, string> = {
+  DISCONTINUED: '단종',
+  SAFETY_ISSUE: '안전 문제',
+  QUALITY_ISSUE: '품질 문제',
+  OTHER: '기타',
+};
+
+/**
+ * 알림 유형 라벨
+ */
+export const ALERT_TYPE_LABELS: Record<OrganizationAlertType, string> = {
+  INACTIVE_PRODUCT_USAGE: '비활성 제품 사용',
+  SYSTEM_NOTICE: '시스템 공지',
+  CUSTOM_MESSAGE: '메시지',
+};

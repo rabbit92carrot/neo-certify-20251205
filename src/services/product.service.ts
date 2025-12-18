@@ -5,7 +5,7 @@
 
 import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import type { ApiResponse, Product, PaginatedResponse } from '@/types/api.types';
+import type { ApiResponse, Product, PaginatedResponse, ProductDeactivationReason } from '@/types/api.types';
 import type {
   ProductCreateData,
   ProductUpdateData,
@@ -285,17 +285,26 @@ export async function updateProduct(
  *
  * @param organizationId 제조사 조직 ID
  * @param productId 제품 ID
+ * @param reason 비활성화 사유
+ * @param note 상세 사유 (선택)
  * @returns 비활성화된 제품 정보
  */
 export async function deactivateProduct(
   organizationId: string,
-  productId: string
+  productId: string,
+  reason: ProductDeactivationReason,
+  note?: string
 ): Promise<ApiResponse<Product>> {
   const supabase = await createClient();
 
   const { data: product, error } = await supabase
     .from('products')
-    .update({ is_active: false })
+    .update({
+      is_active: false,
+      deactivation_reason: reason,
+      deactivation_note: note || null,
+      deactivated_at: new Date().toISOString(),
+    })
     .eq('id', productId)
     .eq('organization_id', organizationId)
     .select()
@@ -316,6 +325,7 @@ export async function deactivateProduct(
 
 /**
  * 제품 활성화
+ * 비활성화 관련 필드를 초기화함
  *
  * @param organizationId 제조사 조직 ID
  * @param productId 제품 ID
@@ -329,7 +339,12 @@ export async function activateProduct(
 
   const { data: product, error } = await supabase
     .from('products')
-    .update({ is_active: true })
+    .update({
+      is_active: true,
+      deactivation_reason: null,
+      deactivation_note: null,
+      deactivated_at: null,
+    })
     .eq('id', productId)
     .eq('organization_id', organizationId)
     .select()
