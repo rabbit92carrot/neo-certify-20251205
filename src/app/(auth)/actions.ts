@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import * as authService from '@/services/auth.service';
 import { organizationRegisterSchema, loginSchema } from '@/lib/validations';
 import { DEFAULT_REDIRECT, LOGIN_PATH } from '@/constants/routes';
+import { createErrorResponse, createSuccessResponse, ERROR_CODES } from '@/services/common.service';
 import type { ApiResponse } from '@/types/api.types';
 import type { OrganizationType } from '@/constants';
 
@@ -63,41 +64,22 @@ export async function registerAction(
       fieldErrors[path].push(issue.message);
     });
 
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: '입력값을 확인해주세요.',
-        details: fieldErrors,
-      },
-    };
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', fieldErrors);
   }
 
   // 파일 검증
   if (!file || file.size === 0) {
-    return {
-      success: false,
-      error: {
-        code: 'FILE_REQUIRED',
-        message: '사업자등록증 파일을 업로드해주세요.',
-      },
-    };
+    return createErrorResponse('FILE_REQUIRED', '사업자등록증 파일을 업로드해주세요.');
   }
 
   // 서비스 호출
   const result = await authService.register(validationResult.data, file);
 
   if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-    };
+    return createErrorResponse(result.error?.code ?? 'UNKNOWN_ERROR', result.error?.message ?? '회원가입에 실패했습니다.');
   }
 
-  return {
-    success: true,
-    data: { redirect: `${LOGIN_PATH}?registered=true` },
-  };
+  return createSuccessResponse({ redirect: `${LOGIN_PATH}?registered=true` });
 }
 
 /**
@@ -126,14 +108,7 @@ export async function loginAction(
       fieldErrors[path].push(issue.message);
     });
 
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: '입력값을 확인해주세요.',
-        details: fieldErrors,
-      },
-    };
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', fieldErrors);
   }
 
   // 서비스 호출
@@ -143,10 +118,7 @@ export async function loginAction(
   );
 
   if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-    };
+    return createErrorResponse(result.error?.code ?? 'UNKNOWN_ERROR', result.error?.message ?? '로그인에 실패했습니다.');
   }
 
   // 조직 유형별 리다이렉트 경로 결정
@@ -155,10 +127,7 @@ export async function loginAction(
 
   revalidatePath('/', 'layout');
 
-  return {
-    success: true,
-    data: { redirect: redirectPath },
-  };
+  return createSuccessResponse({ redirect: redirectPath });
 }
 
 /**
