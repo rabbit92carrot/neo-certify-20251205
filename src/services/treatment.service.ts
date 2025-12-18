@@ -20,6 +20,11 @@ import type {
   TreatmentItemSummary,
 } from '@/types/api.types';
 import type { TreatmentCreateData, TreatmentHistoryQueryData } from '@/lib/validations/treatment';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type TreatmentSummariesRow = Database['public']['Functions']['get_treatment_summaries']['Returns'][number];
+type HospitalPatientsRow = Database['public']['Functions']['get_hospital_patients']['Returns'][number];
 
 // ============================================================================
 // 타입 정의
@@ -136,8 +141,7 @@ export async function createTreatment(
 
   // 2. 원자적 시술 생성 DB 함수 호출 (환자 생성 포함)
   // 병원 ID는 DB 함수 내에서 get_user_organization_id()로 도출됨
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: result, error } = await (supabase.rpc as any)('create_treatment_atomic', {
+  const { data: result, error } = await supabase.rpc('create_treatment_atomic', {
     p_patient_phone: normalizedPhone,
     p_treatment_date: data.treatmentDate,
     p_items: items,
@@ -155,7 +159,7 @@ export async function createTreatment(
   }
 
   // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as unknown as TreatmentAtomicResult[];
+  const resultArray = result as TreatmentAtomicResult[] | null;
   const row = resultArray?.[0];
 
   if (row?.error_code) {
@@ -334,17 +338,7 @@ async function getTreatmentSummariesBulk(
   const supabase = await createClient();
 
   // DB 함수 호출로 모든 시술의 요약을 한 번에 조회
-  type SummaryRow = {
-    treatment_id: string;
-    product_id: string;
-    product_name: string;
-    lot_id: string;
-    lot_number: string;
-    quantity: number;
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_treatment_summaries', {
+  const { data, error } = await supabase.rpc('get_treatment_summaries', {
     p_treatment_ids: treatmentIds,
   });
 
@@ -354,7 +348,7 @@ async function getTreatmentSummariesBulk(
     return result;
   }
 
-  const rows = data as SummaryRow[];
+  const rows = data as TreatmentSummariesRow[];
 
   // 시술별로 그룹화
   const treatmentMap = new Map<string, Map<string, { name: string; quantity: number }>>();
@@ -449,8 +443,7 @@ export async function recallTreatment(
 
   // 3. 원자적 회수 DB 함수 호출
   // 병원 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: result, error } = await (supabase.rpc as any)('recall_treatment_atomic', {
+  const { data: result, error } = await supabase.rpc('recall_treatment_atomic', {
     p_treatment_id: treatmentId,
     p_reason: reason,
   });
@@ -467,7 +460,7 @@ export async function recallTreatment(
   }
 
   // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as unknown as RecallAtomicResult[];
+  const resultArray = result as RecallAtomicResult[] | null;
   const row = resultArray?.[0];
 
   if (!row?.success) {
@@ -589,4 +582,54 @@ export async function checkTreatmentRecallAllowed(
   }
 
   return { success: true, data: { allowed: true } };
+}
+
+// ============================================================================
+// 병원 환자 검색
+// ============================================================================
+
+/**
+ * 병원의 기존 환자 전화번호 검색
+ * 시술 이력이 있는 환자만 반환합니다.
+ *
+ * @param hospitalId 병원 ID
+ * @param searchTerm 검색어 (전화번호 일부)
+ * @param limit 결과 제한 (기본 10개)
+ * @returns 환자 전화번호 목록
+ */
+export async function getHospitalPatients(
+  hospitalId: string,
+  searchTerm?: string,
+  limit: number = 10
+): Promise<ApiResponse<string[]>> {
+  const supabase = await createClient();
+
+  // 검색어 정규화 (숫자만 추출)
+  const normalizedSearch = searchTerm ? normalizePhoneNumber(searchTerm) : undefined;
+
+  const { data, error } = await supabase.rpc('get_hospital_patients', {
+    p_hospital_id: hospitalId,
+    p_search_term: normalizedSearch,
+    p_limit: limit,
+  });
+
+  if (error) {
+    console.error('병원 환자 검색 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: error.message,
+      },
+    };
+  }
+
+  // 결과에서 전화번호만 추출
+  const typedData = data as HospitalPatientsRow[] | null;
+  const phoneNumbers = (typedData ?? []).map((row) => row.phone_number);
+
+  return {
+    success: true,
+    data: phoneNumbers,
+  };
 }

@@ -2,6 +2,7 @@
 
 > **문서 목적**: 세션 간 일관된 개발 진행을 위한 종합 개발 계획서
 > **PRD 참조**: [docs/core-planning-document/neo-cert-prd-2.1.md](docs/core-planning-document/neo-cert-prd-2.1.md)
+> **최종 업데이트**: 2025-12-13
 
 ---
 
@@ -9,8 +10,8 @@
 
 | 항목 | 내용 |
 |------|------|
-| **서비스명** | 네오인증서 |
-| **목적** | PDO threads 정품 인증 시스템 |
+| **서비스명** | 네오인증서 (JAMBER 정품 인증 시스템) |
+| **목적** | 미용 의료기기(PDO threads 등) 정품 인증 시스템 |
 | **사용자** | 제조사, 유통사, 병원, 환자(알림만), 관리자 |
 | **핵심 기능** | 제조→유통→병원→환자 유통 이력 추적, 정품 인증 발급 |
 
@@ -20,12 +21,13 @@
 
 | 영역 | 기술 | 버전 |
 |------|------|------|
-| **Frontend** | Next.js (App Router) | 15.x |
+| **Frontend** | Next.js (App Router) | 16.x |
 | **UI Library** | React | 19.x |
 | **Styling** | Tailwind CSS + shadcn/ui | v4 |
 | **Language** | TypeScript | 5.x (strict mode) |
 | **Backend** | Supabase (PostgreSQL, Auth, Edge Functions, Storage) | - |
-| **Testing** | Vitest | 3.x |
+| **Unit/Integration Testing** | Vitest | 3.x |
+| **E2E Testing** | Playwright | - |
 | **Type Generation** | Supabase CLI | - |
 
 ---
@@ -426,35 +428,109 @@ Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
 ---
 
 ### Phase 10: 테스트 ✅ 완료
-**완료일**: 2025-12-10
+**완료일**: 2025-12-12 (E2E 테스트 추가)
 
-- [x] 단위 테스트 (유틸, 서비스) - 62개 테스트 케이스
-- [x] 통합 테스트 (FIFO, 회수 로직) - 158개 테스트 케이스
+- [x] 단위 테스트 (유틸, Zod 스키마) - 8개 테스트 파일
+- [x] 통합 테스트 (서비스 레이어) - 13개 서비스 테스트 파일
+- [x] E2E 테스트 (Playwright) - 5개 테스트 파일
 - [x] 커버리지 설정 조정
 
-**산출물**:
-- 단위 테스트: `tests/unit/utils.test.ts` - 62개 테스트 (엣지 케이스 보강)
-- 통합 테스트: `tests/integration/*.test.ts` - 11개 서비스 파일, 158개 테스트
-- 총 **220개 테스트** 모두 통과
+**테스트 현황** (2025-12-13 기준):
+- 총 **575개 테스트** 모두 통과 (2개 skip)
+- 단위 테스트: `tests/unit/*.test.ts` - 유틸리티, Zod 스키마 검증
+- 통합 테스트: `tests/integration/*.test.ts` - 13개 서비스 파일
+- E2E 테스트: `e2e/*.spec.ts` - 5개 테스트 파일 (auth, admin, manufacturer, distributor, hospital)
 
-**추가된 테스트**:
-- 유틸리티 함수 엣지 케이스 (빈 문자열, 경계값 등)
-- 24시간 회수 경계값 테스트 (정확히 24시간, 24시간-1초)
-- 재고 0개 시나리오 테스트
+**산출물**:
+- 단위 테스트 8개 파일:
+  - `tests/unit/utils.test.ts` - 유틸리티 함수
+  - `tests/unit/validations/*.test.ts` - Zod 스키마 (7개 파일)
+- 통합 테스트 13개 파일:
+  - `tests/integration/auth.service.test.ts`
+  - `tests/integration/product.service.test.ts`
+  - `tests/integration/lot.service.test.ts`
+  - `tests/integration/shipment.service.test.ts`
+  - `tests/integration/inventory.service.test.ts`
+  - `tests/integration/treatment.service.test.ts`
+  - `tests/integration/history.service.test.ts`
+  - `tests/integration/dashboard.service.test.ts`
+  - `tests/integration/admin.service.test.ts`
+  - `tests/integration/notification.service.test.ts`
+  - `tests/integration/manufacturer-settings.service.test.ts`
+  - `tests/integration/common.service.test.ts`
+  - `tests/integration/concurrency.test.ts`
+- E2E 테스트 5개 파일:
+  - `e2e/auth.spec.ts` - 로그인/로그아웃 플로우
+  - `e2e/admin.spec.ts` - 관리자 대시보드
+  - `e2e/manufacturer.spec.ts` - 제조사 기능
+  - `e2e/distributor.spec.ts` - 유통사 기능
+  - `e2e/hospital.spec.ts` - 병원 기능
 
 **핵심 파일**:
-- `tests/unit/utils.test.ts` - 유틸리티 함수 단위 테스트
-- `tests/integration/shipment.service.test.ts` - FIFO/회수 통합 테스트
-- `tests/integration/treatment.service.test.ts` - 시술/회수 통합 테스트
-- `vitest.config.ts` - 커버리지 설정 (임계값 제거)
+- `vitest.config.ts` - Vitest 설정
+- `playwright.config.ts` - Playwright 설정
+- `tests/setup.ts` - 테스트 환경 설정
+- `tests/helpers/` - 테스트 헬퍼 및 팩토리
+- `docs/E2E_TESTING_GUIDE.md` - E2E 테스트 가이드
 
 ---
 
-### Phase 11: 최종 검토/배포 (1 세션)
+### Phase 10.5: 성능 최적화 및 안정화 ✅ 완료
+**완료일**: 2025-12-13
 
-- [ ] 코드 리뷰
-- [ ] 성능 최적화
-- [ ] 배포 설정
+#### 10.5.1 DB 쿼리 최적화 (2025-12-12)
+- [x] N+1 쿼리 제거 및 대량 데이터 처리 최적화
+- [x] DB 함수 벌크 처리 최적화 (atomic 함수들)
+- [x] 관리자 이벤트 요약 기능 (동시 작업 그룹핑)
+- [x] 조직 관리 페이지 UI 개선 (통계 카드 + 페이지네이션)
+- [x] 테스트 데이터 대규모 확장 (2,500+ 가상코드)
+- [x] 마이그레이션 파일 Supabase 표준 형식으로 변환
+
+#### 10.5.2 페이지 전환 지연시간 최소화 (2025-12-13)
+- [x] loading.tsx 파일 추가 (8개 페이지) - 즉시 체감 속도 개선
+- [x] 미들웨어 중복 조직 조회 제거 - 단일 쿼리로 통합
+- [x] React `cache()` 적용 - 레이아웃/페이지 간 중복 호출 방지
+- [x] `unstable_cache` 적용 - 제품/대상조직 목록 캐싱 (5~10분 TTL)
+
+#### 10.5.3 Suspense 스트리밍 및 N+1 쿼리 최적화 (2025-12-13)
+- [x] AsyncStatCard 컴포넌트 추가 - 독립적 비동기 통계 로딩
+- [x] 대시보드 Suspense 스트리밍 적용 (제조사/유통사/병원)
+- [x] 개별 통계 함수 추가 (dashboard.service.ts)
+- [x] getProductsWithLotsForShipment 함수 - N+1 쿼리 방지
+- [x] get_inventory_by_lots_bulk DB 함수 생성
+- [x] 출고 페이지 병렬 데이터 조회로 최적화
+
+**산출물**:
+- DB 함수 최적화: 90개 마이그레이션 파일
+- 관리자 이벤트 요약 DB 함수 및 인덱스
+- 서비스 레이어 쿼리 최적화
+- Skeleton UI 로딩 컴포넌트 8개
+- AsyncStatCard 컴포넌트
+
+**핵심 파일**:
+- `supabase/migrations/20251212100000_get_admin_event_summary.sql`
+- `supabase/migrations/20251212100001_get_admin_event_summary_count.sql`
+- `supabase/migrations/20251213100000_get_inventory_by_lots_bulk.sql`
+- `src/services/admin.service.ts` - 이벤트 요약 기능
+- `src/app/(dashboard)/*/loading.tsx` - 로딩 UI (8개)
+- `src/services/auth.service.ts` - getCachedCurrentUser
+- `src/services/product.service.ts` - getCachedActiveProducts
+- `src/services/shipment.service.ts` - getCachedShipmentTargetOrganizations
+- `src/services/dashboard.service.ts` - 개별 통계 함수들
+- `src/services/inventory.service.ts` - getProductsWithLotsForShipment
+- `src/components/shared/AsyncStatCard.tsx` - 비동기 통계 카드
+- `middleware.ts` - 중복 조직 조회 제거
+
+---
+
+### Phase 11: 최종 검토/배포 ⏳ 진행 중
+
+- [x] 코드 안정화 (lint 0 errors, 452 warnings)
+- [x] 빌드 성공 확인
+- [x] Vercel 배포 설정 완료
+  - Preview URL: `https://neo-certify-20251205-*.vercel.app`
+- [ ] Supabase 프로덕션 설정
+- [ ] 커스텀 도메인 연결
 
 ---
 
@@ -535,19 +611,55 @@ Phase 8(관리자 기능) 진행 전 리뷰에서 발견된 개선사항 적용
 | Phase 7.5 | ✅ 완료 | 2025-12-10 |
 | Phase 8 | ✅ 완료 | 2025-12-10 |
 | Phase 9 | ✅ 완료 | 2025-12-10 |
-| Phase 10 | ✅ 완료 | 2025-12-10 |
-| Phase 11 | ⏳ 다음 | - |
+| Phase 10 | ✅ 완료 | 2025-12-12 |
+| Phase 10.5 | ✅ 완료 | 2025-12-12 |
+| Phase 11 | ⏳ 진행 중 | - |
 
 ---
 
-## 다음 세션 작업 (Phase 11: 최종 검토/배포)
+## 프로젝트 현황 요약 (2025-12-13)
 
-1. 코드 리뷰
-   - 불필요한 코드 제거
-   - 일관성 검토
-2. 성능 최적화
-   - 쿼리 최적화
-   - 번들 사이즈 확인
-3. 배포 설정
-   - Vercel 배포 설정
-   - Supabase 프로덕션 설정
+### 코드베이스 통계
+
+| 항목 | 수량 |
+|------|------|
+| **소스 파일 (.ts)** | 55개 |
+| **소스 파일 (.tsx)** | 93개 |
+| **테스트 파일** | 21개 (Vitest) + 5개 (Playwright) |
+| **마이그레이션 파일** | 89개 |
+| **총 테스트 케이스** | 575개 (2 skipped) |
+
+### 빌드/테스트 상태
+
+| 항목 | 상태 |
+|------|------|
+| **빌드** | ✅ 성공 |
+| **단위/통합 테스트** | ✅ 575 passed, 2 skipped |
+| **Lint** | ✅ 0 errors (452 warnings) |
+| **타입 체크** | ✅ 통과 |
+
+### 주요 라우트
+
+| 역할 | 라우트 | 기능 |
+|------|--------|------|
+| **인증** | `/login`, `/register` | 로그인, 회원가입 |
+| **제조사** | `/manufacturer/*` | 대시보드, 제품, 생산, 출고, 재고, 이력, 설정 |
+| **유통사** | `/distributor/*` | 대시보드, 출고, 재고, 이력 |
+| **병원** | `/hospital/*` | 대시보드, 시술, 재고, 이력 |
+| **관리자** | `/admin/*` | 대시보드, 조직, 승인, 이력, 회수 모니터링 |
+| **Mock** | `/mock/kakao` | 카카오 알림톡 시뮬레이션 |
+
+---
+
+## 남은 작업 (Phase 11: 배포)
+
+1. **배포 설정** ✅ 진행 중
+   - [x] Vercel 프로젝트 생성 및 배포
+   - [ ] Supabase 프로덕션 프로젝트 설정
+   - [ ] 환경 변수 설정 (프로덕션 Supabase 연결)
+   - [ ] 커스텀 도메인 연결
+
+2. **선택적 개선사항**
+   - Lint warnings 정리 (nullish coalescing, magic numbers)
+   - 성능 모니터링 설정 (Vercel Analytics)
+   - 에러 추적 설정 (Sentry 등)

@@ -2,15 +2,16 @@
 
 /**
  * 관리자 이벤트 요약 테이블 컴포넌트
- * 이벤트 단위 요약 표시, 행 클릭시 상세 모달
+ * 이벤트 단위 요약 표시, 인라인 확장으로 Lot별 상세 + 고유식별코드 표시
  */
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Package,
   AlertTriangle,
   Factory,
@@ -18,7 +19,7 @@ import {
   Building2,
   Stethoscope,
   User,
-  Eye,
+  Loader2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,11 +33,16 @@ import {
 } from '@/components/ui/table';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn, formatNumber } from '@/lib/utils';
-import type { AdminEventSummary, AdminEventLotSummary, HistoryActionType } from '@/types/api.types';
+import { getEventCodesAction } from '@/app/(dashboard)/admin/actions';
+import type {
+  AdminEventSummary,
+  AdminEventLotSummary,
+  HistoryActionType,
+  LotCodeItem,
+} from '@/types/api.types';
 
 interface AdminEventSummaryTableProps {
   events: AdminEventSummary[];
-  onViewDetail: (event: AdminEventSummary) => void;
 }
 
 /**
@@ -68,7 +74,6 @@ function getOwnerIcon(type: 'ORGANIZATION' | 'PATIENT' | string): React.ReactNod
   if (type === 'PATIENT') {
     return <User className="h-3 w-3" />;
   }
-  // 기본적으로 조직 아이콘 사용
   return <Building2 className="h-3 w-3" />;
 }
 
@@ -94,20 +99,200 @@ function getActionTypeIcon(actionType: HistoryActionType): React.ReactNode {
 }
 
 /**
- * Lot 요약 행
+ * 상태별 배지 스타일
+ */
+function getStatusBadge(status: string): React.ReactElement {
+  switch (status) {
+    case 'IN_STOCK':
+      return <Badge variant="secondary" className="text-xs">재고</Badge>;
+    case 'USED':
+      return <Badge variant="outline" className="text-xs">사용됨</Badge>;
+    case 'DISPOSED':
+      return <Badge variant="destructive" className="text-xs">폐기</Badge>;
+    default:
+      return <Badge variant="outline" className="text-xs">{status}</Badge>;
+  }
+}
+
+/**
+ * 이벤트별 고유식별코드 테이블 (인라인 스크롤)
+ * codeIds 배열을 기반으로 해당 이벤트에서 처리된 코드만 표시
+ */
+function EventCodeTable({
+  codeIds,
+}: {
+  codeIds: string[];
+}): React.ReactElement {
+  const [codes, setCodes] = useState<LotCodeItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true); // 초기 로딩 상태
+
+  const loadCodes = useCallback(async (pageNum: number) => {
+    setLoading(true);
+    try {
+      const result = await getEventCodesAction(codeIds, pageNum);
+      if (result.success && result.data) {
+        setCodes(result.data.codes);
+        setTotalPages(result.data.totalPages);
+        setTotal(result.data.total);
+        setPage(pageNum);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [codeIds]);
+
+  // useEffect로 마운트 시 데이터 로드 (무한 루프 방지)
+  useEffect(() => {
+    loadCodes(1);
+  }, [loadCodes]);
+
+  // 초기 로딩 상태
+  if (loading && codes.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        <span className="text-sm text-muted-foreground">코드 로딩 중...</span>
+      </div>
+    );
+  }
+
+  if (total === 0) {
+    return (
+      <div className="text-center py-4 text-sm text-muted-foreground">
+        고유식별코드가 없습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground">
+          고유식별코드 ({formatNumber(total)}개)
+        </span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              disabled={page <= 1 || loading}
+              onClick={() => loadCodes(page - 1)}
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            <span className="text-xs text-muted-foreground px-1">
+              {page}/{totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              disabled={page >= totalPages || loading}
+              onClick={() => loadCodes(page + 1)}
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+      {/* 코드 테이블 - 고정 높이 + 내부 스크롤 */}
+      <div className="relative rounded border bg-white overflow-hidden">
+        <div className="max-h-[200px] overflow-y-auto overflow-x-auto">
+          <table className="w-full text-xs table-fixed min-w-[280px]">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th className="h-8 py-1 px-2 text-left font-medium text-muted-foreground w-[35%]">코드</th>
+                <th className="h-8 py-1 px-2 text-left font-medium text-muted-foreground w-[20%]">상태</th>
+                <th className="h-8 py-1 px-2 text-left font-medium text-muted-foreground w-[45%]">현재 소유</th>
+              </tr>
+            </thead>
+            <tbody>
+              {codes.map((code) => (
+                <tr key={code.id} className="border-t hover:bg-gray-50/50">
+                  <td className="py-1.5 px-2 font-mono truncate">
+                    {code.code}
+                  </td>
+                  <td className="py-1.5 px-2">
+                    {getStatusBadge(code.currentStatus)}
+                  </td>
+                  <td className="py-1.5 px-2">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="flex-shrink-0">{getOwnerIcon(code.currentOwnerType)}</span>
+                      <span className="truncate">
+                        {code.currentOwnerName}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* 로딩 오버레이 */}
+        {loading && (
+          <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Lot 요약 행 (확장 가능 - 고유식별코드 포함)
  */
 function LotSummaryRow({ lot }: { lot: AdminEventLotSummary }): React.ReactElement {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
-    <div className="flex items-center justify-between p-2 rounded bg-gray-50 text-sm">
-      <div className="flex items-center gap-3">
-        <code className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">
-          {lot.lotNumber}
-        </code>
-        <span className="text-muted-foreground">{lot.productName}</span>
+    <div className="border rounded-lg bg-white overflow-hidden">
+      {/* Lot 헤더 (클릭하여 확장) */}
+      <div
+        className="flex items-start justify-between p-3 gap-2 cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0 mt-0.5">
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </Button>
+          {/* 모바일: 세로 배치 / 데스크톱: 가로 배치 */}
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <code className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded w-fit break-all">
+              {lot.lotNumber}
+            </code>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+              <span className="text-sm font-medium truncate">{lot.productName}</span>
+              <span className="text-xs text-muted-foreground truncate">{lot.modelName || '-'}</span>
+            </div>
+          </div>
+        </div>
+        <Badge variant="outline" className="text-xs flex-shrink-0">
+          {formatNumber(lot.quantity)}개
+        </Badge>
       </div>
-      <Badge variant="outline" className="text-xs">
-        {formatNumber(lot.quantity)}개
-      </Badge>
+
+      {/* 확장 영역 - 고유식별코드 테이블 */}
+      {isExpanded && lot.codeIds && lot.codeIds.length > 0 && (
+        <div className="px-4 pb-4 border-t">
+          <EventCodeTable codeIds={lot.codeIds} />
+        </div>
+      )}
+      {isExpanded && (!lot.codeIds || lot.codeIds.length === 0) && (
+        <div className="px-4 pb-4 border-t">
+          <div className="text-center py-4 text-sm text-muted-foreground">
+            고유식별코드 정보가 없습니다.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -118,10 +303,8 @@ function LotSummaryRow({ lot }: { lot: AdminEventLotSummary }): React.ReactEleme
  */
 function EventRow({
   event,
-  onViewDetail,
 }: {
   event: AdminEventSummary;
-  onViewDetail: (event: AdminEventSummary) => void;
 }): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -209,34 +392,21 @@ function EventRow({
             </div>
           </Button>
         </TableCell>
-
-        {/* 상세보기 */}
-        <TableCell>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onViewDetail(event)}
-            className="h-8"
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            상세
-          </Button>
-        </TableCell>
       </TableRow>
 
-      {/* 확장 콘텐츠 - Lot별 상세 */}
+      {/* 확장 콘텐츠 - Lot별 상세 (고유식별코드 포함) */}
       {isOpen && (
         <TableRow>
-          <TableCell colSpan={7} className="p-0">
-            <div className="px-6 py-3 space-y-2 bg-gray-50/50">
-              <div className="text-xs font-medium text-muted-foreground mb-2">
-                Lot별 상세 ({event.lotSummaries.length}개)
+          <TableCell colSpan={6} className="p-0 max-w-0">
+            <div className="px-6 py-4 space-y-3 bg-gray-50/50 overflow-hidden w-full">
+              <div className="text-xs font-medium text-muted-foreground">
+                Lot별 상세 ({event.lotSummaries.length}개) - 클릭하여 고유식별코드 확인
               </div>
               {event.lotSummaries.map((lot) => (
                 <LotSummaryRow key={lot.lotId} lot={lot} />
               ))}
               {event.isRecall && event.recallReason && (
-                <div className="p-2 rounded bg-red-100 text-sm text-red-800">
+                <div className="p-3 rounded-lg bg-red-100 text-sm text-red-800">
                   <span className="font-medium">회수 사유:</span> {event.recallReason}
                 </div>
               )}
@@ -249,11 +419,107 @@ function EventRow({
 }
 
 /**
+ * 모바일용 이벤트 카드 컴포넌트
+ * 모바일에서 테이블 대신 카드 형태로 이벤트를 표시
+ */
+function EventCard({
+  event,
+}: {
+  event: AdminEventSummary;
+}): React.ReactElement {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className={cn(
+      'border rounded-lg overflow-hidden',
+      event.isRecall && 'border-red-200 bg-red-50/50'
+    )}>
+      {/* 카드 헤더 - 클릭하여 확장 */}
+      <div
+        className="p-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {/* 첫 번째 줄: 일시 + 이벤트 타입 + 수량 */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(event.eventTime), 'MM.dd HH:mm', { locale: ko })}
+            </span>
+            <Badge variant={getActionTypeBadgeVariant(event.actionType)} className="text-xs">
+              {event.actionTypeLabel}
+            </Badge>
+            {event.isRecall && (
+              <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+            )}
+          </div>
+          <Badge variant="outline" className="font-mono text-xs">
+            {formatNumber(event.totalQuantity)}개
+          </Badge>
+        </div>
+
+        {/* 두 번째 줄: 출발 → 도착 */}
+        <div className="flex items-center gap-2 text-sm">
+          {event.fromOwner ? (
+            <div className="flex items-center gap-1 min-w-0">
+              {getOwnerIcon(event.fromOwner.type)}
+              <span className="truncate">{event.fromOwner.name}</span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+          <ChevronRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+          {event.toOwner ? (
+            <div className="flex items-center gap-1 min-w-0">
+              {getOwnerIcon(event.toOwner.type)}
+              <span className="truncate">{event.toOwner.name}</span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+        </div>
+
+        {/* 세 번째 줄: Lot 번호 요약 + 확장 버튼 */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Package className="h-3 w-3" />
+            <span>Lot {event.lotSummaries.length}개</span>
+          </div>
+          <Button variant="ghost" size="sm" className="h-6 px-2">
+            {isOpen ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+            <span className="text-xs ml-1">상세</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* 확장 영역 - Lot별 상세 */}
+      {isOpen && (
+        <div className="px-4 pb-4 space-y-3 border-t bg-gray-50/50">
+          <div className="text-xs font-medium text-muted-foreground pt-3">
+            Lot별 상세 - 클릭하여 고유식별코드 확인
+          </div>
+          {event.lotSummaries.map((lot) => (
+            <LotSummaryRow key={lot.lotId} lot={lot} />
+          ))}
+          {event.isRecall && event.recallReason && (
+            <div className="p-3 rounded-lg bg-red-100 text-sm text-red-800">
+              <span className="font-medium">회수 사유:</span> {event.recallReason}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * 관리자 이벤트 요약 테이블
  */
 export function AdminEventSummaryTable({
   events,
-  onViewDetail,
 }: AdminEventSummaryTableProps): React.ReactElement {
   if (events.length === 0) {
     return (
@@ -266,25 +532,34 @@ export function AdminEventSummaryTable({
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[100px]">일시</TableHead>
-            <TableHead className="w-[140px]">이벤트</TableHead>
-            <TableHead className="w-[100px]">수량</TableHead>
-            <TableHead>출발</TableHead>
-            <TableHead>도착</TableHead>
-            <TableHead>Lot 번호</TableHead>
-            <TableHead className="w-[80px]">상세</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {events.map((event) => (
-            <EventRow key={event.id} event={event} onViewDetail={onViewDetail} />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <>
+      {/* 데스크톱: 테이블 뷰 */}
+      <div className="hidden md:block rounded-md border overflow-x-auto">
+        <Table className="min-w-[700px] table-fixed">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">일시</TableHead>
+              <TableHead className="w-[120px]">이벤트</TableHead>
+              <TableHead className="w-[80px]">수량</TableHead>
+              <TableHead className="w-[18%]">출발</TableHead>
+              <TableHead className="w-[18%]">도착</TableHead>
+              <TableHead className="w-auto">Lot 번호</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {events.map((event) => (
+              <EventRow key={event.id} event={event} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* 모바일: 카드 뷰 */}
+      <div className="block md:hidden space-y-3">
+        {events.map((event) => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </div>
+    </>
   );
 }

@@ -3,8 +3,14 @@
 /**
  * 거래이력 테이블 컴포넌트
  * 모든 역할에서 공유하는 거래 이력 테이블
+ *
+ * 기능:
+ * - 제품 행 클릭 시 확장하여 고유식별코드(NC-XXXXXXXX) 목록 표시
+ * - 코드 클릭 시 클립보드 복사
+ * - 반응형 그리드 및 페이지네이션
  */
 
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
@@ -17,10 +23,13 @@ import {
   Stethoscope,
   RotateCcw,
   User,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { CodeListDisplay } from '@/components/shared/CodeListDisplay';
 import { cn } from '@/lib/utils';
 import type { TransactionHistorySummary } from '@/services/history.service';
 import type { HistoryActionType } from '@/types/api.types';
@@ -82,6 +91,66 @@ function getActionBadgeVariant(
 }
 
 /**
+ * 제품 아이템 행 (확장 가능)
+ * - 클릭하면 확장되어 코드 목록 표시
+ */
+function ProductItemRow({
+  item,
+}: {
+  item: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    codes: string[];
+  };
+}): React.ReactElement {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hasCodes = item.codes && item.codes.length > 0;
+
+  return (
+    <div className="border rounded-lg bg-white overflow-hidden">
+      {/* 제품 헤더 (클릭하여 확장) */}
+      <button
+        onClick={() => hasCodes && setIsExpanded(!isExpanded)}
+        disabled={!hasCodes}
+        className={cn(
+          'w-full flex items-center justify-between p-3',
+          'transition-colors',
+          hasCodes && 'hover:bg-gray-50 cursor-pointer',
+          !hasCodes && 'cursor-default',
+          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset',
+          isExpanded && 'bg-gray-50'
+        )}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {hasCodes && (
+            <span className="text-gray-400">
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </span>
+          )}
+          <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <span className="text-sm text-left">{item.productName}</span>
+        </div>
+        <Badge variant="secondary" className="flex-shrink-0">
+          {item.quantity}개
+        </Badge>
+      </button>
+
+      {/* 확장 영역: 코드 목록 */}
+      {isExpanded && hasCodes && (
+        <div className="border-t px-3 py-2 bg-gray-50/50">
+          <CodeListDisplay codes={item.codes} pageSize={20} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * 거래이력 카드
  */
 function TransactionHistoryCard({
@@ -93,6 +162,9 @@ function TransactionHistoryCard({
 }): React.ReactElement {
   // 내가 보낸 것인지, 받은 것인지
   const isOutgoing = history.fromOwner?.id === currentOrgId;
+
+  // 코드가 있는 아이템이 있는지 확인
+  const hasAnyCodes = history.items.some((item) => item.codes && item.codes.length > 0);
 
   // 방향 라벨
   const getDirectionLabel = (): string => {
@@ -211,19 +283,15 @@ function TransactionHistoryCard({
           </div>
         )}
 
-        {/* 제품 목록 */}
-        <div className="grid gap-2">
+        {/* 제품 목록 - 클릭하여 코드 확장 */}
+        <div className="space-y-2">
+          {hasAnyCodes && (
+            <p className="text-xs text-muted-foreground mb-1">
+              제품을 클릭하여 고유식별코드를 확인하세요
+            </p>
+          )}
           {history.items.map((item) => (
-            <div
-              key={item.productId}
-              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
-            >
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-gray-400" />
-                <span className="text-sm">{item.productName}</span>
-              </div>
-              <Badge variant="secondary">{item.quantity}개</Badge>
-            </div>
+            <ProductItemRow key={item.productId} item={item} />
           ))}
         </div>
 

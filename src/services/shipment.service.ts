@@ -9,7 +9,9 @@
  * - 24시간 내 회수 가능
  */
 
+import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   ApiResponse,
   PaginatedResponse,
@@ -18,6 +20,13 @@ import type {
   OrganizationType,
 } from '@/types/api.types';
 import type { ShipmentCreateData, ShipmentHistoryQueryData } from '@/lib/validations/shipment';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type ShipmentBatchSummariesRow = Database['public']['Functions']['get_shipment_batch_summaries']['Returns'][number];
+
+// 캐시 TTL 상수 (초)
+const TARGET_ORGS_CACHE_TTL = 600; // 10분 (조직 목록은 자주 변경되지 않음)
 
 /**
  * 출고 뭉치 + 요약 정보 타입
@@ -88,6 +97,80 @@ export async function getShipmentTargetOrganizations(
 }
 
 /**
+ * 출고 대상 조직 목록 조회 (Admin 클라이언트 사용)
+ * unstable_cache 내에서 호출되므로 cookies()를 사용하지 않는 Admin 클라이언트 필요
+ */
+async function getShipmentTargetOrganizationsWithAdmin(
+  organizationType: OrganizationType,
+  excludeOrganizationId?: string
+): Promise<ApiResponse<Pick<Organization, 'id' | 'name' | 'type'>[]>> {
+  const supabase = createAdminClient();
+
+  // 출고 가능 대상 유형 결정
+  let targetTypes: OrganizationType[] = [];
+
+  if (organizationType === 'MANUFACTURER') {
+    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
+  } else if (organizationType === 'DISTRIBUTOR') {
+    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
+  } else {
+    return { success: true, data: [] };
+  }
+
+  let query = supabase
+    .from('organizations')
+    .select('id, name, type')
+    .in('type', targetTypes)
+    .eq('status', 'ACTIVE');
+
+  if (excludeOrganizationId) {
+    query = query.neq('id', excludeOrganizationId);
+  }
+
+  const { data, error } = await query.order('name');
+
+  if (error) {
+    console.error('출고 대상 조직 조회 실패:', error);
+    return {
+      success: false,
+      error: {
+        code: 'QUERY_ERROR',
+        message: '출고 대상 조직 조회에 실패했습니다.',
+      },
+    };
+  }
+
+  return { success: true, data: data || [] };
+}
+
+/**
+ * 캐싱된 출고 대상 조직 목록 조회
+ * unstable_cache를 사용하여 10분간 캐싱
+ * 조직 승인/비활성화 시 revalidateTag('organizations')로 무효화
+ *
+ * 주의: unstable_cache 내에서 cookies()를 사용할 수 없으므로
+ * Admin 클라이언트를 사용하는 내부 함수 호출
+ *
+ * @param organizationType 현재 조직 유형
+ * @param excludeOrganizationId 제외할 조직 ID (자기 자신)
+ * @returns 출고 가능한 조직 목록
+ */
+export const getCachedShipmentTargetOrganizations = (
+  organizationType: OrganizationType,
+  excludeOrganizationId?: string
+) =>
+  unstable_cache(
+    async () => {
+      return getShipmentTargetOrganizationsWithAdmin(organizationType, excludeOrganizationId);
+    },
+    [`target-orgs-${organizationType}-${excludeOrganizationId ?? 'all'}`],
+    {
+      tags: ['organizations', `target-orgs-${organizationType}`],
+      revalidate: TARGET_ORGS_CACHE_TTL,
+    }
+  )();
+
+/**
  * 출고 생성 (원자적 DB 함수 사용)
  * FIFO 기반으로 가상 코드를 자동 할당하고 소유권을 즉시 이전합니다.
  * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
@@ -135,8 +218,7 @@ export async function createShipment(
     error_message: string | null;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: result, error } = await (supabase.rpc as any)('create_shipment_atomic', {
+  const { data: result, error } = await supabase.rpc('create_shipment_atomic', {
     p_to_org_id: data.toOrganizationId,
     p_to_org_type: toOrg.type,
     p_items: items,
@@ -154,7 +236,7 @@ export async function createShipment(
   }
 
   // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as unknown as ShipmentAtomicResult[];
+  const resultArray = result as ShipmentAtomicResult[] | null;
   const row = resultArray?.[0];
 
   if (row?.error_code) {
@@ -364,17 +446,7 @@ async function getShipmentBatchSummariesBulk(
   const supabase = await createClient();
 
   // DB 함수 호출로 모든 뭉치의 요약을 한 번에 조회
-  type SummaryRow = {
-    batch_id: string;
-    product_id: string;
-    product_name: string;
-    lot_id: string;
-    lot_number: string;
-    quantity: number;
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)('get_shipment_batch_summaries', {
+  const { data, error } = await supabase.rpc('get_shipment_batch_summaries', {
     p_batch_ids: batchIds,
   });
 
@@ -384,7 +456,7 @@ async function getShipmentBatchSummariesBulk(
     return result;
   }
 
-  const rows = data as SummaryRow[];
+  const rows = data as ShipmentBatchSummariesRow[];
 
   // 뭉치별로 그룹화
   const batchMap = new Map<string, Map<string, { name: string; quantity: number }>>();
@@ -449,8 +521,7 @@ export async function recallShipment(
 
   // 원자적 회수 DB 함수 호출
   // 발송자 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: result, error } = await (supabase.rpc as any)('recall_shipment_atomic', {
+  const { data: result, error } = await supabase.rpc('recall_shipment_atomic', {
     p_shipment_batch_id: shipmentBatchId,
     p_reason: reason,
   });
@@ -467,7 +538,7 @@ export async function recallShipment(
   }
 
   // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as unknown as RecallAtomicResult[];
+  const resultArray = result as RecallAtomicResult[] | null;
   const row = resultArray?.[0];
 
   if (!row?.success) {

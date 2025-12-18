@@ -54,6 +54,34 @@ function formatValidationError(
 }
 
 // ============================================================================
+// 환자 검색 Action
+// ============================================================================
+
+/**
+ * 병원의 기존 환자 전화번호 검색 Action
+ * 시술 이력이 있는 환자의 전화번호를 검색합니다.
+ *
+ * @param searchTerm 검색어 (전화번호 일부)
+ * @returns 환자 전화번호 목록
+ */
+export async function searchHospitalPatientsAction(
+  searchTerm?: string
+): Promise<ApiResponse<string[]>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return treatmentService.getHospitalPatients(organizationId, searchTerm);
+}
+
+// ============================================================================
 // 시술 관련 Actions
 // ============================================================================
 

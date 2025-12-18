@@ -2,7 +2,7 @@
 
 /**
  * 제조사 Server Actions
- * 제품 관리, 생산 등록, 제조사 설정 처리
+ * 제품 관리, 생산 등록, 제조사 설정 처리, 알림 관리
  */
 
 import { revalidatePath } from 'next/cache';
@@ -11,6 +11,7 @@ import * as productService from '@/services/product.service';
 import * as lotService from '@/services/lot.service';
 import * as manufacturerSettingsService from '@/services/manufacturer-settings.service';
 import * as shipmentService from '@/services/shipment.service';
+import * as alertService from '@/services/alert.service';
 import {
   productCreateSchema,
   productUpdateSchema,
@@ -18,7 +19,7 @@ import {
 } from '@/lib/validations/product';
 import { manufacturerSettingsSchema } from '@/lib/validations/organization';
 import { shipmentCreateSchema, recallSchema } from '@/lib/validations/shipment';
-import type { ApiResponse, Product } from '@/types/api.types';
+import type { ApiResponse, Product, ProductDeactivationReason, OrganizationAlertType } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
 
 // ============================================================================
@@ -148,7 +149,9 @@ export async function updateProductAction(
  * 제품 비활성화 Action
  */
 export async function deactivateProductAction(
-  productId: string
+  productId: string,
+  reason: ProductDeactivationReason,
+  note?: string
 ): Promise<ApiResponse<void>> {
   const organizationId = await getManufacturerOrganizationId();
   if (!organizationId) {
@@ -161,7 +164,7 @@ export async function deactivateProductAction(
     };
   }
 
-  const result = await productService.deactivateProduct(organizationId, productId);
+  const result = await productService.deactivateProduct(organizationId, productId, reason, note);
 
   if (result.success) {
     revalidatePath('/manufacturer/products');
@@ -380,4 +383,144 @@ export async function recallShipmentAction(
   }
 
   return result;
+}
+
+// ============================================================================
+// 알림 보관함 Actions
+// ============================================================================
+
+/**
+ * 조직 알림 목록 조회 Action
+ */
+export async function getOrganizationAlertsAction(query: {
+  page?: number;
+  pageSize?: number;
+  isRead?: boolean;
+  alertType?: string;
+}) {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return alertService.getOrganizationAlerts(organizationId, {
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? 20,
+    isRead: query.isRead,
+    alertType: query.alertType as OrganizationAlertType | undefined,
+  });
+}
+
+/**
+ * 알림 읽음 처리 Action
+ */
+export async function markAlertAsReadAction(alertId: string) {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await alertService.markAlertAsRead(organizationId, alertId);
+
+  if (result.success) {
+    revalidatePath('/manufacturer/inbox');
+  }
+
+  return result;
+}
+
+/**
+ * 여러 알림 읽음 처리 Action
+ */
+export async function markAlertsAsReadAction(alertIds: string[]) {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await alertService.markAlertsAsRead(organizationId, alertIds);
+
+  if (result.success) {
+    revalidatePath('/manufacturer/inbox');
+  }
+
+  return result;
+}
+
+/**
+ * 모든 알림 읽음 처리 Action
+ */
+export async function markAllAlertsAsReadAction() {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await alertService.markAllAlertsAsRead(organizationId);
+
+  if (result.success) {
+    revalidatePath('/manufacturer/inbox');
+  }
+
+  return result;
+}
+
+/**
+ * 미읽은 알림 카운트 조회 Action
+ */
+export async function getUnreadAlertCountAction() {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return alertService.getUnreadAlertCount(organizationId);
+}
+
+/**
+ * 알림 상세 조회 Action
+ */
+export async function getAlertDetailAction(alertId: string) {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return alertService.getAlertDetail(organizationId, alertId);
 }

@@ -23,6 +23,8 @@ const eslintConfig = defineConfig([
     // Tests folder (excluded from tsconfig.json, use vitest for linting)
     "tests/**",
     "src/__tests__/**",
+    // Auto-generated types (use ** pattern for flat config)
+    "**/database.types.ts",
   ]),
   {
     files: ["**/*.ts", "**/*.tsx"],
@@ -48,6 +50,8 @@ const eslintConfig = defineConfig([
         allowExpressions: true,
         allowTypedFunctionExpressions: true,
         allowHigherOrderFunctions: true,
+        allowDirectConstAssertionInArrowFunctions: true,
+        allowConciseArrowFunctionExpressionsStartingWithVoid: true,
       }],
       "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
@@ -57,9 +61,10 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/prefer-optional-chain": "warn",
 
       // No Magic Numbers - 개발 원칙 준수
+      // 자주 사용되는 숫자: 페이지네이션(20,50), 시간(24,60,1000,3000), 그리드(3,4,5,10)
       "no-magic-numbers": "off",
       "@typescript-eslint/no-magic-numbers": ["warn", {
-        ignore: [0, 1, -1, 2, 100],
+        ignore: [0, 1, -1, 2, 3, 4, 5, 10, 20, 24, 50, 60, 100, 1000, 3000],
         ignoreArrayIndexes: true,
         ignoreDefaultValues: true,
         ignoreEnums: true,
@@ -80,6 +85,9 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "off",
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      // React 19 Compiler - 초기 데이터 로드 패턴에서 false positive 발생
+      // https://github.com/facebook/react/issues/34743
+      "react-hooks/set-state-in-effect": "warn",
     },
   },
 ]);

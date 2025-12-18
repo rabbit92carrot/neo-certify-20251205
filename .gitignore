@@ -28,6 +28,10 @@ Thumbs.db
 /test-results/
 /.auth/
 
+# Test documentation (local only)
+docs/TEST_GUIDE.md
+docs/E2E_TESTING_GUIDE.md
+
 # next.js
 /.next/
 /out/

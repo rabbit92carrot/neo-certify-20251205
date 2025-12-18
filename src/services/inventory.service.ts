@@ -11,6 +11,10 @@ import type {
   InventoryByLot,
   Product,
 } from '@/types/api.types';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type InventoryByLotsBulkRow = Database['public']['Functions']['get_inventory_by_lots_bulk']['Returns'][number];
 
 /**
  * 제품별 재고 요약 조회
@@ -40,10 +44,20 @@ export async function getInventorySummary(
     };
   }
 
-  const summaries: InventorySummary[] = (data || []).map(
-    (row: { product_id: string; product_name: string; quantity: number }) => ({
+  type InventorySummaryRow = {
+    product_id: string;
+    product_name: string;
+    model_name: string;
+    udi_di: string;
+    quantity: number;
+  };
+
+  const summaries: InventorySummary[] = ((data || []) as InventorySummaryRow[]).map(
+    (row) => ({
       productId: row.product_id,
       productName: row.product_name,
+      modelName: row.model_name || '',
+      udiDi: row.udi_di || '',
       totalQuantity: Number(row.quantity),
     })
   );
@@ -53,6 +67,7 @@ export async function getInventorySummary(
 
 /**
  * 특정 제품의 Lot별 재고 상세 조회
+ * 최적화: 제품 조회와 Lot 조회를 Promise.all로 병렬 실행
  *
  * @param organizationId 조직 ID
  * @param productId 제품 ID
@@ -64,12 +79,19 @@ export async function getProductInventoryDetail(
 ): Promise<ApiResponse<ProductInventoryDetail>> {
   const supabase = await createClient();
 
-  // 제품 정보 조회
-  const { data: product, error: productError } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', productId)
-    .single();
+  // 병렬로 제품 정보와 Lot별 재고 조회 (Phase 13.1 최적화)
+  const [productResult, lotResult] = await Promise.all([
+    // 제품 정보 조회
+    supabase.from('products').select('*').eq('id', productId).single(),
+    // DB 함수를 사용하여 Lot별 재고 조회
+    supabase.rpc('get_inventory_by_lot', {
+      p_owner_id: organizationId,
+      p_product_id: productId,
+    }),
+  ]);
+
+  const { data: product, error: productError } = productResult;
+  const { data: lotData, error: lotError } = lotResult;
 
   if (productError || !product) {
     return {
@@ -80,12 +102,6 @@ export async function getProductInventoryDetail(
       },
     };
   }
-
-  // DB 함수를 사용하여 Lot별 재고 조회
-  const { data: lotData, error: lotError } = await supabase.rpc('get_inventory_by_lot', {
-    p_owner_id: organizationId,
-    p_product_id: productId,
-  });
 
   if (lotError) {
     console.error('Lot별 재고 조회 실패:', lotError);
@@ -197,7 +213,12 @@ export async function getAvailableProductsForShipment(
     .eq('is_active', true);
 
   if (error) {
-    console.error('제품 조회 실패:', error);
+    console.error('제품 조회 실패:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     return {
       success: false,
       error: {
@@ -218,4 +239,84 @@ export async function getAvailableProductsForShipment(
     .filter((p) => p.availableQuantity > 0);
 
   return { success: true, data: result };
+}
+
+/**
+ * 출고용 제품 목록과 Lot 정보를 한 번에 조회 (N+1 쿼리 방지)
+ * 제조사 출고 페이지에서 Lot 선택이 필요할 때 사용
+ *
+ * @param organizationId 조직 ID
+ * @returns 제품 목록과 각 제품의 Lot별 재고 정보
+ */
+export async function getProductsWithLotsForShipment(
+  organizationId: string
+): Promise<ApiResponse<(Product & { availableQuantity: number; lots: InventoryByLot[] })[]>> {
+  const supabase = await createClient();
+
+  // 1. 재고 있는 제품 목록 조회
+  const productsResult = await getAvailableProductsForShipment(organizationId);
+  if (!productsResult.success || !productsResult.data) {
+    return productsResult as ApiResponse<(Product & { availableQuantity: number; lots: InventoryByLot[] })[]>;
+  }
+
+  const products = productsResult.data;
+  if (products.length === 0) {
+    return { success: true, data: [] };
+  }
+
+  // 2. 모든 제품의 Lot 정보를 한 번에 조회 (N+1 방지)
+  const productIds = products.map((p) => p.id);
+
+  // 모든 제품의 Lot별 재고를 한 번에 조회하는 DB 함수 호출
+  const { data: allLotsData, error: lotsError } = await supabase.rpc(
+    'get_inventory_by_lots_bulk',
+    {
+      p_owner_id: organizationId,
+      p_product_ids: productIds,
+    }
+  );
+
+  if (lotsError) {
+    // DB 함수가 없으면 기존 방식으로 fallback (Promise.all)
+    console.warn('Bulk lots 조회 실패, fallback 사용:', lotsError.message);
+
+    const productsWithLots = await Promise.all(
+      products.map(async (product) => {
+        const detailResult = await getProductInventoryDetail(organizationId, product.id);
+        return {
+          ...product,
+          lots: detailResult.success ? detailResult.data!.byLot : [],
+        };
+      })
+    );
+
+    return { success: true, data: productsWithLots };
+  }
+
+  // 3. Lot 데이터를 제품별로 그룹화
+  const lotsByProduct = new Map<string, InventoryByLot[]>();
+
+  const typedLotsData = (allLotsData ?? []) as InventoryByLotsBulkRow[];
+
+  for (const lot of typedLotsData) {
+    const productId = lot.product_id;
+    if (!lotsByProduct.has(productId)) {
+      lotsByProduct.set(productId, []);
+    }
+    lotsByProduct.get(productId)!.push({
+      lotId: lot.lot_id,
+      lotNumber: lot.lot_number,
+      manufactureDate: lot.manufacture_date,
+      expiryDate: lot.expiry_date,
+      quantity: lot.quantity,
+    });
+  }
+
+  // 4. 제품에 Lot 정보 결합
+  const productsWithLots = products.map((product) => ({
+    ...product,
+    lots: lotsByProduct.get(product.id) || [],
+  }));
+
+  return { success: true, data: productsWithLots };
 }

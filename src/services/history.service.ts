@@ -29,6 +29,11 @@ import type {
   HistoryActionType,
 } from '@/types/api.types';
 import type { TransactionHistoryQueryData } from '@/lib/validations/history';
+import type { Database } from '@/types/database.types';
+
+// RPC 반환 타입 정의
+type HistorySummaryRow = Database['public']['Functions']['get_history_summary']['Returns'][number];
+type ProductSummaryItem = { productId: string; productName: string; quantity: number; codes?: string[] };
 
 // ============================================================================
 // 타입 정의
@@ -102,6 +107,7 @@ export interface TransactionHistorySummary {
     productId: string;
     productName: string;
     quantity: number;
+    codes: string[]; // 제품 코드 문자열 배열 (NC-XXXXXXXX 형식)
   }[];
 
   totalQuantity: number;
@@ -120,6 +126,7 @@ const DEFAULT_PAGE_SIZE = 50;
 
 /**
  * 조직의 거래이력 조회 (DB 함수를 통한 서버 사이드 그룹화)
+ * 최적화: 이력 조회와 카운트 조회를 Promise.all로 병렬 실행 (Phase 13.2)
  *
  * @param organizationId 조직 ID
  * @param query 조회 옵션
@@ -140,52 +147,49 @@ export async function getTransactionHistory(
   } = query;
   const offset = (page - DEFAULT_PAGE) * pageSize;
 
-  // 1. DB 함수를 통해 그룹화된 이력 조회
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: historyData, error: historyError } = await (supabase.rpc as any)(
-    'get_history_summary',
-    {
-      p_organization_id: organizationId,
-      p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : null,
-      p_start_date: startDate || null,
-      p_end_date: endDate || null,
-      p_is_recall: isRecall ?? null,
+  // 공통 파라미터 (RPC는 null이 아닌 undefined 사용)
+  const rpcParams = {
+    p_organization_id: organizationId,
+    p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : undefined,
+    p_start_date: startDate || undefined,
+    p_end_date: endDate || undefined,
+    p_is_recall: isRecall ?? undefined,
+  };
+
+  // 병렬로 이력 조회와 카운트 조회 실행 (Phase 13.2 최적화)
+  const [historyResult, countResult] = await Promise.all([
+    // 1. DB 함수를 통해 그룹화된 이력 조회
+    supabase.rpc('get_history_summary', {
+      ...rpcParams,
       p_limit: pageSize,
       p_offset: offset,
-    }
-  );
+    }),
+    // 2. 총 그룹 수 조회 (페이지네이션용)
+    supabase.rpc('get_history_summary_count', rpcParams),
+  ]);
+
+  const { data: historyData, error: historyError } = historyResult;
+  const { data: totalCount, error: countError } = countResult;
 
   if (historyError) {
-    console.error('거래이력 조회 실패:', historyError.message || JSON.stringify(historyError));
+    console.error('거래이력 조회 실패:', historyError.message);
     return {
       success: false,
       error: {
         code: 'QUERY_ERROR',
-        message: historyError.message || '거래이력 조회에 실패했습니다.',
+        message: historyError.message ?? '거래이력 조회에 실패했습니다.',
       },
     };
   }
 
-  // 2. 총 그룹 수 조회 (페이지네이션용)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: totalCount, error: countError } = await (supabase.rpc as any)(
-    'get_history_summary_count',
-    {
-      p_organization_id: organizationId,
-      p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : null,
-      p_start_date: startDate || null,
-      p_end_date: endDate || null,
-      p_is_recall: isRecall ?? null,
-    }
-  );
-
   if (countError) {
-    console.error('거래이력 카운트 실패:', countError.message || JSON.stringify(countError));
+    console.error('거래이력 카운트 실패:', countError.message);
   }
 
   // 3. 조직 이름 일괄 조회
+  const typedHistoryData = historyData as HistorySummaryRow[] | null;
   const orgIds = new Set<string>();
-  for (const row of historyData || []) {
+  for (const row of typedHistoryData ?? []) {
     if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
       orgIds.add(row.from_owner_id);
     }
@@ -197,20 +201,10 @@ export async function getTransactionHistory(
   const orgNameMap = await getOrganizationNames([...orgIds]);
 
   // 4. 결과 매핑
-  const summaries: TransactionHistorySummary[] = (historyData || []).map(
-    (row: {
-      group_key: string;
-      action_type: string;
-      from_owner_type: string;
-      from_owner_id: string;
-      to_owner_type: string;
-      to_owner_id: string;
-      is_recall: boolean;
-      recall_reason: string;
-      created_at: string;
-      total_quantity: number;
-      product_summaries: Array<{ productId: string; productName: string; quantity: number }>;
-    }) => {
+  const summaries: TransactionHistorySummary[] = (typedHistoryData ?? []).map(
+    (row) => {
+      // product_summaries는 Json 타입이므로 타입 캐스팅 필요
+      const productSummaries = row.product_summaries as ProductSummaryItem[] | null;
       // 소유자 정보 포맷팅
       const fromOwner = row.from_owner_id
         ? {
@@ -240,10 +234,13 @@ export async function getTransactionHistory(
         actionTypeLabel: getActionTypeLabel(row.action_type),
         createdAt: row.created_at,
         isRecall: row.is_recall ?? false,
-        recallReason: row.recall_reason || undefined,
+        recallReason: row.recall_reason ?? undefined,
         fromOwner,
         toOwner,
-        items: row.product_summaries || [],
+        items: (productSummaries ?? []).map((item) => ({
+          ...item,
+          codes: item.codes ?? [],
+        })),
         totalQuantity: Number(row.total_quantity),
       };
     }

@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/services/auth.service';
-import { getAvailableProductsForShipment } from '@/services/inventory.service';
-import { getProductInventoryDetail } from '@/services/inventory.service';
-import { getShipmentTargetOrganizations } from '@/services/shipment.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
+import { getProductsWithLotsForShipment } from '@/services/inventory.service';
+import { getCachedShipmentTargetOrganizations } from '@/services/shipment.service';
 import { PageHeader } from '@/components/shared';
 import { ShipmentForm } from '@/components/forms/ShipmentForm';
 import { createShipmentAction } from '../actions';
@@ -14,34 +13,27 @@ export const metadata = {
 
 /**
  * 제조사 출고 페이지
+ * 최적화: getProductsWithLotsForShipment로 N+1 쿼리 방지
  */
 export default async function ManufacturerShipmentPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'MANUFACTURER') {
     redirect('/login');
   }
 
-  // 출고 가능한 제품 목록 조회 (재고 있는 제품만)
-  const productsResult = await getAvailableProductsForShipment(user.organization.id);
-  const products = productsResult.success ? productsResult.data! : [];
+  const orgId = user.organization.id;
+  const orgType = user.organization.type;
 
-  // 각 제품의 Lot별 재고 정보 조회 (제조사는 Lot 선택 가능)
-  const productsWithLots = await Promise.all(
-    products.map(async (product) => {
-      const detailResult = await getProductInventoryDetail(user.organization.id, product.id);
-      return {
-        ...product,
-        lots: detailResult.success ? detailResult.data!.byLot : [],
-      };
-    })
-  );
+  // 병렬로 데이터 조회
+  const [productsResult, targetOrgsResult] = await Promise.all([
+    // 제품 + Lot 정보를 한 번에 조회 (N+1 쿼리 방지)
+    getProductsWithLotsForShipment(orgId),
+    // 캐싱된 대상 조직 목록 조회
+    getCachedShipmentTargetOrganizations(orgType, orgId),
+  ]);
 
-  // 출고 대상 조직 목록 조회 (자기 자신 제외)
-  const targetOrgsResult = await getShipmentTargetOrganizations(
-    user.organization.type,
-    user.organization.id
-  );
+  const productsWithLots = productsResult.success ? productsResult.data! : [];
   const targetOrganizations = targetOrgsResult.success ? targetOrgsResult.data! : [];
 
   return (
@@ -52,7 +44,7 @@ export default async function ManufacturerShipmentPage(): Promise<React.ReactEle
       />
 
       <ShipmentForm
-        organizationType={user.organization.type}
+        organizationType={orgType}
         products={productsWithLots}
         targetOrganizations={targetOrganizations}
         onSubmit={createShipmentAction}

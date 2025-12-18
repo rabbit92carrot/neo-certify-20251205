@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/services/auth.service';
+import { getCachedCurrentUser } from '@/services/auth.service';
 import { getAvailableProductsForShipment } from '@/services/inventory.service';
-import { getShipmentTargetOrganizations } from '@/services/shipment.service';
+import { getCachedShipmentTargetOrganizations } from '@/services/shipment.service';
 import { PageHeader } from '@/components/shared';
 import { ShipmentForm } from '@/components/forms/ShipmentForm';
 import { createShipmentAction } from '../actions';
@@ -13,23 +13,27 @@ export const metadata = {
 
 /**
  * 유통사 출고 페이지
+ * 최적화: 병렬 데이터 페칭 + 캐싱된 대상 조직 목록
  */
 export default async function DistributorShipmentPage(): Promise<React.ReactElement> {
-  const user = await getCurrentUser();
+  const user = await getCachedCurrentUser();
 
   if (user?.organization.type !== 'DISTRIBUTOR') {
     redirect('/login');
   }
 
-  // 출고 가능한 제품 목록 조회 (재고 있는 제품만)
-  const productsResult = await getAvailableProductsForShipment(user.organization.id);
-  const products = productsResult.success ? productsResult.data! : [];
+  const orgId = user.organization.id;
+  const orgType = user.organization.type;
 
-  // 출고 대상 조직 목록 조회 (자기 자신 제외)
-  const targetOrgsResult = await getShipmentTargetOrganizations(
-    user.organization.type,
-    user.organization.id
-  );
+  // 병렬로 데이터 조회
+  const [productsResult, targetOrgsResult] = await Promise.all([
+    // 출고 가능한 제품 목록 조회 (재고 있는 제품만)
+    getAvailableProductsForShipment(orgId),
+    // 캐싱된 대상 조직 목록 조회
+    getCachedShipmentTargetOrganizations(orgType, orgId),
+  ]);
+
+  const products = productsResult.success ? productsResult.data! : [];
   const targetOrganizations = targetOrgsResult.success ? targetOrgsResult.data! : [];
 
   return (
@@ -40,7 +44,7 @@ export default async function DistributorShipmentPage(): Promise<React.ReactElem
       />
 
       <ShipmentForm
-        organizationType={user.organization.type}
+        organizationType={orgType}
         products={products}
         targetOrganizations={targetOrganizations}
         onSubmit={createShipmentAction}

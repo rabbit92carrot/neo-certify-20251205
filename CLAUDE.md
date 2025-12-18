@@ -17,7 +17,7 @@ Neo-Certify (네오인증서) is a product authentication system for tracking PD
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
 - **Styling**: Tailwind CSS 4 with shadcn/ui components
 - **Validation**: Zod schemas
-- **Testing**: Vitest with Testing Library
+- **Testing**: Vitest (unit/integration), Playwright (E2E)
 
 ## Common Commands
 
@@ -25,11 +25,14 @@ Neo-Certify (네오인증서) is a product authentication system for tracking PD
 # Development
 npm run dev              # Start dev server (Turbopack)
 npm run dev:webpack      # Start dev server (Webpack)
+npm run build            # Production build
 
-# Type checking and linting
+# Type checking, linting, formatting
 npm run type-check       # TypeScript type check
 npm run lint             # ESLint
 npm run lint:fix         # ESLint with auto-fix
+npm run format           # Prettier format
+npm run format:check     # Prettier check
 
 # Testing
 npm test                 # Run Vitest in watch mode
@@ -37,6 +40,13 @@ npm run test:run         # Single test run
 npm run test:unit        # Unit tests only
 npm run test:integration # Integration tests only (requires Supabase)
 npm run test:coverage    # Run with coverage
+npx vitest run tests/unit/auth.service.test.ts  # Run single test file
+
+# E2E Testing (Playwright)
+npm run test:e2e         # Run E2E tests
+npm run test:e2e:ui      # Run with Playwright UI
+npm run test:e2e:headed  # Run with visible browser
+npx playwright test auth.spec.ts  # Run single E2E file
 
 # Database
 npx supabase start       # Start local Supabase
@@ -76,7 +86,7 @@ src/
 └── hooks/                  # Custom hooks (useCart, useInfiniteScroll)
 
 supabase/
-├── migrations/             # SQL migrations (00001-00017)
+├── migrations/             # SQL migrations (timestamped, 40+ files)
 └── seed.sql                # Seed data for testing
 
 tests/
@@ -84,6 +94,10 @@ tests/
 ├── helpers/                # Test utilities and factories
 ├── unit/                   # Unit tests
 └── integration/            # Integration tests (uses real Supabase)
+
+e2e/                        # Playwright E2E tests
+├── fixtures/               # Auth fixtures
+└── *.spec.ts               # Test specs by role
 ```
 
 ### Key Patterns
@@ -110,12 +124,15 @@ Database Types (generated) → API Types (api.types.ts) → Service Output
 
 ### Database Functions (PostgreSQL)
 
-Key functions in `supabase/migrations/00011_create_functions.sql`:
+Key functions across `supabase/migrations/`:
 - `select_fifo_codes()`: FIFO-based virtual code selection with `FOR UPDATE SKIP LOCKED`
 - `is_recall_allowed()`: 24-hour recall window validation
-- `get_inventory_count()` / `get_inventory_by_lot()`: Inventory queries
+- `get_inventory_count()` / `get_inventory_by_lot()` / `get_inventory_by_lots_bulk()`: Inventory queries
 - `generate_virtual_code()`: Unique code generation (format: NC-XXXXXXXX)
 - `generate_lot_number()`: Lot number generation based on manufacturer settings
+- `create_shipment_atomic()`: Atomic shipment creation with FIFO selection
+- `get_dashboard_stats_*()`: Role-specific dashboard statistics
+- `get_admin_event_summary()`: Admin event history aggregation
 
 ### Organization Types and Routes
 
@@ -136,6 +153,8 @@ Key functions in `supabase/migrations/00011_create_functions.sql`:
 
 ## Testing
 
+### Unit/Integration Tests (Vitest)
+
 Integration tests require local Supabase running:
 ```bash
 npx supabase start
@@ -143,6 +162,24 @@ npm run test:integration
 ```
 
 Tests use `tests/helpers/test-data-factory.ts` for creating test fixtures and `tests/helpers/cleanup.ts` for cleanup between tests.
+
+### E2E Tests (Playwright)
+
+E2E tests run against the dev server with seed data accounts:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@neocert.com | admin123 |
+| Manufacturer | manufacturer@neocert.com | test123 |
+| Distributor | distributor@neocert.com | test123 |
+| Hospital | hospital@neocert.com | test123 |
+
+Tests run sequentially (`workers: 1`) to preserve DB state.
+
+## Deployment
+
+- **Production**: https://neo-certify-20251205.vercel.app
+- **Local**: http://localhost:3000
 
 ## Path Aliases
 

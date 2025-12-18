@@ -3,13 +3,17 @@
  * 제품 CRUD 및 조회 관련 비즈니스 로직
  */
 
+import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import type { ApiResponse, Product, PaginatedResponse } from '@/types/api.types';
+import type { ApiResponse, Product, PaginatedResponse, ProductDeactivationReason } from '@/types/api.types';
 import type {
   ProductCreateData,
   ProductUpdateData,
   ProductListQueryData,
 } from '@/lib/validations/product';
+
+// 캐시 TTL 상수 (초)
+const PRODUCTS_CACHE_TTL = 300; // 5분
 
 /**
  * 제품 목록 조회 (페이지네이션)
@@ -104,6 +108,27 @@ export async function getActiveProducts(
 
   return { success: true, data: data || [] };
 }
+
+/**
+ * 캐싱된 활성 제품 목록 조회
+ * unstable_cache를 사용하여 5분간 캐싱
+ * 제품 생성/수정/삭제 시 revalidateTag('products')로 무효화
+ *
+ * @param organizationId 제조사 조직 ID
+ * @returns 활성 제품 목록
+ */
+export const getCachedActiveProducts = (organizationId: string) =>
+  unstable_cache(
+    async () => {
+      const result = await getActiveProducts(organizationId);
+      return result;
+    },
+    [`products-${organizationId}`],
+    {
+      tags: ['products', `products-${organizationId}`],
+      revalidate: PRODUCTS_CACHE_TTL,
+    }
+  )();
 
 /**
  * 제품 상세 조회
@@ -260,17 +285,26 @@ export async function updateProduct(
  *
  * @param organizationId 제조사 조직 ID
  * @param productId 제품 ID
+ * @param reason 비활성화 사유
+ * @param note 상세 사유 (선택)
  * @returns 비활성화된 제품 정보
  */
 export async function deactivateProduct(
   organizationId: string,
-  productId: string
+  productId: string,
+  reason: ProductDeactivationReason,
+  note?: string
 ): Promise<ApiResponse<Product>> {
   const supabase = await createClient();
 
   const { data: product, error } = await supabase
     .from('products')
-    .update({ is_active: false })
+    .update({
+      is_active: false,
+      deactivation_reason: reason,
+      deactivation_note: note || null,
+      deactivated_at: new Date().toISOString(),
+    })
     .eq('id', productId)
     .eq('organization_id', organizationId)
     .select()
@@ -291,6 +325,7 @@ export async function deactivateProduct(
 
 /**
  * 제품 활성화
+ * 비활성화 관련 필드를 초기화함
  *
  * @param organizationId 제조사 조직 ID
  * @param productId 제품 ID
@@ -304,7 +339,12 @@ export async function activateProduct(
 
   const { data: product, error } = await supabase
     .from('products')
-    .update({ is_active: true })
+    .update({
+      is_active: true,
+      deactivation_reason: null,
+      deactivation_note: null,
+      deactivated_at: null,
+    })
     .eq('id', productId)
     .eq('organization_id', organizationId)
     .select()

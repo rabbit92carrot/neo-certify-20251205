@@ -3,11 +3,12 @@
  * 회원가입, 로그인, 로그아웃, 현재 사용자 조회 등 인증 관련 비즈니스 로직
  */
 
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeBusinessNumber, normalizePhoneNumber } from '@/lib/validations/common';
 import type { OrganizationRegisterData } from '@/lib/validations/organization';
-import type { ApiResponse, LoginResponse, CurrentUser, Organization } from '@/types/api.types';
+import type { ApiResponse, LoginResponse, CurrentUser, Organization, ManufacturerSettings } from '@/types/api.types';
 import { ORGANIZATION_STATUSES, ERROR_MESSAGES } from '@/constants';
 
 /**
@@ -287,18 +288,28 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     return null;
   }
 
-  // manufacturer_settings 배열에서 첫 번째 항목 추출
-  const manufacturerSettings = Array.isArray(org.manufacturer_settings)
-    ? org.manufacturer_settings[0]
-    : org.manufacturer_settings;
+  // manufacturer_settings 배열에서 첫 번째 항목 추출 - Supabase 조인 결과 타입 처리
+  const rawSettings = org.manufacturer_settings as ManufacturerSettings | ManufacturerSettings[] | null;
+  const manufacturerSettings = Array.isArray(rawSettings)
+    ? rawSettings[0]
+    : rawSettings;
 
   return {
     id: user.id,
     email: user.email!,
     organization: org as Organization,
-    manufacturerSettings: manufacturerSettings || undefined,
+    manufacturerSettings: manufacturerSettings ?? undefined,
   };
 }
+
+/**
+ * 캐싱된 현재 사용자 조회
+ * React의 cache()를 사용하여 동일 요청 내 중복 호출 방지
+ * 레이아웃과 페이지에서 동시에 호출해도 한 번만 DB 조회
+ */
+export const getCachedCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  return getCurrentUser();
+});
 
 /**
  * 이메일 중복 확인
