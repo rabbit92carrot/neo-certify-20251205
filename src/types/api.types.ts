@@ -64,6 +64,34 @@ export interface PaginationParams {
 }
 
 /**
+ * 커서 기반 페이지네이션 파라미터
+ * OFFSET 기반 대비 대용량 데이터에서 일관된 성능 제공
+ */
+export interface CursorPaginationParams {
+  limit?: number;
+  cursorTime?: string;  // ISO 8601 형식
+  cursorKey?: string;   // 그룹 키
+}
+
+/**
+ * 커서 기반 페이지네이션 메타 정보
+ */
+export interface CursorPaginationMeta {
+  limit: number;
+  hasMore: boolean;
+  nextCursorTime?: string;
+  nextCursorKey?: string;
+}
+
+/**
+ * 커서 기반 페이지네이션 응답 타입
+ */
+export interface CursorPaginatedResponse<T> {
+  items: T[];
+  meta: CursorPaginationMeta;
+}
+
+/**
  * 기간 필터 파라미터
  */
 export interface DateRangeParams {

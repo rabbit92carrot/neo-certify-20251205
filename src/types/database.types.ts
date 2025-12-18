@@ -889,12 +889,14 @@ export type Database = {
           action_type: string
           created_at: string
           from_owner_id: string
+          from_owner_name: string | null
           from_owner_type: string
           group_key: string
           is_recall: boolean
           product_summaries: Json
           recall_reason: string
           to_owner_id: string
+          to_owner_name: string | null
           to_owner_type: string
           total_quantity: number
         }[]
