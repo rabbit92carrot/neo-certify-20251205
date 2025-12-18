@@ -11,7 +11,7 @@ import type {
   InventoryByLot,
   Product,
 } from '@/types/api.types';
-import { parseRpcArray } from './common.service';
+import { createErrorResponse, createSuccessResponse, parseRpcArray } from './common.service';
 import {
   InventorySummaryRowSchema,
   InventoryByLotRowSchema,
@@ -37,26 +37,14 @@ export async function getInventorySummary(
 
   if (error) {
     console.error('재고 요약 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '재고 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '재고 조회에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(InventorySummaryRowSchema, data, 'get_inventory_summary');
   if (!parsed.success) {
     console.error('get_inventory_summary 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   const summaries: InventorySummary[] = parsed.data.map((row) => ({
@@ -67,7 +55,7 @@ export async function getInventorySummary(
     totalQuantity: Number(row.quantity),
   }));
 
-  return { success: true, data: summaries };
+  return createSuccessResponse(summaries);
 }
 
 /**
@@ -99,37 +87,19 @@ export async function getProductInventoryDetail(
   const { data: lotData, error: lotError } = lotResult;
 
   if (productError || !product) {
-    return {
-      success: false,
-      error: {
-        code: 'PRODUCT_NOT_FOUND',
-        message: '제품을 찾을 수 없습니다.',
-      },
-    };
+    return createErrorResponse('PRODUCT_NOT_FOUND', '제품을 찾을 수 없습니다.');
   }
 
   if (lotError) {
     console.error('Lot별 재고 조회 실패:', lotError);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '재고 상세 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '재고 상세 조회에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(InventoryByLotRowSchema, lotData, 'get_inventory_by_lot');
   if (!parsed.success) {
     console.error('get_inventory_by_lot 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   const byLot: InventoryByLot[] = parsed.data.map((lot) => ({
@@ -142,14 +112,11 @@ export async function getProductInventoryDetail(
 
   const totalQuantity = byLot.reduce((sum, lot) => sum + lot.quantity, 0);
 
-  return {
-    success: true,
-    data: {
-      product: product as Product,
-      totalQuantity,
-      byLot,
-    },
-  };
+  return createSuccessResponse({
+    product: product as Product,
+    totalQuantity,
+    byLot,
+  });
 }
 
 /**
@@ -210,15 +177,12 @@ export async function getAvailableProductsForShipment(
   // 재고 요약 조회
   const summaryResult = await getInventorySummary(organizationId);
   if (!summaryResult.success) {
-    return {
-      success: false,
-      error: summaryResult.error,
-    };
+    return createErrorResponse(summaryResult.error!.code, summaryResult.error!.message);
   }
 
   const summaries = summaryResult.data || [];
   if (summaries.length === 0) {
-    return { success: true, data: [] };
+    return createSuccessResponse([]);
   }
 
   // 재고가 있는 제품들의 상세 정보 조회
@@ -237,13 +201,7 @@ export async function getAvailableProductsForShipment(
       details: error.details,
       hint: error.hint,
     });
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '제품 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '제품 조회에 실패했습니다.');
   }
 
   // 재고 수량 매핑
@@ -256,7 +214,7 @@ export async function getAvailableProductsForShipment(
     }))
     .filter((p) => p.availableQuantity > 0);
 
-  return { success: true, data: result };
+  return createSuccessResponse(result);
 }
 
 /**
@@ -279,7 +237,7 @@ export async function getProductsWithLotsForShipment(
 
   const products = productsResult.data;
   if (products.length === 0) {
-    return { success: true, data: [] };
+    return createSuccessResponse([]);
   }
 
   // 2. 모든 제품의 Lot 정보를 한 번에 조회 (N+1 방지)
@@ -308,7 +266,7 @@ export async function getProductsWithLotsForShipment(
       })
     );
 
-    return { success: true, data: productsWithLots };
+    return createSuccessResponse(productsWithLots);
   }
 
   // Zod 검증으로 결과 파싱
@@ -325,7 +283,7 @@ export async function getProductsWithLotsForShipment(
         };
       })
     );
-    return { success: true, data: productsWithLots };
+    return createSuccessResponse(productsWithLots);
   }
 
   // 3. Lot 데이터를 제품별로 그룹화
@@ -351,5 +309,5 @@ export async function getProductsWithLotsForShipment(
     lots: lotsByProduct.get(product.id) || [],
   }));
 
-  return { success: true, data: productsWithLots };
+  return createSuccessResponse(productsWithLots);
 }

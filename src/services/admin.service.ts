@@ -12,6 +12,9 @@ import {
   maskPhoneNumber,
   createOrganizationNameCache,
   parseRpcArray,
+  createErrorResponse,
+  createSuccessResponse,
+  createNotFoundResponse,
 } from './common.service';
 import type {
   ApiResponse,
@@ -81,26 +84,14 @@ export async function getOrganizationStatusCounts(): Promise<
 
   if (error) {
     console.error('조직 상태 통계 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(OrgStatusCountRowSchema, data, 'get_organization_status_counts');
   if (!parsed.success) {
     console.error('get_organization_status_counts 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   // RPC 결과를 카운트 객체로 변환
@@ -132,10 +123,7 @@ export async function getOrganizationStatusCounts(): Promise<
     }
   }
 
-  return {
-    success: true,
-    data: counts,
-  };
+  return createSuccessResponse(counts);
 }
 
 /**
@@ -180,13 +168,7 @@ export async function getOrganizations(
 
   if (error) {
     console.error('조직 목록 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // 모든 조직의 보유 코드 수를 한 번에 조회 (N+1 최적화)
@@ -223,19 +205,16 @@ export async function getOrganizations(
 
   const total = count || 0;
 
-  return {
-    success: true,
-    data: {
-      items: organizationsWithStats,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: organizationsWithStats,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -261,30 +240,21 @@ export async function getPendingOrganizations(
 
   if (error) {
     console.error('승인 대기 조직 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   const total = count || 0;
 
-  return {
-    success: true,
-    data: {
-      items: data || [],
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: data || [],
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -305,13 +275,7 @@ export async function getOrganizationDetail(
     .single();
 
   if (error || !organization) {
-    return {
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: '조직을 찾을 수 없습니다.',
-      },
-    };
+    return createNotFoundResponse('조직을 찾을 수 없습니다.');
   }
 
   // 제조사인 경우 설정 정보도 조회
@@ -325,13 +289,10 @@ export async function getOrganizationDetail(
     manufacturerSettings = settings ?? undefined;
   }
 
-  return {
-    success: true,
-    data: {
-      ...organization,
-      manufacturerSettings,
-    },
-  };
+  return createSuccessResponse({
+    ...organization,
+    manufacturerSettings,
+  });
 }
 
 /**
@@ -355,24 +316,12 @@ export async function updateOrganizationStatus(
     .single();
 
   if (fetchError || !organization) {
-    return {
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: '조직을 찾을 수 없습니다.',
-      },
-    };
+    return createNotFoundResponse('조직을 찾을 수 없습니다.');
   }
 
   // 관리자 조직은 상태 변경 불가
   if (organization.type === 'ADMIN') {
-    return {
-      success: false,
-      error: {
-        code: 'FORBIDDEN',
-        message: '관리자 조직의 상태는 변경할 수 없습니다.',
-      },
-    };
+    return createErrorResponse('FORBIDDEN', '관리자 조직의 상태는 변경할 수 없습니다.');
   }
 
   const { error } = await supabase
@@ -382,16 +331,10 @@ export async function updateOrganizationStatus(
 
   if (error) {
     console.error('조직 상태 변경 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('UPDATE_ERROR', error.message);
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 // ============================================================================
@@ -487,13 +430,7 @@ export async function getAdminHistory(
 
   if (error) {
     console.error('전체 이력 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // N+1 최적화: 한 번에 모든 이력 조회
@@ -638,19 +575,16 @@ export async function getAdminHistory(
 
   const total = count || 0;
 
-  return {
-    success: true,
-    data: {
-      items: filteredItems,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: filteredItems,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 // ============================================================================
@@ -888,19 +822,16 @@ export async function getRecallHistory(
   const paginatedItems = recallItems.slice(offset, offset + pageSize);
   const total = recallItems.length;
 
-  return {
-    success: true,
-    data: {
-      items: paginatedItems,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: paginatedItems,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -957,13 +888,7 @@ export async function getRecallHistoryOptimized(
   const parsed = parseRpcArray(AllRecallsRowSchema, recalls, 'get_all_recalls');
   if (!parsed.success) {
     console.error('get_all_recalls 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   // DB 함수 결과를 RecallHistoryItem 형태로 변환
@@ -990,19 +915,16 @@ export async function getRecallHistoryOptimized(
 
   const totalCount = Number(total) || 0;
 
-  return {
-    success: true,
-    data: {
-      items,
-      meta: {
-        page,
-        pageSize,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
-        hasMore: offset + pageSize < totalCount,
-      },
+  return createSuccessResponse({
+    items,
+    meta: {
+      page,
+      pageSize,
+      total: totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      hasMore: offset + pageSize < totalCount,
     },
-  };
+  });
 }
 
 // ============================================================================
@@ -1026,23 +948,16 @@ export async function getAllOrganizationsForSelect(): Promise<
     .order('name');
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
-  return {
-    success: true,
-    data: (data || []).map((org) => ({
+  return createSuccessResponse(
+    (data || []).map((org) => ({
       id: org.id,
       name: org.name,
       type: org.type as OrganizationType,
-    })),
-  };
+    }))
+  );
 }
 
 // ============================================================================
@@ -1089,13 +1004,7 @@ export async function getInactiveProductUsageLogs(
   const { data, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '사용 로그 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '사용 로그 조회에 실패했습니다.');
   }
 
   const total = count || 0;
@@ -1116,19 +1025,16 @@ export async function getInactiveProductUsageLogs(
     acknowledgedBy: row.acknowledged_by ?? undefined,
   }));
 
-  return {
-    success: true,
-    data: {
-      items: logs,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: logs,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -1154,16 +1060,10 @@ export async function acknowledgeUsageLog(
     .is('acknowledged_at', null); // 아직 확인 안된 것만
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_FAILED',
-        message: '확인 처리에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('UPDATE_FAILED', '확인 처리에 실패했습니다.');
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
@@ -1189,16 +1089,10 @@ export async function acknowledgeUsageLogs(
     .is('acknowledged_at', null);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_FAILED',
-        message: '확인 처리에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('UPDATE_FAILED', '확인 처리에 실패했습니다.');
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
@@ -1215,16 +1109,10 @@ export async function getUnacknowledgedUsageLogCount(): Promise<ApiResponse<numb
     .is('acknowledged_at', null);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '카운트 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '카운트 조회에 실패했습니다.');
   }
 
-  return { success: true, data: count || 0 };
+  return createSuccessResponse(count || 0);
 }
 
 /**
@@ -1248,23 +1136,16 @@ export async function getAllProductsForSelect(): Promise<
     .order('name');
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
-  return {
-    success: true,
-    data: (data || []).map((product) => ({
+  return createSuccessResponse(
+    (data || []).map((product) => ({
       id: product.id,
       name: product.name,
       manufacturerName: (product.organization as { name: string }).name,
-    })),
-  };
+    }))
+  );
 }
 
 // ============================================================================
@@ -1321,13 +1202,7 @@ export async function getAdminEventSummary(
 
   if (summaryError) {
     console.error('이벤트 요약 조회 실패:', summaryError);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: summaryError.message || '이벤트 요약 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', summaryError.message || '이벤트 요약 조회에 실패했습니다.');
   }
 
   if (countError) {
@@ -1338,13 +1213,7 @@ export async function getAdminEventSummary(
   const parsed = parseRpcArray(AdminEventSummaryRowSchema, summaryData, 'get_admin_event_summary');
   if (!parsed.success) {
     console.error('get_admin_event_summary 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   const validatedData = parsed.data;
@@ -1425,19 +1294,16 @@ export async function getAdminEventSummary(
 
   const total = Number(totalCount) || summaries.length;
 
-  return {
-    success: true,
-    data: {
-      items: summaries,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + summaries.length < total,
-      },
+  return createSuccessResponse({
+    items: summaries,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + summaries.length < total,
     },
-  };
+  });
 }
 
 /**
@@ -1453,7 +1319,7 @@ export async function getEventSampleCodes(
   const supabase = await createClient();
 
   if (!codeIds.length) {
-    return { success: true, data: [] };
+    return createSuccessResponse([]);
   }
 
   // 최대 10개만 조회
@@ -1479,13 +1345,7 @@ export async function getEventSampleCodes(
 
   if (error) {
     console.error('샘플 코드 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // 소유자 이름 조회 (조직만)
@@ -1521,7 +1381,7 @@ export async function getEventSampleCodes(
     };
   });
 
-  return { success: true, data: sampleCodes };
+  return createSuccessResponse(sampleCodes);
 }
 
 /**
@@ -1550,15 +1410,12 @@ export async function getEventCodesPaginated(
   const pageCodeIds = codeIds.slice(offset, offset + pageSize);
 
   if (pageCodeIds.length === 0) {
-    return {
-      success: true,
-      data: {
-        codes: [],
-        total,
-        totalPages,
-        page,
-      },
-    };
+    return createSuccessResponse({
+      codes: [],
+      total,
+      totalPages,
+      page,
+    });
   }
 
   // 코드 정보 조회 (현재 상태 및 소유자 포함)
@@ -1575,13 +1432,7 @@ export async function getEventCodesPaginated(
 
   if (error) {
     console.error('이벤트 코드 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message || '코드 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message || '코드 조회에 실패했습니다.');
   }
 
   // 조직 이름 일괄 조회
@@ -1622,13 +1473,10 @@ export async function getEventCodesPaginated(
       currentOwnerType: row.owner_type as 'ORGANIZATION' | 'PATIENT',
     }));
 
-  return {
-    success: true,
-    data: {
-      codes,
-      total,
-      totalPages,
-      page,
-    },
-  };
+  return createSuccessResponse({
+    codes,
+    total,
+    totalPages,
+    page,
+  });
 }

@@ -5,6 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { ApiResponse, ManufacturerSettings } from '@/types/api.types';
+import { createErrorResponse, createSuccessResponse, createNotFoundResponse } from './common.service';
 
 /**
  * 제조사 설정 수정 데이터 타입
@@ -34,16 +35,10 @@ export async function getManufacturerSettings(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: '제조사 설정을 찾을 수 없습니다.',
-      },
-    };
+    return createNotFoundResponse('제조사 설정을 찾을 수 없습니다.');
   }
 
-  return { success: true, data };
+  return createSuccessResponse(data);
 }
 
 /**
@@ -72,16 +67,10 @@ export async function updateManufacturerSettings(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_FAILED',
-        message: '설정 저장에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('UPDATE_FAILED', '설정 저장에 실패했습니다.');
   }
 
-  return { success: true, data: updated };
+  return createSuccessResponse(updated);
 }
 
 /**
@@ -105,14 +94,8 @@ export async function createManufacturerSettings(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'CREATE_FAILED',
-        message: '제조사 설정 생성에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('CREATE_FAILED', '제조사 설정 생성에 실패했습니다.');
   }
 
-  return { success: true, data };
+  return createSuccessResponse(data);
 }

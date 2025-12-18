@@ -23,6 +23,8 @@ import {
   createOrganizationNameCache,
   getActionTypeLabel,
   parseRpcArray,
+  createErrorResponse,
+  createSuccessResponse,
 } from './common.service';
 import type {
   ApiResponse,
@@ -176,13 +178,7 @@ export async function getTransactionHistory(
 
   if (historyError) {
     console.error('거래이력 조회 실패:', historyError.message);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: historyError.message ?? '거래이력 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', historyError.message ?? '거래이력 조회에 실패했습니다.');
   }
 
   if (countError) {
@@ -193,13 +189,7 @@ export async function getTransactionHistory(
   const parsed = parseRpcArray(HistorySummaryRowSchema, historyData, 'get_history_summary');
   if (!parsed.success) {
     console.error('get_history_summary 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   const validatedData = parsed.data;
@@ -270,19 +260,16 @@ export async function getTransactionHistory(
 
   const total = Number(totalCount) || summaries.length;
 
-  return {
-    success: true,
-    data: {
-      items: summaries,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + summaries.length < total,
-      },
+  return createSuccessResponse({
+    items: summaries,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + summaries.length < total,
     },
-  };
+  });
 }
 
 /**

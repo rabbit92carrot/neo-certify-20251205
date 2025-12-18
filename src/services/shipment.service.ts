@@ -20,7 +20,12 @@ import type {
   OrganizationType,
 } from '@/types/api.types';
 import type { ShipmentCreateData, ShipmentHistoryQueryData } from '@/lib/validations/shipment';
-import { parseRpcArray, parseRpcSingle } from './common.service';
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  parseRpcArray,
+  parseRpcSingle,
+} from './common.service';
 import {
   ShipmentAtomicResultSchema,
   RecallShipmentResultSchema,
@@ -68,7 +73,7 @@ export async function getShipmentTargetOrganizations(
   } else if (organizationType === 'DISTRIBUTOR') {
     targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
   } else {
-    return { success: true, data: [] };
+    return createSuccessResponse([]);
   }
 
   let query = supabase
@@ -86,16 +91,10 @@ export async function getShipmentTargetOrganizations(
 
   if (error) {
     console.error('출고 대상 조직 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '출고 대상 조직 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '출고 대상 조직 조회에 실패했습니다.');
   }
 
-  return { success: true, data: data || [] };
+  return createSuccessResponse(data || []);
 }
 
 /**
@@ -116,7 +115,7 @@ async function getShipmentTargetOrganizationsWithAdmin(
   } else if (organizationType === 'DISTRIBUTOR') {
     targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
   } else {
-    return { success: true, data: [] };
+    return createSuccessResponse([]);
   }
 
   let query = supabase
@@ -133,16 +132,10 @@ async function getShipmentTargetOrganizationsWithAdmin(
 
   if (error) {
     console.error('출고 대상 조직 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '출고 대상 조직 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '출고 대상 조직 조회에 실패했습니다.');
   }
 
-  return { success: true, data: data || [] };
+  return createSuccessResponse(data || []);
 }
 
 /**
@@ -194,13 +187,7 @@ export async function createShipment(
     .single();
 
   if (toOrgError || !toOrg) {
-    return {
-      success: false,
-      error: {
-        code: 'ORGANIZATION_NOT_FOUND',
-        message: '수신 조직을 찾을 수 없습니다.',
-      },
-    };
+    return createErrorResponse('ORGANIZATION_NOT_FOUND', '수신 조직을 찾을 수 없습니다.');
   }
 
   // 2. 아이템 데이터 준비 (JSONB 형식)
@@ -220,47 +207,26 @@ export async function createShipment(
 
   if (error) {
     console.error('원자적 출고 생성 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'SHIPMENT_CREATE_FAILED',
-        message: '출고 생성에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('SHIPMENT_CREATE_FAILED', '출고 생성에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcSingle(ShipmentAtomicResultSchema, result, 'create_shipment_atomic');
   if (!parsed.success) {
     console.error('create_shipment_atomic 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   const row = parsed.data;
 
   if (row?.error_code) {
-    return {
-      success: false,
-      error: {
-        code: row.error_code,
-        message: row.error_message || '출고 생성에 실패했습니다.',
-      },
-    };
+    return createErrorResponse(row.error_code, row.error_message || '출고 생성에 실패했습니다.');
   }
 
-  return {
-    success: true,
-    data: {
-      shipmentBatchId: row?.shipment_batch_id || '',
-      totalQuantity: row?.total_quantity || 0,
-    },
-  };
+  return createSuccessResponse({
+    shipmentBatchId: row?.shipment_batch_id || '',
+    totalQuantity: row?.total_quantity || 0,
+  });
 }
 
 /**
@@ -310,13 +276,7 @@ export async function getShipmentHistory(
 
   if (error) {
     console.error('출고 이력 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // 모든 뭉치의 요약 정보를 한 번에 조회 (N+1 최적화)
@@ -336,19 +296,16 @@ export async function getShipmentHistory(
 
   const total = count || 0;
 
-  return {
-    success: true,
-    data: {
-      items: batchSummaries,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: batchSummaries,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -394,13 +351,7 @@ export async function getReceivedShipmentHistory(
 
   if (error) {
     console.error('수신 출고 이력 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // 모든 뭉치의 요약 정보를 한 번에 조회 (N+1 최적화)
@@ -420,19 +371,16 @@ export async function getReceivedShipmentHistory(
 
   const total = count || 0;
 
-  return {
-    success: true,
-    data: {
-      items: batchSummaries,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: batchSummaries,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -532,41 +480,26 @@ export async function recallShipment(
 
   if (error) {
     console.error('원자적 출고 회수 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'RECALL_FAILED',
-        message: '출고 회수에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('RECALL_FAILED', '출고 회수에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcSingle(RecallShipmentResultSchema, result, 'recall_shipment_atomic');
   if (!parsed.success) {
     console.error('recall_shipment_atomic 검증 실패:', parsed.error);
-    return {
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: parsed.error,
-      },
-    };
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   const row = parsed.data;
 
   if (!row?.success) {
-    return {
-      success: false,
-      error: {
-        code: row?.error_code || 'RECALL_FAILED',
-        message: row?.error_message || '출고 회수에 실패했습니다.',
-      },
-    };
+    return createErrorResponse(
+      row?.error_code || 'RECALL_FAILED',
+      row?.error_message || '출고 회수에 실패했습니다.'
+    );
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
@@ -589,27 +522,15 @@ export async function checkRecallAllowed(
     .single();
 
   if (batchError || !batch) {
-    return {
-      success: false,
-      error: {
-        code: 'BATCH_NOT_FOUND',
-        message: '출고 뭉치를 찾을 수 없습니다.',
-      },
-    };
+    return createErrorResponse('BATCH_NOT_FOUND', '출고 뭉치를 찾을 수 없습니다.');
   }
 
   if (batch.from_organization_id !== organizationId) {
-    return {
-      success: true,
-      data: { allowed: false, reason: '발송자만 회수할 수 있습니다.' },
-    };
+    return createSuccessResponse({ allowed: false, reason: '발송자만 회수할 수 있습니다.' });
   }
 
   if (batch.is_recalled) {
-    return {
-      success: true,
-      data: { allowed: false, reason: '이미 회수된 출고 뭉치입니다.' },
-    };
+    return createSuccessResponse({ allowed: false, reason: '이미 회수된 출고 뭉치입니다.' });
   }
 
   const { data: isAllowed, error: checkError } = await supabase.rpc('is_recall_allowed', {
@@ -617,21 +538,12 @@ export async function checkRecallAllowed(
   });
 
   if (checkError) {
-    return {
-      success: false,
-      error: {
-        code: 'CHECK_ERROR',
-        message: '회수 가능 여부 확인에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('CHECK_ERROR', '회수 가능 여부 확인에 실패했습니다.');
   }
 
   if (!isAllowed) {
-    return {
-      success: true,
-      data: { allowed: false, reason: '24시간 경과하여 처리할 수 없습니다.' },
-    };
+    return createSuccessResponse({ allowed: false, reason: '24시간 경과하여 처리할 수 없습니다.' });
   }
 
-  return { success: true, data: { allowed: true } };
+  return createSuccessResponse({ allowed: true });
 }
