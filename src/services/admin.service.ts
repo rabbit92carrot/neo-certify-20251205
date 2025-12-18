@@ -1164,8 +1164,7 @@ export async function acknowledgeUsageLogs(
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('inactive_product_usage_logs')
     .update({
       acknowledged_at: new Date().toISOString(),
@@ -1195,8 +1194,7 @@ export async function acknowledgeUsageLogs(
 export async function getUnacknowledgedUsageLogCount(): Promise<ApiResponse<number>> {
   const supabase = await createClient();
 
-  // 마이그레이션 적용 후 타입 생성 시 as any 제거 가능
-  const { count, error } = await (supabase as any)
+  const { count, error } = await supabase
     .from('inactive_product_usage_logs')
     .select('*', { count: 'exact', head: true })
     .is('acknowledged_at', null);

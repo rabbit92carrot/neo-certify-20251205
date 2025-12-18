@@ -23,8 +23,8 @@ const eslintConfig = defineConfig([
     // Tests folder (excluded from tsconfig.json, use vitest for linting)
     "tests/**",
     "src/__tests__/**",
-    // Auto-generated types
-    "src/types/database.types.ts",
+    // Auto-generated types (use ** pattern for flat config)
+    "**/database.types.ts",
   ]),
   {
     files: ["**/*.ts", "**/*.tsx"],
@@ -82,6 +82,9 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "off",
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      // React 19 Compiler - 초기 데이터 로드 패턴에서 false positive 발생
+      // https://github.com/facebook/react/issues/34743
+      "react-hooks/set-state-in-effect": "warn",
     },
   },
 ]);
