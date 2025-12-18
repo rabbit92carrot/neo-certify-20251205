@@ -30,6 +30,12 @@ export {
   cleanupAllTestData,
   resetCreatedIds,
   trackTestData,
+  // 비활성 제품 알림 테스트용
+  createTestInactiveProduct,
+  getOrganizationAlerts,
+  getInactiveProductUsageLogs,
+  cleanupOrganizationAlerts,
+  cleanupInactiveProductUsageLogs,
 } from './test-data-factory';
 export type {
   CreateTestOrganizationOptions,
@@ -37,6 +43,7 @@ export type {
   CreateTestLotOptions,
   CreateTestManufacturerSettingsOptions,
   CreateTestShipmentBatchOptions,
+  CreateTestInactiveProductOptions,
 } from './test-data-factory';
 
 // 정리 함수

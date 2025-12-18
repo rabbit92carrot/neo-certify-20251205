@@ -595,3 +595,155 @@ export function trackTestData(
 ): void {
   createdIds[type].push(id);
 }
+
+// ============================================================
+// 비활성 제품 알림 테스트용 헬퍼
+// ============================================================
+
+type DeactivationReason = Database['public']['Enums']['deactivation_reason'];
+
+export interface CreateTestInactiveProductOptions {
+  organizationId: string;
+  name?: string;
+  deactivationReason?: DeactivationReason;
+  deactivationNote?: string;
+}
+
+/**
+ * 테스트용 비활성 제품 생성 (deactivation_reason 포함)
+ */
+export async function createTestInactiveProduct(
+  options: CreateTestInactiveProductOptions
+): Promise<Database['public']['Tables']['products']['Row']> {
+  const adminClient = createTestAdminClient();
+
+  const productData = {
+    organization_id: options.organizationId,
+    name: options.name || `비활성제품_${Date.now()}`,
+    udi_di: `UDI_${generateTestId()}`,
+    model_name: `MODEL_${generateTestId()}`,
+    is_active: false,
+    deactivation_reason: options.deactivationReason || 'DISCONTINUED',
+    deactivation_note: options.deactivationNote || null,
+    deactivated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await adminClient
+    .from('products')
+    .insert(productData)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`테스트 비활성 제품 생성 실패: ${error.message}`);
+  }
+
+  createdIds.products.push(data.id);
+  return data;
+}
+
+/**
+ * 조직 알림 조회 (테스트 검증용)
+ */
+export async function getOrganizationAlerts(
+  orgId: string,
+  options: {
+    alertType?: Database['public']['Enums']['organization_alert_type'];
+    isRead?: boolean;
+  } = {}
+): Promise<Database['public']['Tables']['organization_alerts']['Row'][]> {
+  const adminClient = createTestAdminClient();
+
+  let query = adminClient
+    .from('organization_alerts')
+    .select('*')
+    .eq('recipient_org_id', orgId)
+    .order('created_at', { ascending: false });
+
+  if (options.alertType) {
+    query = query.eq('alert_type', options.alertType);
+  }
+
+  if (options.isRead !== undefined) {
+    query = query.eq('is_read', options.isRead);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`조직 알림 조회 실패: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * 비활성 제품 사용 로그 조회 (테스트 검증용)
+ */
+export async function getInactiveProductUsageLogs(
+  filters: {
+    productId?: string;
+    usageType?: 'SHIPMENT' | 'TREATMENT';
+    organizationId?: string;
+    usageId?: string;
+  } = {}
+): Promise<Database['public']['Tables']['inactive_product_usage_logs']['Row'][]> {
+  const adminClient = createTestAdminClient();
+
+  let query = adminClient
+    .from('inactive_product_usage_logs')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (filters.productId) {
+    query = query.eq('product_id', filters.productId);
+  }
+
+  if (filters.usageType) {
+    query = query.eq('usage_type', filters.usageType);
+  }
+
+  if (filters.organizationId) {
+    query = query.eq('organization_id', filters.organizationId);
+  }
+
+  if (filters.usageId) {
+    query = query.eq('usage_id', filters.usageId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`비활성 제품 사용 로그 조회 실패: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * 테스트 알림 정리
+ */
+export async function cleanupOrganizationAlerts(orgIds: string[]): Promise<void> {
+  if (orgIds.length === 0) return;
+
+  const adminClient = createTestAdminClient();
+
+  await adminClient
+    .from('organization_alerts')
+    .delete()
+    .in('recipient_org_id', orgIds);
+}
+
+/**
+ * 테스트 비활성 제품 사용 로그 정리
+ */
+export async function cleanupInactiveProductUsageLogs(productIds: string[]): Promise<void> {
+  if (productIds.length === 0) return;
+
+  const adminClient = createTestAdminClient();
+
+  await adminClient
+    .from('inactive_product_usage_logs')
+    .delete()
+    .in('product_id', productIds);
+}
