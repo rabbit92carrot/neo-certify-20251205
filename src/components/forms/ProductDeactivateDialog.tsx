@@ -74,7 +74,7 @@ export function ProductDeactivateDialog({
   };
 
   const handleSubmit = async () => {
-    if (!product || !reason) return;
+    if (!product || !reason) {return;}
 
     setIsSubmitting(true);
     try {

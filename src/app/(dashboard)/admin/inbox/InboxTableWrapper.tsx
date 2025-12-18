@@ -71,7 +71,7 @@ export function InboxTableWrapper({
 
   // 초기 로드
   useEffect(() => {
-    loadData(
+    void loadData(
       initialPage,
       initialIsRead,
       initialAlertType === 'all' ? undefined : initialAlertType

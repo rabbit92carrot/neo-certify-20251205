@@ -152,7 +152,7 @@ export async function getTransactionHistory(
   };
 
   // 병렬로 이력 조회와 카운트 조회 실행 (Phase 13.2 최적화)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const [historyResult, countResult] = await Promise.all([
     // 1. DB 함수를 통해 그룹화된 이력 조회
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -29,7 +29,7 @@ function StatCardSkeleton(): React.ReactElement {
 export default async function HospitalDashboardPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
 
-  if (!user || user.organization.type !== 'HOSPITAL') {
+  if (user?.organization.type !== 'HOSPITAL') {
     redirect('/login');
   }
 

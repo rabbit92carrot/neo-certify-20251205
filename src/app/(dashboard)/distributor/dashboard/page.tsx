@@ -29,7 +29,7 @@ function StatCardSkeleton(): React.ReactElement {
 export default async function DistributorDashboardPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
 
-  if (!user || user.organization.type !== 'DISTRIBUTOR') {
+  if (user?.organization.type !== 'DISTRIBUTOR') {
     redirect('/login');
   }
 

@@ -23,6 +23,8 @@ const eslintConfig = defineConfig([
     // Tests folder (excluded from tsconfig.json, use vitest for linting)
     "tests/**",
     "src/__tests__/**",
+    // Auto-generated types
+    "src/types/database.types.ts",
   ]),
   {
     files: ["**/*.ts", "**/*.tsx"],

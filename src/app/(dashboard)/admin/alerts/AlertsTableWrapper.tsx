@@ -44,7 +44,7 @@ export function AlertsTableWrapper({
 
   // 초기 로드
   useEffect(() => {
-    loadData(initialPage, initialAcknowledged);
+    void loadData(initialPage, initialAcknowledged);
   }, [initialPage, initialAcknowledged]);
 
   // 필터 변경

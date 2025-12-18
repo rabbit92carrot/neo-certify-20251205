@@ -18,7 +18,7 @@ export const metadata = {
 export default async function ManufacturerShipmentPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
 
-  if (!user || user.organization.type !== 'MANUFACTURER') {
+  if (user?.organization.type !== 'MANUFACTURER') {
     redirect('/login');
   }
 

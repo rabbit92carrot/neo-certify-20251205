@@ -75,7 +75,7 @@ export function OrganizationAlertTable({
 
   // 전체 선택/해제
   const toggleSelectAll = () => {
-    if (!data) return;
+    if (!data) {return;}
     const unreadIds = data.items.filter((a) => !a.isRead).map((a) => a.id);
     if (selectedIds.size === unreadIds.length && unreadIds.length > 0) {
       setSelectedIds(new Set());
@@ -86,7 +86,7 @@ export function OrganizationAlertTable({
 
   // 읽음 처리
   const handleMarkAsRead = async (alertId: string) => {
-    if (!onMarkAsRead) return;
+    if (!onMarkAsRead) {return;}
     setProcessingId(alertId);
     await onMarkAsRead(alertId);
     setProcessingId(null);
@@ -98,7 +98,7 @@ export function OrganizationAlertTable({
 
   // 선택 항목 읽음 처리
   const handleMarkSelectedAsRead = async () => {
-    if (!onMarkSelectedAsRead || selectedIds.size === 0) return;
+    if (!onMarkSelectedAsRead || selectedIds.size === 0) {return;}
     await onMarkSelectedAsRead(Array.from(selectedIds));
     setSelectedIds(new Set());
   };

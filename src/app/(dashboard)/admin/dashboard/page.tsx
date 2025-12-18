@@ -186,7 +186,7 @@ function StatsCardsGridSkeleton(): React.ReactElement {
 export default async function AdminDashboardPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
 
-  if (!user || user.organization.type !== 'ADMIN') {
+  if (user?.organization.type !== 'ADMIN') {
     redirect('/login');
   }
 

@@ -38,7 +38,7 @@ export function InactiveProductUsageTable({
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const handleAcknowledge = async (logId: string) => {
-    if (!onAcknowledge) return;
+    if (!onAcknowledge) {return;}
     setProcessingId(logId);
     await onAcknowledge(logId);
     setProcessingId(null);
