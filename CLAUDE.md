@@ -176,8 +176,6 @@ E2E tests run against the dev server with seed data accounts:
 
 Tests run sequentially (`workers: 1`) to preserve DB state.
 
-For comprehensive E2E testing guidance, see `docs/E2E_TESTING_GUIDE.md`.
-
 ## Deployment
 
 - **Production**: https://neo-certify-20251205.vercel.app
