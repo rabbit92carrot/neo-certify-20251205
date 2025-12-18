@@ -106,9 +106,8 @@ export async function register(
     representative_name: data.representativeName,
     representative_contact: normalizePhoneNumber(data.representativeContact),
     address: data.address,
-    // 1차에서는 임시로 ACTIVE 처리 (승인 로직 비활성화)
-    status: ORGANIZATION_STATUSES.ACTIVE,
-    // 실제 운영 시: status: ORGANIZATION_STATUSES.PENDING_APPROVAL,
+    // 실제 운영: 관리자 승인 대기 상태로 설정
+    status: ORGANIZATION_STATUSES.PENDING_APPROVAL,
   });
 
   if (orgError) {
