@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getInactiveProductUsageLogsAction, acknowledgeUsageLogAction } from '../actions';
+import { toast } from 'sonner';
+import { getInactiveProductUsageLogsAction, acknowledgeUsageLogAction, acknowledgeUsageLogsAction } from '../actions';
 import type { InactiveProductUsageLog, PaginatedResponse } from '@/types/api.types';
 
 interface AlertsTableWrapperProps {
@@ -85,6 +86,30 @@ export function AlertsTableWrapper({
     }
   };
 
+  // 일괄 확인 처리
+  const handleBulkAcknowledge = async () => {
+    if (!data || data.items.length === 0) {
+      return;
+    }
+
+    const unacknowledgedIds = data.items
+      .filter(item => !item.acknowledgedAt)
+      .map(item => item.id);
+
+    if (unacknowledgedIds.length === 0) {
+      toast.info('확인 처리할 항목이 없습니다.');
+      return;
+    }
+
+    const result = await acknowledgeUsageLogsAction(unacknowledgedIds);
+    if (result.success) {
+      toast.success(`${unacknowledgedIds.length}건이 확인 처리되었습니다.`);
+      loadData(data?.meta.page || 1, initialAcknowledged);
+    } else {
+      toast.error('일괄 확인 처리에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 필터 */}
@@ -107,9 +132,7 @@ export function AlertsTableWrapper({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              // TODO: 일괄 확인 처리
-            }}
+            onClick={handleBulkAcknowledge}
             disabled={isPending}
           >
             전체 확인 처리

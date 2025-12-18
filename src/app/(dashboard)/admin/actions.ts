@@ -533,6 +533,30 @@ export async function acknowledgeUsageLogAction(logId: string) {
 }
 
 /**
+ * 비활성 제품 사용 로그 일괄 확인 처리 Action
+ */
+export async function acknowledgeUsageLogsAction(logIds: string[]) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await adminService.acknowledgeUsageLogs(logIds, adminId);
+
+  if (result.success) {
+    revalidatePath('/admin/alerts');
+  }
+
+  return result;
+}
+
+/**
  * 미확인 비활성 제품 사용 로그 카운트 Action
  */
 export async function getUnacknowledgedUsageLogCountAction() {
