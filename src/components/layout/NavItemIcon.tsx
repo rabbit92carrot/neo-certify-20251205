@@ -18,6 +18,8 @@ import {
   Building2,
   UserCheck,
   AlertCircle,
+  Bell,
+  Mail,
   type LucideIcon,
 } from 'lucide-react';
 import type { IconName } from '@/constants/navigation';
@@ -35,6 +37,8 @@ const iconMap: Record<IconName, LucideIcon> = {
   Building2,
   UserCheck,
   AlertCircle,
+  Bell,
+  Mail,
 };
 
 interface NavItemIconProps {

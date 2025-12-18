@@ -16,6 +16,8 @@ import {
   Building2,
   UserCheck,
   AlertCircle,
+  Bell,
+  Mail,
   MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
@@ -34,6 +36,8 @@ export const iconMap: Record<IconName | 'MoreHorizontal', LucideIcon> = {
   Building2,
   UserCheck,
   AlertCircle,
+  Bell,
+  Mail,
   MoreHorizontal,
 };
 
