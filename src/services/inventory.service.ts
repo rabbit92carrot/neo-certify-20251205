@@ -209,7 +209,12 @@ export async function getAvailableProductsForShipment(
     .eq('is_active', true);
 
   if (error) {
-    console.error('제품 조회 실패:', error);
+    console.error('제품 조회 실패:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     return {
       success: false,
       error: {
