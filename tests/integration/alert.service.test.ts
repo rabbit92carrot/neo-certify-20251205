@@ -120,14 +120,16 @@ describe('Alert Service Integration Tests', () => {
     });
 
     it('alert_type으로 필터링할 수 있다', async () => {
-      await createTestAlert(adminOrg.id, { alertType: 'INACTIVE_PRODUCT_USAGE' });
-      await createTestAlert(adminOrg.id, { alertType: 'SYSTEM_NOTICE' });
-      await createTestAlert(adminOrg.id, { alertType: 'INACTIVE_PRODUCT_USAGE' });
+      const alert1 = await createTestAlert(adminOrg.id, { alertType: 'INACTIVE_PRODUCT_USAGE' });
+      const alert2 = await createTestAlert(adminOrg.id, { alertType: 'SYSTEM_NOTICE' });
+      const alert3 = await createTestAlert(adminOrg.id, { alertType: 'INACTIVE_PRODUCT_USAGE' });
+      const testAlertIds = [alert1.id, alert2.id, alert3.id];
 
+      // 이 테스트에서 생성한 알림 중 INACTIVE_PRODUCT_USAGE만 필터링
       const { data, error } = await adminClient
         .from('organization_alerts')
         .select('*')
-        .eq('recipient_org_id', adminOrg.id)
+        .in('id', testAlertIds)
         .eq('alert_type', 'INACTIVE_PRODUCT_USAGE');
 
       expect(error).toBeNull();
@@ -135,15 +137,16 @@ describe('Alert Service Integration Tests', () => {
     });
 
     it('is_read로 필터링할 수 있다', async () => {
-      await createTestAlert(adminOrg.id, { isRead: false });
-      await createTestAlert(adminOrg.id, { isRead: false });
-      await createTestAlert(adminOrg.id, { isRead: true });
+      const alert1 = await createTestAlert(adminOrg.id, { isRead: false });
+      const alert2 = await createTestAlert(adminOrg.id, { isRead: false });
+      const alert3 = await createTestAlert(adminOrg.id, { isRead: true });
+      const testAlertIds = [alert1.id, alert2.id, alert3.id];
 
-      // 미읽은 알림만 조회
+      // 이 테스트에서 생성한 알림 중 미읽은 알림만 조회
       const { data: unreadAlerts, error } = await adminClient
         .from('organization_alerts')
         .select('*')
-        .eq('recipient_org_id', adminOrg.id)
+        .in('id', testAlertIds)
         .eq('is_read', false);
 
       expect(error).toBeNull();
