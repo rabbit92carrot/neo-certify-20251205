@@ -10,6 +10,14 @@ import { createClient } from '@/lib/supabase/server';
 import type { ApiResponse, Lot, LotWithProduct, PaginatedResponse } from '@/types/api.types';
 import type { LotCreateData, LotListQueryData } from '@/lib/validations/product';
 import { CONFIG } from '@/constants';
+import {
+  createErrorResponse,
+  createNotFoundResponse,
+  createSuccessResponse,
+  ERROR_CODES,
+  parseRpcArray,
+} from './common.service';
+import { LotNumberResultSchema, UpsertLotResultSchema } from '@/lib/validations/rpc-schemas';
 
 /**
  * Lot 생산 등록
@@ -36,13 +44,7 @@ export async function createLot(
     .single();
 
   if (productError || !product) {
-    return {
-      success: false,
-      error: {
-        code: 'PRODUCT_NOT_FOUND',
-        message: '유효한 제품을 선택해주세요.',
-      },
-    };
+    return createErrorResponse('PRODUCT_NOT_FOUND', '유효한 제품을 선택해주세요.');
   }
 
   // Lot 번호 생성 (DB 함수 호출)
@@ -57,16 +59,17 @@ export async function createLot(
 
   if (lotNumberError) {
     console.error('Lot 번호 생성 실패:', lotNumberError);
-    return {
-      success: false,
-      error: {
-        code: 'LOT_NUMBER_GENERATION_FAILED',
-        message: 'Lot 번호 생성에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('LOT_NUMBER_GENERATION_FAILED', 'Lot 번호 생성에 실패했습니다.');
   }
 
-  const lotNumber = lotNumberResult as string;
+  // Zod 검증으로 결과 파싱
+  const lotNumberParsed = LotNumberResultSchema.safeParse(lotNumberResult);
+  if (!lotNumberParsed.success) {
+    console.error('generate_lot_number 검증 실패:', lotNumberParsed.error);
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, 'Lot 번호 형식이 올바르지 않습니다.');
+  }
+
+  const lotNumber = lotNumberParsed.data;
 
   // 사용기한 계산 (설정 기반 또는 직접 입력)
   const expiryDate = data.expiryDate || (await calculateExpiryDate(organizationId, data.manufactureDate));
@@ -83,34 +86,23 @@ export async function createLot(
   if (upsertError) {
     // 최대 수량 초과 에러 처리
     if (upsertError.message?.includes('exceeds maximum limit')) {
-      return {
-        success: false,
-        error: {
-          code: 'QUANTITY_LIMIT_EXCEEDED',
-          message: '총 수량이 최대 한도(100,000개)를 초과합니다.',
-        },
-      };
+      return createErrorResponse('QUANTITY_LIMIT_EXCEEDED', '총 수량이 최대 한도(100,000개)를 초과합니다.');
     }
 
     console.error('Lot 생성/업데이트 실패:', upsertError);
-    return {
-      success: false,
-      error: {
-        code: 'CREATE_FAILED',
-        message: 'Lot 생성에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('CREATE_FAILED', 'Lot 생성에 실패했습니다.');
   }
 
-  const result = upsertResult?.[0];
+  // Zod 검증으로 결과 파싱 (upsert_lot은 배열 반환)
+  const upsertParsed = parseRpcArray(UpsertLotResultSchema, upsertResult, 'upsert_lot');
+  if (!upsertParsed.success) {
+    console.error('upsert_lot 검증 실패:', upsertParsed.error);
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, upsertParsed.error);
+  }
+
+  const result = upsertParsed.data[0];
   if (!result) {
-    return {
-      success: false,
-      error: {
-        code: 'CREATE_FAILED',
-        message: 'Lot 생성 결과를 확인할 수 없습니다.',
-      },
-    };
+    return createErrorResponse('CREATE_FAILED', 'Lot 생성 결과를 확인할 수 없습니다.');
   }
 
   // 생성/업데이트된 Lot 정보 조회
@@ -121,22 +113,13 @@ export async function createLot(
     .single();
 
   if (fetchError || !lot) {
-    return {
-      success: false,
-      error: {
-        code: 'FETCH_FAILED',
-        message: 'Lot 정보 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('FETCH_FAILED', 'Lot 정보 조회에 실패했습니다.');
   }
 
-  return {
-    success: true,
-    data: {
-      ...lot,
-      isAddedToExisting: !result.is_new, // 기존 Lot에 추가된 경우 true
-    },
-  };
+  return createSuccessResponse({
+    ...lot,
+    isAddedToExisting: !result.is_new, // 기존 Lot에 추가된 경우 true
+  });
 }
 
 /**
@@ -201,30 +184,22 @@ export async function getLots(
   const { data, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse(ERROR_CODES.QUERY_ERROR, error.message);
   }
 
-  const total = count || 0;
+  const total = count ?? 0;
 
-  return {
-    success: true,
-    data: {
-      items: (data || []) as LotWithProduct[],
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  // Supabase 조인 쿼리 결과는 정확한 타입 추론이 어려워 타입 단언 사용
+  return createSuccessResponse({
+    items: (data ?? []) as LotWithProduct[],
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -253,16 +228,11 @@ export async function getLot(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: 'Lot을 찾을 수 없습니다.',
-      },
-    };
+    return createNotFoundResponse('Lot을 찾을 수 없습니다.');
   }
 
-  return { success: true, data: data as LotWithProduct };
+  // Supabase 조인 쿼리 결과는 정확한 타입 추론이 어려워 타입 단언 사용
+  return createSuccessResponse(data as LotWithProduct);
 }
 
 /**

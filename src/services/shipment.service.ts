@@ -20,10 +20,12 @@ import type {
   OrganizationType,
 } from '@/types/api.types';
 import type { ShipmentCreateData, ShipmentHistoryQueryData } from '@/lib/validations/shipment';
-import type { Database } from '@/types/database.types';
-
-// RPC 반환 타입 정의
-type ShipmentBatchSummariesRow = Database['public']['Functions']['get_shipment_batch_summaries']['Returns'][number];
+import { parseRpcArray, parseRpcSingle } from './common.service';
+import {
+  ShipmentAtomicResultSchema,
+  RecallShipmentResultSchema,
+  ShipmentBatchSummaryRowSchema,
+} from '@/lib/validations/rpc-schemas';
 
 // 캐시 TTL 상수 (초)
 const TARGET_ORGS_CACHE_TTL = 600; // 10분 (조직 목록은 자주 변경되지 않음)
@@ -210,14 +212,6 @@ export async function createShipment(
 
   // 3. 원자적 출고 생성 DB 함수 호출
   // 발송 조직 ID는 DB 함수 내에서 get_user_organization_id()로 도출됨
-  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
-  type ShipmentAtomicResult = {
-    shipment_batch_id: string | null;
-    total_quantity: number;
-    error_code: string | null;
-    error_message: string | null;
-  };
-
   const { data: result, error } = await supabase.rpc('create_shipment_atomic', {
     p_to_org_id: data.toOrganizationId,
     p_to_org_type: toOrg.type,
@@ -235,9 +229,20 @@ export async function createShipment(
     };
   }
 
-  // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as ShipmentAtomicResult[] | null;
-  const row = resultArray?.[0];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(ShipmentAtomicResultSchema, result, 'create_shipment_atomic');
+  if (!parsed.success) {
+    console.error('create_shipment_atomic 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
+  const row = parsed.data;
 
   if (row?.error_code) {
     return {
@@ -456,7 +461,14 @@ async function getShipmentBatchSummariesBulk(
     return result;
   }
 
-  const rows = data as ShipmentBatchSummariesRow[];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(ShipmentBatchSummaryRowSchema, data, 'get_shipment_batch_summaries');
+  if (!parsed.success) {
+    console.error('get_shipment_batch_summaries 검증 실패:', parsed.error);
+    return result;
+  }
+
+  const rows = parsed.data;
 
   // 뭉치별로 그룹화
   const batchMap = new Map<string, Map<string, { name: string; quantity: number }>>();
@@ -511,14 +523,6 @@ export async function recallShipment(
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
-  type RecallAtomicResult = {
-    success: boolean;
-    recalled_count: number;
-    error_code: string | null;
-    error_message: string | null;
-  };
-
   // 원자적 회수 DB 함수 호출
   // 발송자 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
   const { data: result, error } = await supabase.rpc('recall_shipment_atomic', {
@@ -537,9 +541,20 @@ export async function recallShipment(
     };
   }
 
-  // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as RecallAtomicResult[] | null;
-  const row = resultArray?.[0];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(RecallShipmentResultSchema, result, 'recall_shipment_atomic');
+  if (!parsed.success) {
+    console.error('recall_shipment_atomic 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
+  const row = parsed.data;
 
   if (!row?.success) {
     return {

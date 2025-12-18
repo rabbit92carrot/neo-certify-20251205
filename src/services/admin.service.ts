@@ -11,6 +11,7 @@ import {
   getOrganizationName,
   maskPhoneNumber,
   createOrganizationNameCache,
+  parseRpcArray,
 } from './common.service';
 import type {
   ApiResponse,
@@ -40,11 +41,12 @@ import type {
 } from '@/lib/validations/admin';
 import { getActionTypeLabel } from './common.service';
 import { ORGANIZATION_STATUSES } from '@/constants/organization';
-import type { Database } from '@/types/database.types';
-
-// RPC 반환 타입 정의
-type OrgStatusCountRow = Database['public']['Functions']['get_organization_status_counts']['Returns'][number];
-type AllRecallsRow = Database['public']['Functions']['get_all_recalls']['Returns'][number];
+import {
+  OrgStatusCountRowSchema,
+  OrgCodeCountRowSchema,
+  AllRecallsRowSchema,
+  AdminEventSummaryRowSchema,
+} from '@/lib/validations/rpc-schemas';
 
 // ============================================================================
 // 상수
@@ -88,6 +90,19 @@ export async function getOrganizationStatusCounts(): Promise<
     };
   }
 
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(OrgStatusCountRowSchema, data, 'get_organization_status_counts');
+  if (!parsed.success) {
+    console.error('get_organization_status_counts 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
   // RPC 결과를 카운트 객체로 변환
   const counts = {
     total: 0,
@@ -97,8 +112,7 @@ export async function getOrganizationStatusCounts(): Promise<
     deleted: 0,
   };
 
-  const typedData = data as OrgStatusCountRow[] | null;
-  for (const row of typedData ?? []) {
+  for (const row of parsed.data) {
     const count = Number(row.count);
     counts.total += count;
 
@@ -182,17 +196,20 @@ export async function getOrganizations(
   if (organizations && organizations.length > 0) {
     const orgIds = organizations.map((org) => org.id);
 
-    type CodeCountRow = Database['public']['Functions']['get_organization_code_counts']['Returns'][number];
-
     const { data: countResults, error: countError } = await supabase.rpc(
       'get_organization_code_counts',
       { p_org_ids: orgIds }
     );
 
     if (!countError && countResults) {
-      const typedResults = countResults as CodeCountRow[];
-      for (const row of typedResults) {
-        countByOrgId.set(row.org_id, Number(row.code_count));
+      // Zod 검증으로 결과 파싱
+      const parsed = parseRpcArray(OrgCodeCountRowSchema, countResults, 'get_organization_code_counts');
+      if (parsed.success) {
+        for (const row of parsed.data) {
+          countByOrgId.set(row.org_id, Number(row.code_count));
+        }
+      } else {
+        console.error('get_organization_code_counts 검증 실패:', parsed.error);
       }
     } else if (countError) {
       console.error('조직 코드 수 bulk 조회 실패:', countError);
@@ -936,10 +953,21 @@ export async function getRecallHistoryOptimized(
     console.error('회수 이력 카운트 조회 실패:', countError);
   }
 
-  // DB 함수 결과를 RecallHistoryItem 형태로 변환
-  const typedRecalls = recalls as AllRecallsRow[] | null;
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(AllRecallsRowSchema, recalls, 'get_all_recalls');
+  if (!parsed.success) {
+    console.error('get_all_recalls 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
 
-  const items: RecallHistoryItem[] = (typedRecalls ?? []).map((row) => ({
+  // DB 함수 결과를 RecallHistoryItem 형태로 변환
+  const items: RecallHistoryItem[] = parsed.data.map((row) => ({
     id: row.recall_id,
     type: row.recall_type as 'shipment' | 'treatment',
     recallDate: row.recall_date,
@@ -953,7 +981,7 @@ export async function getRecallHistoryOptimized(
     toTarget: row.to_id
       ? {
           id: row.to_id,
-          name: row.to_name,
+          name: row.to_name ?? '알 수 없음',
           type: row.to_type as OrganizationType | 'PATIENT',
         }
       : null,
@@ -1306,9 +1334,24 @@ export async function getAdminEventSummary(
     console.error('이벤트 요약 카운트 조회 실패:', countError);
   }
 
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(AdminEventSummaryRowSchema, summaryData, 'get_admin_event_summary');
+  if (!parsed.success) {
+    console.error('get_admin_event_summary 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
+  const validatedData = parsed.data;
+
   // 조직 이름 캐시 생성 및 일괄 조회
   const orgIds = new Set<string>();
-  for (const row of summaryData || []) {
+  for (const row of validatedData) {
     if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
       orgIds.add(row.from_owner_id);
     }
@@ -1330,8 +1373,8 @@ export async function getAdminEventSummary(
     }
   }
 
-  // 결과 매핑
-  const summaries: AdminEventSummary[] = (summaryData || []).map((row) => {
+  // 결과 매핑 (Zod 검증된 데이터 사용)
+  const summaries: AdminEventSummary[] = validatedData.map((row) => {
     const fromOwner = row.from_owner_id
       ? {
           type: row.from_owner_type as 'ORGANIZATION' | 'PATIENT',
@@ -1354,8 +1397,16 @@ export async function getAdminEventSummary(
         }
       : null;
 
-    // lot_summaries는 DB에서 JSON 형식으로 반환됨
-    const lotSummaries = (row.lot_summaries as unknown as AdminEventLotSummary[]) || [];
+    // lot_summaries는 Zod로 검증된 형식
+    const lotSummaries: AdminEventLotSummary[] = (row.lot_summaries || []).map((lot) => ({
+      lotId: lot.lotId,
+      lotNumber: lot.lotNumber,
+      productId: lot.productId,
+      productName: lot.productName,
+      modelName: '', // DB 함수는 model_name을 반환하지 않음
+      quantity: lot.quantity,
+      codeIds: [], // DB 함수는 code_ids를 lot 레벨에서 반환하지 않음
+    }));
 
     return {
       id: row.group_key,

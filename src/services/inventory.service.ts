@@ -11,10 +11,12 @@ import type {
   InventoryByLot,
   Product,
 } from '@/types/api.types';
-import type { Database } from '@/types/database.types';
-
-// RPC 반환 타입 정의
-type InventoryByLotsBulkRow = Database['public']['Functions']['get_inventory_by_lots_bulk']['Returns'][number];
+import { parseRpcArray } from './common.service';
+import {
+  InventorySummaryRowSchema,
+  InventoryByLotRowSchema,
+  InventoryByLotsBulkRowSchema,
+} from '@/lib/validations/rpc-schemas';
 
 /**
  * 제품별 재고 요약 조회
@@ -44,23 +46,26 @@ export async function getInventorySummary(
     };
   }
 
-  type InventorySummaryRow = {
-    product_id: string;
-    product_name: string;
-    model_name: string;
-    udi_di: string;
-    quantity: number;
-  };
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(InventorySummaryRowSchema, data, 'get_inventory_summary');
+  if (!parsed.success) {
+    console.error('get_inventory_summary 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
 
-  const summaries: InventorySummary[] = ((data || []) as InventorySummaryRow[]).map(
-    (row) => ({
-      productId: row.product_id,
-      productName: row.product_name,
-      modelName: row.model_name || '',
-      udiDi: row.udi_di || '',
-      totalQuantity: Number(row.quantity),
-    })
-  );
+  const summaries: InventorySummary[] = parsed.data.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name || '',
+    udiDi: row.udi_di || '',
+    totalQuantity: Number(row.quantity),
+  }));
 
   return { success: true, data: summaries };
 }
@@ -114,11 +119,24 @@ export async function getProductInventoryDetail(
     };
   }
 
-  const byLot: InventoryByLot[] = (lotData || []).map((lot) => ({
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(InventoryByLotRowSchema, lotData, 'get_inventory_by_lot');
+  if (!parsed.success) {
+    console.error('get_inventory_by_lot 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
+  const byLot: InventoryByLot[] = parsed.data.map((lot) => ({
     lotId: lot.lot_id,
     lotNumber: lot.lot_number,
     manufactureDate: lot.manufacture_date,
-    expiryDate: lot.expiry_date,
+    expiryDate: lot.expiry_date ?? '',
     quantity: lot.quantity,
   }));
 
@@ -293,12 +311,27 @@ export async function getProductsWithLotsForShipment(
     return { success: true, data: productsWithLots };
   }
 
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(InventoryByLotsBulkRowSchema, allLotsData, 'get_inventory_by_lots_bulk');
+  if (!parsed.success) {
+    console.error('get_inventory_by_lots_bulk 검증 실패:', parsed.error);
+    // 검증 실패 시 fallback
+    const productsWithLots = await Promise.all(
+      products.map(async (product) => {
+        const detailResult = await getProductInventoryDetail(organizationId, product.id);
+        return {
+          ...product,
+          lots: detailResult.success ? detailResult.data!.byLot : [],
+        };
+      })
+    );
+    return { success: true, data: productsWithLots };
+  }
+
   // 3. Lot 데이터를 제품별로 그룹화
   const lotsByProduct = new Map<string, InventoryByLot[]>();
 
-  const typedLotsData = (allLotsData ?? []) as InventoryByLotsBulkRow[];
-
-  for (const lot of typedLotsData) {
+  for (const lot of parsed.data) {
     const productId = lot.product_id;
     if (!lotsByProduct.has(productId)) {
       lotsByProduct.set(productId, []);
@@ -307,7 +340,7 @@ export async function getProductsWithLotsForShipment(
       lotId: lot.lot_id,
       lotNumber: lot.lot_number,
       manufactureDate: lot.manufacture_date,
-      expiryDate: lot.expiry_date,
+      expiryDate: lot.expiry_date ?? '',
       quantity: lot.quantity,
     });
   }

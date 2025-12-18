@@ -20,11 +20,13 @@ import type {
   TreatmentItemSummary,
 } from '@/types/api.types';
 import type { TreatmentCreateData, TreatmentHistoryQueryData } from '@/lib/validations/treatment';
-import type { Database } from '@/types/database.types';
-
-// RPC 반환 타입 정의
-type TreatmentSummariesRow = Database['public']['Functions']['get_treatment_summaries']['Returns'][number];
-type HospitalPatientsRow = Database['public']['Functions']['get_hospital_patients']['Returns'][number];
+import { parseRpcArray, parseRpcSingle } from './common.service';
+import {
+  TreatmentAtomicResultSchema,
+  RecallTreatmentResultSchema,
+  TreatmentSummaryRowSchema,
+  HospitalPatientRowSchema,
+} from '@/lib/validations/rpc-schemas';
 
 // ============================================================================
 // 타입 정의
@@ -131,14 +133,6 @@ export async function createTreatment(
     quantity: item.quantity,
   }));
 
-  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
-  type TreatmentAtomicResult = {
-    treatment_id: string | null;
-    total_quantity: number;
-    error_code: string | null;
-    error_message: string | null;
-  };
-
   // 2. 원자적 시술 생성 DB 함수 호출 (환자 생성 포함)
   // 병원 ID는 DB 함수 내에서 get_user_organization_id()로 도출됨
   const { data: result, error } = await supabase.rpc('create_treatment_atomic', {
@@ -158,9 +152,20 @@ export async function createTreatment(
     };
   }
 
-  // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as TreatmentAtomicResult[] | null;
-  const row = resultArray?.[0];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(TreatmentAtomicResultSchema, result, 'create_treatment_atomic');
+  if (!parsed.success) {
+    console.error('create_treatment_atomic 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
+  const row = parsed.data;
 
   if (row?.error_code) {
     return {
@@ -348,7 +353,14 @@ async function getTreatmentSummariesBulk(
     return result;
   }
 
-  const rows = data as TreatmentSummariesRow[];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(TreatmentSummaryRowSchema, data, 'get_treatment_summaries');
+  if (!parsed.success) {
+    console.error('get_treatment_summaries 검증 실패:', parsed.error);
+    return result;
+  }
+
+  const rows = parsed.data;
 
   // 시술별로 그룹화
   const treatmentMap = new Map<string, Map<string, { name: string; quantity: number }>>();
@@ -433,14 +445,6 @@ export async function recallTreatment(
   const codeIds = details?.map((d) => d.virtual_code_id) || [];
   const summary = codeIds.length > 0 ? await getTreatmentSummaryFromCodes(codeIds) : [];
 
-  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
-  type RecallAtomicResult = {
-    success: boolean;
-    recalled_count: number;
-    error_code: string | null;
-    error_message: string | null;
-  };
-
   // 3. 원자적 회수 DB 함수 호출
   // 병원 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
   const { data: result, error } = await supabase.rpc('recall_treatment_atomic', {
@@ -459,9 +463,20 @@ export async function recallTreatment(
     };
   }
 
-  // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as RecallAtomicResult[] | null;
-  const row = resultArray?.[0];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(RecallTreatmentResultSchema, result, 'recall_treatment_atomic');
+  if (!parsed.success) {
+    console.error('recall_treatment_atomic 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
+  const row = parsed.data;
 
   if (!row?.success) {
     return {
@@ -624,9 +639,21 @@ export async function getHospitalPatients(
     };
   }
 
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(HospitalPatientRowSchema, data, 'get_hospital_patients');
+  if (!parsed.success) {
+    console.error('get_hospital_patients 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
   // 결과에서 전화번호만 추출
-  const typedData = data as HospitalPatientsRow[] | null;
-  const phoneNumbers = (typedData ?? []).map((row) => row.phone_number);
+  const phoneNumbers = parsed.data.map((row) => row.phone_number);
 
   return {
     success: true,

@@ -12,6 +12,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/utils';
 import { getTotalInventoryCount } from './inventory.service';
+import { parseRpcSingle } from './common.service';
+import {
+  ManufacturerStatsRowSchema,
+  DistributorStatsRowSchema,
+  HospitalStatsRowSchema,
+  AdminStatsRowSchema,
+} from '@/lib/validations/rpc-schemas';
 import type {
   ApiResponse,
   ManufacturerDashboardStats,
@@ -19,13 +26,7 @@ import type {
   HospitalDashboardStats,
   AdminDashboardStats,
 } from '@/types/api.types';
-import type { Database } from '@/types/database.types';
-
-// RPC 반환 타입 정의
-type ManufacturerStatsRow = Database['public']['Functions']['get_dashboard_stats_manufacturer']['Returns'][number];
-type DistributorStatsRow = Database['public']['Functions']['get_dashboard_stats_distributor']['Returns'][number];
-type HospitalStatsRow = Database['public']['Functions']['get_dashboard_stats_hospital']['Returns'][number];
-type AdminStatsRow = Database['public']['Functions']['get_dashboard_stats_admin']['Returns'][number];
+// Zod 스키마로 대체되어 Database 타입 제거됨
 
 /**
  * 제조사 대시보드 통계 조회
@@ -441,8 +442,14 @@ export async function getManufacturerDashboardStatsOptimized(
     return getManufacturerDashboardStats(organizationId);
   }
 
-  const typedData = data as ManufacturerStatsRow[] | null;
-  const row = typedData?.[0];
+  // Zod 검증
+  const parsed = parseRpcSingle(ManufacturerStatsRowSchema, data, 'get_dashboard_stats_manufacturer');
+  if (!parsed.success) {
+    console.error('제조사 대시보드 통계 검증 실패:', parsed.error);
+    return getManufacturerDashboardStats(organizationId);
+  }
+
+  const row = parsed.data;
 
   return {
     success: true,
@@ -474,8 +481,14 @@ export async function getDistributorDashboardStatsOptimized(
     return getDistributorDashboardStats(organizationId);
   }
 
-  const typedData = data as DistributorStatsRow[] | null;
-  const row = typedData?.[0];
+  // Zod 검증
+  const parsed = parseRpcSingle(DistributorStatsRowSchema, data, 'get_dashboard_stats_distributor');
+  if (!parsed.success) {
+    console.error('유통사 대시보드 통계 검증 실패:', parsed.error);
+    return getDistributorDashboardStats(organizationId);
+  }
+
+  const row = parsed.data;
 
   return {
     success: true,
@@ -506,8 +519,14 @@ export async function getHospitalDashboardStatsOptimized(
     return getHospitalDashboardStats(organizationId);
   }
 
-  const typedData = data as HospitalStatsRow[] | null;
-  const row = typedData?.[0];
+  // Zod 검증
+  const parsed = parseRpcSingle(HospitalStatsRowSchema, data, 'get_dashboard_stats_hospital');
+  if (!parsed.success) {
+    console.error('병원 대시보드 통계 검증 실패:', parsed.error);
+    return getHospitalDashboardStats(organizationId);
+  }
+
+  const row = parsed.data;
 
   return {
     success: true,
@@ -551,8 +570,29 @@ export async function getAdminDashboardStatsOptimized(): Promise<
     };
   }
 
-  const typedData = data as AdminStatsRow[] | null;
-  const row = typedData?.[0];
+  // Zod 검증
+  const parsed = parseRpcSingle(AdminStatsRowSchema, data, 'get_dashboard_stats_admin');
+  if (!parsed.success) {
+    console.error('Admin 대시보드 통계 검증 실패:', parsed.error);
+    // 폴백: 개별 쿼리 사용
+    const [totalOrgs, pending, recalls, codes] = await Promise.all([
+      getAdminTotalOrganizations(),
+      getAdminPendingApprovals(),
+      getAdminTodayRecalls(),
+      getAdminTotalVirtualCodes(),
+    ]);
+    return {
+      success: true,
+      data: {
+        totalOrganizations: totalOrgs,
+        pendingApprovals: pending,
+        todayRecalls: recalls,
+        totalVirtualCodes: codes,
+      },
+    };
+  }
+
+  const row = parsed.data;
 
   return {
     success: true,

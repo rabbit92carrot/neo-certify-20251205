@@ -5,6 +5,7 @@
  * 이 파일의 함수들은 다른 서비스에서 import하여 사용해야 합니다.
  */
 
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import type { ApiResponse } from '@/types/api.types';
 import type { PostgrestError } from '@supabase/supabase-js';
@@ -353,4 +354,93 @@ export function getActionTypeLabel(actionType: string): string {
  */
 export function getMinuteGroupKey(timestamp: string): string {
   return timestamp.slice(0, 16); // YYYY-MM-DDTHH:mm
+}
+
+// ============================================================================
+// RPC 결과 Zod 검증 유틸리티
+// ============================================================================
+
+/**
+ * RPC 검증 결과 타입
+ */
+export type RpcValidationResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+/**
+ * RPC 결과를 Zod 스키마로 검증
+ *
+ * @param schema Zod 스키마
+ * @param data RPC 반환 데이터
+ * @param context 로깅용 컨텍스트 문자열
+ * @returns 검증 성공 시 data, 실패 시 error 메시지
+ *
+ * @example
+ * const parsed = parseRpcResult(ManufacturerStatsRowSchema.array(), data, 'get_dashboard_stats_manufacturer');
+ * if (!parsed.success) {
+ *   return createErrorResponse('VALIDATION_ERROR', parsed.error);
+ * }
+ * const typedData = parsed.data;
+ */
+export function parseRpcResult<T>(
+  schema: z.ZodType<T>,
+  data: unknown,
+  context: string
+): RpcValidationResult<T> {
+  const result = schema.safeParse(data);
+
+  if (!result.success) {
+    const issues = result.error.issues;
+    const firstIssue = issues[0];
+    const errorPath = firstIssue?.path?.join('.') || 'root';
+    const errorMessage = firstIssue?.message || 'Unknown validation error';
+
+    console.error(`[RPC Validation] ${context} failed at '${errorPath}':`, errorMessage);
+    console.error('[RPC Validation] Full issues:', JSON.stringify(issues, null, 2));
+
+    return {
+      success: false,
+      error: `RPC 검증 실패 (${context}): ${errorPath} - ${errorMessage}`,
+    };
+  }
+
+  return { success: true, data: result.data };
+}
+
+/**
+ * RPC 배열 결과를 Zod 스키마로 검증 (편의 함수)
+ *
+ * @param schema 단일 항목 Zod 스키마
+ * @param data RPC 반환 데이터 배열
+ * @param context 로깅용 컨텍스트 문자열
+ * @returns 검증된 배열 또는 에러
+ */
+export function parseRpcArray<T>(
+  schema: z.ZodType<T>,
+  data: unknown,
+  context: string
+): RpcValidationResult<T[]> {
+  return parseRpcResult(z.array(schema), data, context);
+}
+
+/**
+ * RPC 단일 결과를 Zod 스키마로 검증 (배열의 첫 번째 요소)
+ *
+ * @param schema 단일 항목 Zod 스키마
+ * @param data RPC 반환 데이터 배열
+ * @param context 로깅용 컨텍스트 문자열
+ * @returns 검증된 첫 번째 항목 또는 null
+ */
+export function parseRpcSingle<T>(
+  schema: z.ZodType<T>,
+  data: unknown,
+  context: string
+): RpcValidationResult<T | null> {
+  const arrayResult = parseRpcArray(schema, data, context);
+
+  if (!arrayResult.success) {
+    return arrayResult;
+  }
+
+  return { success: true, data: arrayResult.data[0] ?? null };
 }

@@ -22,6 +22,7 @@ import {
   maskPhoneNumber,
   createOrganizationNameCache,
   getActionTypeLabel,
+  parseRpcArray,
 } from './common.service';
 import type {
   ApiResponse,
@@ -29,11 +30,10 @@ import type {
   HistoryActionType,
 } from '@/types/api.types';
 import type { TransactionHistoryQueryData } from '@/lib/validations/history';
-import type { Database } from '@/types/database.types';
+import { HistorySummaryRowSchema } from '@/lib/validations/rpc-schemas';
 
-// RPC 반환 타입 정의
-type HistorySummaryRow = Database['public']['Functions']['get_history_summary']['Returns'][number];
-type ProductSummaryItem = { productId: string; productName: string; quantity: number; codes?: string[] };
+// ProductSummaryItem 타입은 HistorySummaryRowSchema에서 추론됨
+// codes 필드는 20251219100000_restore_codes_in_history_summary.sql에서 복원됨
 
 // 조직명 포함 여부 확인 (마이그레이션 적용 후 true)
 const HAS_ORG_NAMES_IN_RPC = true;
@@ -189,13 +189,26 @@ export async function getTransactionHistory(
     console.error('거래이력 카운트 실패:', countError.message);
   }
 
-  const typedHistoryData = historyData as HistorySummaryRow[] | null;
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(HistorySummaryRowSchema, historyData, 'get_history_summary');
+  if (!parsed.success) {
+    console.error('get_history_summary 검증 실패:', parsed.error);
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: parsed.error,
+      },
+    };
+  }
+
+  const validatedData = parsed.data;
 
   // 3. 조직 이름 조회 (RPC에 포함되지 않은 경우에만 별도 조회)
   let orgNameMap: Map<string, string> = new Map();
   if (!HAS_ORG_NAMES_IN_RPC) {
     const orgIds = new Set<string>();
-    for (const row of typedHistoryData ?? []) {
+    for (const row of validatedData) {
       if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
         orgIds.add(row.from_owner_id);
       }
@@ -206,11 +219,10 @@ export async function getTransactionHistory(
     orgNameMap = await getOrganizationNames([...orgIds]);
   }
 
-  // 4. 결과 매핑
-  const summaries: TransactionHistorySummary[] = (typedHistoryData ?? []).map(
-    (row) => {
-      // product_summaries는 Json 타입이므로 타입 캐스팅 필요
-      const productSummaries = row.product_summaries as ProductSummaryItem[] | null;
+  // 4. 결과 매핑 (Zod 검증된 데이터 사용)
+  const summaries: TransactionHistorySummary[] = validatedData.map((row) => {
+    // product_summaries는 Zod로 검증된 형식 (타입 추론 자동)
+    const productSummaries = row.product_summaries;
       // 소유자 정보 포맷팅 (RPC에서 조직명 반환 시 직접 사용)
       const fromOwner = row.from_owner_id
         ? {

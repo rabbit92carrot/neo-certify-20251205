@@ -10,6 +10,7 @@ import { normalizeBusinessNumber, normalizePhoneNumber } from '@/lib/validations
 import type { OrganizationRegisterData } from '@/lib/validations/organization';
 import type { ApiResponse, LoginResponse, CurrentUser, Organization, ManufacturerSettings } from '@/types/api.types';
 import { ORGANIZATION_STATUSES, ERROR_MESSAGES } from '@/constants';
+import { createErrorResponse, createSuccessResponse } from './common.service';
 
 /**
  * 회원가입 결과 타입
@@ -46,13 +47,7 @@ export async function register(
     .single();
 
   if (existing) {
-    return {
-      success: false,
-      error: {
-        code: 'DUPLICATE_BUSINESS_NUMBER',
-        message: ERROR_MESSAGES.ORGANIZATION.DUPLICATE_BUSINESS_NUMBER,
-      },
-    };
+    return createErrorResponse('DUPLICATE_BUSINESS_NUMBER', ERROR_MESSAGES.ORGANIZATION.DUPLICATE_BUSINESS_NUMBER);
   }
 
   // 1-2. 조직명 중복 확인
@@ -63,13 +58,7 @@ export async function register(
     .single();
 
   if (existingName) {
-    return {
-      success: false,
-      error: {
-        code: 'DUPLICATE_ORGANIZATION_NAME',
-        message: ERROR_MESSAGES.ORGANIZATION.DUPLICATE_NAME,
-      },
-    };
+    return createErrorResponse('DUPLICATE_ORGANIZATION_NAME', ERROR_MESSAGES.ORGANIZATION.DUPLICATE_NAME);
   }
 
   // 2. Supabase Auth 사용자 생성
@@ -84,13 +73,7 @@ export async function register(
   });
 
   if (authError || !authData.user) {
-    return {
-      success: false,
-      error: {
-        code: 'AUTH_ERROR',
-        message: authError?.message || '회원가입에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('AUTH_ERROR', authError?.message ?? '회원가입에 실패했습니다.');
   }
 
   const userId = authData.user.id;
@@ -109,13 +92,7 @@ export async function register(
   if (uploadError) {
     // 롤백: Auth 사용자 삭제
     await adminClient.auth.admin.deleteUser(userId);
-    return {
-      success: false,
-      error: {
-        code: 'UPLOAD_ERROR',
-        message: ERROR_MESSAGES.FILE.UPLOAD_FAILED,
-      },
-    };
+    return createErrorResponse('UPLOAD_ERROR', ERROR_MESSAGES.FILE.UPLOAD_FAILED);
   }
 
   // 4. organizations 테이블에 저장
@@ -138,22 +115,13 @@ export async function register(
     // 롤백: Storage 파일 삭제 및 Auth 사용자 삭제
     await adminClient.storage.from('business-licenses').remove([fileName]);
     await adminClient.auth.admin.deleteUser(userId);
-    return {
-      success: false,
-      error: {
-        code: 'DATABASE_ERROR',
-        message: '조직 정보 저장에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('DATABASE_ERROR', '조직 정보 저장에 실패했습니다.');
   }
 
   // 회원가입 후 자동 로그아웃 (이메일 확인 후 로그인하도록)
   await supabase.auth.signOut();
 
-  return {
-    success: true,
-    data: { userId },
-  };
+  return createSuccessResponse({ userId });
 }
 
 /**
@@ -176,13 +144,7 @@ export async function login(
   });
 
   if (authError || !authData.user) {
-    return {
-      success: false,
-      error: {
-        code: 'LOGIN_FAILED',
-        message: ERROR_MESSAGES.AUTH.LOGIN_FAILED,
-      },
-    };
+    return createErrorResponse('LOGIN_FAILED', ERROR_MESSAGES.AUTH.LOGIN_FAILED);
   }
 
   // 조직 정보 조회
@@ -195,13 +157,7 @@ export async function login(
   if (orgError || !org) {
     // 조직 정보가 없으면 로그아웃
     await supabase.auth.signOut();
-    return {
-      success: false,
-      error: {
-        code: 'ORGANIZATION_NOT_FOUND',
-        message: ERROR_MESSAGES.ORGANIZATION.NOT_FOUND,
-      },
-    };
+    return createErrorResponse('ORGANIZATION_NOT_FOUND', ERROR_MESSAGES.ORGANIZATION.NOT_FOUND);
   }
 
   // 조직 상태 체크
@@ -209,34 +165,19 @@ export async function login(
     await supabase.auth.signOut();
 
     if (org.status === ORGANIZATION_STATUSES.PENDING_APPROVAL) {
-      return {
-        success: false,
-        error: {
-          code: 'PENDING_APPROVAL',
-          message: '승인 대기 중인 계정입니다. 관리자 승인 후 이용 가능합니다.',
-        },
-      };
+      return createErrorResponse('PENDING_APPROVAL', '승인 대기 중인 계정입니다. 관리자 승인 후 이용 가능합니다.');
     }
 
-    return {
-      success: false,
-      error: {
-        code: 'INACTIVE_ORGANIZATION',
-        message: '비활성화된 계정입니다. 관리자에게 문의해주세요.',
-      },
-    };
+    return createErrorResponse('INACTIVE_ORGANIZATION', '비활성화된 계정입니다. 관리자에게 문의해주세요.');
   }
 
-  return {
-    success: true,
-    data: {
-      user: {
-        id: authData.user.id,
-        email: authData.user.email!,
-      },
-      organization: org as Organization,
+  return createSuccessResponse({
+    user: {
+      id: authData.user.id,
+      email: authData.user.email!,
     },
-  };
+    organization: org as Organization,
+  });
 }
 
 /**
@@ -249,16 +190,10 @@ export async function logout(): Promise<ApiResponse<void>> {
   const { error } = await supabase.auth.signOut();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'LOGOUT_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('LOGOUT_ERROR', error.message);
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
