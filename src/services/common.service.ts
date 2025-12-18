@@ -6,6 +6,8 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import type { ApiResponse } from '@/types/api.types';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 // ============================================================================
 // 상수
@@ -13,6 +15,129 @@ import { createClient } from '@/lib/supabase/server';
 
 const MIN_PHONE_LENGTH = 4;
 const DEFAULT_MASKED_PHONE = '****';
+
+// ============================================================================
+// 에러 처리 유틸리티 (ApiResponse 표준화)
+// ============================================================================
+
+/**
+ * 표준 에러 코드
+ */
+export const ERROR_CODES = {
+  // 일반 에러
+  UNKNOWN: 'UNKNOWN_ERROR',
+  QUERY_ERROR: 'QUERY_ERROR',
+  NOT_FOUND: 'NOT_FOUND',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+
+  // 인증/권한 에러
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+
+  // 비즈니스 로직 에러
+  INSUFFICIENT_STOCK: 'INSUFFICIENT_STOCK',
+  RECALL_WINDOW_EXPIRED: 'RECALL_WINDOW_EXPIRED',
+  DUPLICATE_ENTRY: 'DUPLICATE_ENTRY',
+} as const;
+
+export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
+
+/**
+ * 성공 응답 생성
+ */
+export function createSuccessResponse<T>(data: T): ApiResponse<T> {
+  return {
+    success: true,
+    data,
+  };
+}
+
+/**
+ * 실패 응답 생성
+ */
+export function createErrorResponse<T = never>(
+  code: ErrorCode | string,
+  message: string,
+  details?: Record<string, string[]>
+): ApiResponse<T> {
+  return {
+    success: false,
+    error: {
+      code,
+      message,
+      details,
+    },
+  };
+}
+
+/**
+ * PostgrestError를 ApiResponse로 변환
+ */
+export function handlePostgrestError<T = never>(
+  error: PostgrestError,
+  defaultMessage = '데이터 처리 중 오류가 발생했습니다.'
+): ApiResponse<T> {
+  console.error('Postgrest 에러:', error);
+
+  // 특정 에러 코드 매핑
+  if (error.code === '23505') {
+    return createErrorResponse(ERROR_CODES.DUPLICATE_ENTRY, '중복된 데이터가 존재합니다.');
+  }
+  if (error.code === '23503') {
+    return createErrorResponse(ERROR_CODES.NOT_FOUND, '참조된 데이터를 찾을 수 없습니다.');
+  }
+  if (error.code === 'PGRST116') {
+    return createErrorResponse(ERROR_CODES.NOT_FOUND, '데이터를 찾을 수 없습니다.');
+  }
+
+  return createErrorResponse(
+    ERROR_CODES.QUERY_ERROR,
+    error.message || defaultMessage
+  );
+}
+
+/**
+ * 일반 에러를 ApiResponse로 변환
+ */
+export function handleGenericError<T = never>(
+  error: unknown,
+  defaultMessage = '알 수 없는 오류가 발생했습니다.'
+): ApiResponse<T> {
+  console.error('일반 에러:', error);
+
+  if (error instanceof Error) {
+    return createErrorResponse(ERROR_CODES.UNKNOWN, error.message);
+  }
+
+  return createErrorResponse(ERROR_CODES.UNKNOWN, defaultMessage);
+}
+
+/**
+ * 권한 없음 응답
+ */
+export function createUnauthorizedResponse<T = never>(
+  message = '로그인이 필요합니다.'
+): ApiResponse<T> {
+  return createErrorResponse(ERROR_CODES.UNAUTHORIZED, message);
+}
+
+/**
+ * 접근 거부 응답
+ */
+export function createForbiddenResponse<T = never>(
+  message = '접근 권한이 없습니다.'
+): ApiResponse<T> {
+  return createErrorResponse(ERROR_CODES.FORBIDDEN, message);
+}
+
+/**
+ * 데이터 없음 응답
+ */
+export function createNotFoundResponse<T = never>(
+  message = '데이터를 찾을 수 없습니다.'
+): ApiResponse<T> {
+  return createErrorResponse(ERROR_CODES.NOT_FOUND, message);
+}
 
 // ============================================================================
 // 조직 관련 유틸리티

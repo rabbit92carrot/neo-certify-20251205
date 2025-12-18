@@ -35,6 +35,9 @@ import type { Database } from '@/types/database.types';
 type HistorySummaryRow = Database['public']['Functions']['get_history_summary']['Returns'][number];
 type ProductSummaryItem = { productId: string; productName: string; quantity: number; codes?: string[] };
 
+// 조직명 포함 여부 확인 (마이그레이션 적용 후 true)
+const HAS_ORG_NAMES_IN_RPC = true;
+
 // ============================================================================
 // 타입 정의
 // ============================================================================
@@ -186,26 +189,29 @@ export async function getTransactionHistory(
     console.error('거래이력 카운트 실패:', countError.message);
   }
 
-  // 3. 조직 이름 일괄 조회
   const typedHistoryData = historyData as HistorySummaryRow[] | null;
-  const orgIds = new Set<string>();
-  for (const row of typedHistoryData ?? []) {
-    if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
-      orgIds.add(row.from_owner_id);
-    }
-    if (row.to_owner_id && row.to_owner_type === 'ORGANIZATION') {
-      orgIds.add(row.to_owner_id);
-    }
-  }
 
-  const orgNameMap = await getOrganizationNames([...orgIds]);
+  // 3. 조직 이름 조회 (RPC에 포함되지 않은 경우에만 별도 조회)
+  let orgNameMap: Map<string, string> = new Map();
+  if (!HAS_ORG_NAMES_IN_RPC) {
+    const orgIds = new Set<string>();
+    for (const row of typedHistoryData ?? []) {
+      if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
+        orgIds.add(row.from_owner_id);
+      }
+      if (row.to_owner_id && row.to_owner_type === 'ORGANIZATION') {
+        orgIds.add(row.to_owner_id);
+      }
+    }
+    orgNameMap = await getOrganizationNames([...orgIds]);
+  }
 
   // 4. 결과 매핑
   const summaries: TransactionHistorySummary[] = (typedHistoryData ?? []).map(
     (row) => {
       // product_summaries는 Json 타입이므로 타입 캐스팅 필요
       const productSummaries = row.product_summaries as ProductSummaryItem[] | null;
-      // 소유자 정보 포맷팅
+      // 소유자 정보 포맷팅 (RPC에서 조직명 반환 시 직접 사용)
       const fromOwner = row.from_owner_id
         ? {
             type: row.from_owner_type as 'ORGANIZATION' | 'PATIENT',
@@ -213,7 +219,9 @@ export async function getTransactionHistory(
             name:
               row.from_owner_type === 'PATIENT'
                 ? maskPhoneNumber(row.from_owner_id)
-                : orgNameMap.get(row.from_owner_id) || '알 수 없음',
+                : (HAS_ORG_NAMES_IN_RPC
+                    ? row.from_owner_name ?? '알 수 없음'
+                    : orgNameMap.get(row.from_owner_id) ?? '알 수 없음'),
           }
         : undefined;
 
@@ -224,7 +232,9 @@ export async function getTransactionHistory(
             name:
               row.to_owner_type === 'PATIENT'
                 ? maskPhoneNumber(row.to_owner_id)
-                : orgNameMap.get(row.to_owner_id) || '알 수 없음',
+                : (HAS_ORG_NAMES_IN_RPC
+                    ? row.to_owner_name ?? '알 수 없음'
+                    : orgNameMap.get(row.to_owner_id) ?? '알 수 없음'),
           }
         : undefined;
 
