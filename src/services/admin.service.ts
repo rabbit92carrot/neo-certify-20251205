@@ -49,8 +49,10 @@ import {
   OrgStatusCountRowSchema,
   OrgCodeCountRowSchema,
   AllRecallsRowSchema,
+  AllRecallsCursorRowSchema,
   AdminEventSummaryRowSchema,
 } from '@/lib/validations/rpc-schemas';
+import type { CursorPaginatedResponse } from '@/types/api.types';
 
 // ============================================================================
 // 상수
@@ -928,6 +930,80 @@ export async function getRecallHistoryOptimized(
   });
 }
 
+/**
+ * 회수 이력 조회 (커서 기반 무한 스크롤)
+ * RPC: get_all_recalls_cursor
+ */
+export async function getRecallHistoryCursor(query: {
+  startDate?: string;
+  endDate?: string;
+  type?: 'shipment' | 'treatment' | 'all';
+  limit?: number;
+  cursorTime?: string;
+  cursorKey?: string;
+}): Promise<ApiResponse<CursorPaginatedResponse<RecallHistoryItem>>> {
+  const supabase = await createClient();
+  const { startDate, endDate, type = 'all', limit = 20, cursorTime, cursorKey } = query;
+
+  const { data, error } = await supabase.rpc('get_all_recalls_cursor', {
+    p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
+    p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+    p_type: type,
+    p_limit: limit,
+    p_cursor_time: cursorTime || undefined,
+    p_cursor_key: cursorKey || undefined,
+  });
+
+  if (error) {
+    console.error('회수 이력 커서 조회 실패:', error);
+    return createErrorResponse('QUERY_ERROR', error.message);
+  }
+
+  // Zod 검증
+  const parsed = parseRpcArray(AllRecallsCursorRowSchema, data, 'get_all_recalls_cursor');
+  if (!parsed.success) {
+    console.error('get_all_recalls_cursor 검증 실패:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  // hasMore 추출 (limit+1개 조회하여 초과분이 있으면 hasMore)
+  const hasMore = parsed.data.length > limit;
+
+  // 초과분 제거하여 실제 반환 데이터 생성
+  const actualData = hasMore ? parsed.data.slice(0, limit) : parsed.data;
+
+  // RecallHistoryItem으로 변환
+  const items: RecallHistoryItem[] = actualData.map((row) => ({
+    id: row.recall_id,
+    type: row.recall_type as 'shipment' | 'treatment',
+    recallDate: row.recall_date,
+    recallReason: row.recall_reason || '',
+    quantity: Number(row.quantity),
+    fromOrganization: {
+      id: row.from_org_id,
+      name: row.from_org_name,
+      type: row.from_org_type as OrganizationType,
+    },
+    toTarget: row.to_id
+      ? {
+          id: row.to_id,
+          name: row.to_name ?? '알 수 없음',
+          type: row.to_type as OrganizationType | 'PATIENT',
+        }
+      : null,
+    items: (row.product_summary as { productName: string; quantity: number }[] | null) ?? [],
+    codeIds: row.code_ids ?? undefined,
+  }));
+
+  return createSuccessResponse({
+    items,
+    meta: {
+      limit,
+      hasMore,
+    },
+  });
+}
+
 // ============================================================================
 // 조직 선택 목록 (드롭다운용)
 // ============================================================================
@@ -957,6 +1033,78 @@ export async function getAllOrganizationsForSelect(): Promise<
       id: org.id,
       name: org.name,
       type: org.type as OrganizationType,
+    }))
+  );
+}
+
+/**
+ * 조직 검색 (Lazy Load용)
+ * 검색어 기반으로 조직을 검색합니다.
+ */
+export async function searchOrganizations(
+  query: string,
+  limit: number = 20
+): Promise<ApiResponse<{ id: string; name: string; type: OrganizationType }[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name, type')
+    .eq('status', 'ACTIVE')
+    .neq('type', 'ADMIN')
+    .ilike('name', `%${query}%`)
+    .order('name')
+    .limit(limit);
+
+  if (error) {
+    return createErrorResponse('QUERY_ERROR', error.message);
+  }
+
+  return createSuccessResponse(
+    (data || []).map((org) => ({
+      id: org.id,
+      name: org.name,
+      type: org.type as OrganizationType,
+    }))
+  );
+}
+
+/**
+ * 제품 검색 (Lazy Load용)
+ * 검색어 기반으로 제품을 검색합니다 (model_name 또는 name).
+ */
+export async function searchProducts(
+  query: string,
+  limit: number = 20
+): Promise<ApiResponse<{ id: string; name: string; modelName: string; manufacturerName: string }[]>> {
+  const supabase = await createClient();
+
+  // model_name 또는 name으로 검색
+  const { data, error } = await supabase
+    .from('products')
+    .select(
+      `
+      id,
+      name,
+      model_name,
+      organization:organizations!inner(name)
+    `
+    )
+    .eq('is_active', true)
+    .or(`model_name.ilike.%${query}%,name.ilike.%${query}%`)
+    .order('model_name')
+    .limit(limit);
+
+  if (error) {
+    return createErrorResponse('QUERY_ERROR', error.message);
+  }
+
+  return createSuccessResponse(
+    (data || []).map((product) => ({
+      id: product.id,
+      name: product.name,
+      modelName: product.model_name,
+      manufacturerName: (product.organization as { name: string }).name,
     }))
   );
 }
@@ -1118,9 +1266,10 @@ export async function getUnacknowledgedUsageLogCount(): Promise<ApiResponse<numb
 
 /**
  * 모든 제품 목록 조회 (선택용)
+ * model_name을 포함하여 동일 제품명의 다른 모델을 구분
  */
 export async function getAllProductsForSelect(): Promise<
-  ApiResponse<{ id: string; name: string; manufacturerName: string }[]>
+  ApiResponse<{ id: string; name: string; modelName: string; manufacturerName: string }[]>
 > {
   const supabase = await createClient();
 
@@ -1130,11 +1279,12 @@ export async function getAllProductsForSelect(): Promise<
       `
       id,
       name,
+      model_name,
       organization:organizations!inner(name)
     `
     )
     .eq('is_active', true)
-    .order('name');
+    .order('model_name');
 
   if (error) {
     return createErrorResponse('QUERY_ERROR', error.message);
@@ -1144,6 +1294,7 @@ export async function getAllProductsForSelect(): Promise<
     (data || []).map((product) => ({
       id: product.id,
       name: product.name,
+      modelName: product.model_name,
       manufacturerName: (product.organization as { name: string }).name,
     }))
   );
@@ -1626,7 +1777,7 @@ export async function getAdminEventSummaryCursor(
       productName: lot.productName,
       modelName: '',
       quantity: lot.quantity,
-      codeIds: [],
+      codeIds: lot.codeIds ?? [],
     }));
 
     return {

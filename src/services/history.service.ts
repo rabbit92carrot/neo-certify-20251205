@@ -478,7 +478,7 @@ export async function getTransactionHistoryCursor(
       toOwner,
       items: (productSummaries ?? []).map((item) => ({
         ...item,
-        codes: [], // 커서 버전에서는 codes 미포함 (성능 최적화)
+        codes: item.codes ?? [],
       })),
       totalQuantity: Number(row.total_quantity),
     };
