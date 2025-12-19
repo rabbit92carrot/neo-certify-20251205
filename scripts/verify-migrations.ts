@@ -22,7 +22,9 @@ async function verifyMigrations() {
     const { error } = await supabase.rpc('date_trunc_minute_immutable', {
       ts: new Date().toISOString(),
     });
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
     console.log('   ✅ PASS - 함수 존재 및 동작 확인');
     passed++;
   } catch (e) {
@@ -84,7 +86,9 @@ async function verifyMigrations() {
       p_offset: 0,
     });
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     // 반환 타입에 from_owner_name, to_owner_name이 있는지 확인
     if (data && data.length > 0) {
@@ -114,7 +118,9 @@ async function verifyMigrations() {
         .select('updated_at')
         .limit(1);
 
-      if (error) throw error;
+      if (error) {
+      throw error;
+    }
       console.log(`   ✅ PASS - ${table}.updated_at 컬럼 존재`);
       passed++;
     } catch (e) {
