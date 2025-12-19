@@ -402,6 +402,47 @@ export async function getAdminEventSummaryAction(query: {
 }
 
 /**
+ * 관리자 이벤트 요약 커서 기반 조회 Action
+ * 무한 스크롤용 - OFFSET 대비 대용량 데이터에서 일관된 성능
+ */
+export async function getAdminEventSummaryCursorAction(query: {
+  startDate?: string;
+  endDate?: string;
+  actionTypes?: string[];
+  lotNumber?: string;
+  productId?: string;
+  organizationId?: string;
+  includeRecalled?: boolean;
+  limit?: number;
+  cursorTime?: string;
+  cursorKey?: string;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getAdminEventSummaryCursor({
+    startDate: query.startDate,
+    endDate: query.endDate,
+    actionTypes: query.actionTypes,
+    lotNumber: query.lotNumber,
+    productId: query.productId,
+    organizationId: query.organizationId,
+    includeRecalled: query.includeRecalled ?? true,
+    limit: query.limit ?? 50,
+    cursorTime: query.cursorTime,
+    cursorKey: query.cursorKey,
+  });
+}
+
+/**
  * 이벤트 샘플 코드 조회 Action
  * 상세 모달에서 샘플 코드 정보를 가져올 때 사용
  */

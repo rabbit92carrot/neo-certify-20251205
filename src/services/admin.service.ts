@@ -1481,3 +1481,174 @@ export async function getEventCodesPaginated(
     page,
   });
 }
+
+// ============================================================================
+// 커서 기반 페이지네이션 (성능 최적화)
+// ============================================================================
+
+/**
+ * 커서 기반 쿼리 파라미터 타입
+ */
+interface AdminEventSummaryCursorQuery {
+  startDate?: string;
+  endDate?: string;
+  actionTypes?: string[];
+  lotNumber?: string;
+  productId?: string;
+  organizationId?: string;
+  includeRecalled?: boolean;
+  limit?: number;
+  cursorTime?: string;
+  cursorKey?: string;
+}
+
+/**
+ * 커서 기반 응답 타입
+ */
+interface CursorPaginatedEventSummary {
+  items: AdminEventSummary[];
+  meta: {
+    hasMore: boolean;
+    limit: number;
+  };
+}
+
+/**
+ * 관리자 이벤트 요약 조회 (커서 기반)
+ * OFFSET 대비 대용량 데이터에서 일관된 성능 제공
+ *
+ * @param query 조회 조건 (커서 포함)
+ * @returns 커서 기반 페이지네이션 응답
+ */
+export async function getAdminEventSummaryCursor(
+  query: AdminEventSummaryCursorQuery
+): Promise<ApiResponse<CursorPaginatedEventSummary>> {
+  const supabase = await createClient();
+  const {
+    startDate,
+    endDate,
+    actionTypes,
+    lotNumber,
+    productId,
+    organizationId,
+    includeRecalled = true,
+    limit = 50,
+    cursorTime,
+    cursorKey,
+  } = query;
+
+  // RPC 파라미터 구성 (undefined는 Supabase RPC에서 생략됨)
+  const rpcParams = {
+    p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
+    p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+    p_action_types: actionTypes?.length ? actionTypes : undefined,
+    p_lot_number: lotNumber || undefined,
+    p_product_id: productId || undefined,
+    p_organization_id: organizationId || undefined,
+    p_include_recalled: includeRecalled,
+    p_limit: limit,
+    p_cursor_time: cursorTime || undefined,
+    p_cursor_key: cursorKey || undefined,
+  };
+
+  // RPC 호출 (database.types.ts에서 MergeDeep로 타입 확장됨)
+  const { data, error } = await supabase.rpc('get_admin_event_summary_cursor', rpcParams);
+
+  if (error) {
+    console.error('이벤트 요약 커서 조회 실패:', error);
+    return createErrorResponse('QUERY_ERROR', error.message || '이벤트 요약 조회에 실패했습니다.');
+  }
+
+  // Zod 검증으로 결과 파싱 (런타임 타입 안전성 확보)
+  const { AdminEventSummaryCursorRowSchema } = await import('@/lib/validations/rpc-schemas');
+  const parsed = parseRpcArray(AdminEventSummaryCursorRowSchema, data, 'get_admin_event_summary_cursor');
+  if (!parsed.success) {
+    console.error('get_admin_event_summary_cursor 검증 실패:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const validatedData = parsed.data;
+
+  // hasMore 플래그 추출 (첫 번째 행에서)
+  const hasMore = validatedData.length > 0 ? validatedData[0]?.has_more ?? false : false;
+
+  // 조직 이름 일괄 조회
+  const orgIds = new Set<string>();
+  for (const row of validatedData) {
+    if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
+      orgIds.add(row.from_owner_id);
+    }
+    if (row.to_owner_id && row.to_owner_type === 'ORGANIZATION') {
+      orgIds.add(row.to_owner_id);
+    }
+  }
+
+  const orgNameMap = new Map<string, string>();
+  if (orgIds.size > 0) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .in('id', [...orgIds]);
+
+    for (const org of orgData || []) {
+      orgNameMap.set(org.id, org.name);
+    }
+  }
+
+  // 결과 매핑
+  const summaries: AdminEventSummary[] = validatedData.map((row) => {
+    const fromOwner = row.from_owner_id
+      ? {
+          type: row.from_owner_type as 'ORGANIZATION' | 'PATIENT',
+          id: row.from_owner_id,
+          name:
+            row.from_owner_type === 'PATIENT'
+              ? maskPhoneNumber(row.from_owner_id)
+              : orgNameMap.get(row.from_owner_id) || '알 수 없음',
+        }
+      : null;
+
+    const toOwner = row.to_owner_id
+      ? {
+          type: row.to_owner_type as 'ORGANIZATION' | 'PATIENT',
+          id: row.to_owner_id,
+          name:
+            row.to_owner_type === 'PATIENT'
+              ? maskPhoneNumber(row.to_owner_id)
+              : orgNameMap.get(row.to_owner_id) || '알 수 없음',
+        }
+      : null;
+
+    const lotSummaries: AdminEventLotSummary[] = (row.lot_summaries || []).map((lot) => ({
+      lotId: lot.lotId,
+      lotNumber: lot.lotNumber,
+      productId: lot.productId,
+      productName: lot.productName,
+      modelName: '',
+      quantity: lot.quantity,
+      codeIds: [],
+    }));
+
+    return {
+      id: row.group_key,
+      eventTime: row.event_time,
+      actionType: row.action_type as HistoryActionType,
+      actionTypeLabel: getActionTypeLabel(row.action_type),
+      fromOwner,
+      toOwner,
+      isRecall: row.is_recall ?? false,
+      recallReason: row.recall_reason || undefined,
+      totalQuantity: Number(row.total_quantity),
+      lotSummaries,
+      sampleCodeIds: row.sample_code_ids || [],
+    };
+  });
+
+  return createSuccessResponse({
+    items: summaries,
+    meta: {
+      hasMore,
+      limit,
+    },
+  });
+}

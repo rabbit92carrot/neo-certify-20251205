@@ -11,7 +11,6 @@ export const metadata: Metadata = {
 
 interface PageProps {
   searchParams: Promise<{
-    page?: string;
     startDate?: string;
     endDate?: string;
     actionTypes?: string;
@@ -36,7 +35,6 @@ export default async function AdminHistoryPage({
 
       <Suspense fallback={<LoadingSpinner />}>
         <HistoryTableWrapper
-          page={params.page ? parseInt(params.page) : 1}
           startDate={params.startDate}
           endDate={params.endDate}
           actionTypes={params.actionTypes}
