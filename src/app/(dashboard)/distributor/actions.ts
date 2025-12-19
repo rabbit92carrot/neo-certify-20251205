@@ -8,9 +8,11 @@
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/services/auth.service';
 import * as shipmentService from '@/services/shipment.service';
+import * as historyService from '@/services/history.service';
 import { shipmentCreateSchema, recallSchema } from '@/lib/validations/shipment';
-import type { ApiResponse } from '@/types/api.types';
+import type { ApiResponse, HistoryActionType } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
+import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
 
 // ============================================================================
 // 헬퍼 함수
@@ -126,4 +128,37 @@ export async function recallShipmentAction(
   }
 
   return result;
+}
+
+// ============================================================================
+// 거래 이력 Actions (커서 기반 페이지네이션)
+// ============================================================================
+
+/**
+ * 유통사 거래이력 조회 (커서 기반)
+ * 입고, 출고, 회수 이력을 무한 스크롤로 조회합니다.
+ */
+export async function getDistributorHistoryCursorAction(
+  query: {
+    actionTypes?: HistoryActionType[];
+    startDate?: string;
+    endDate?: string;
+    isRecall?: boolean;
+    limit?: number;
+    cursorTime?: string;
+    cursorKey?: string;
+  }
+): Promise<ApiResponse<CursorPaginatedHistory>> {
+  const organizationId = await getDistributorOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '유통사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return historyService.getDistributorHistoryCursor(organizationId, query as HistoryCursorQuery);
 }

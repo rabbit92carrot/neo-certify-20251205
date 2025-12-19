@@ -11,10 +11,12 @@ import type {
   InventoryByLot,
   Product,
 } from '@/types/api.types';
-import type { Database } from '@/types/database.types';
-
-// RPC 반환 타입 정의
-type InventoryByLotsBulkRow = Database['public']['Functions']['get_inventory_by_lots_bulk']['Returns'][number];
+import { createErrorResponse, createSuccessResponse, parseRpcArray } from './common.service';
+import {
+  InventorySummaryRowSchema,
+  InventoryByLotRowSchema,
+  InventoryByLotsBulkRowSchema,
+} from '@/lib/validations/rpc-schemas';
 
 /**
  * 제품별 재고 요약 조회
@@ -35,34 +37,25 @@ export async function getInventorySummary(
 
   if (error) {
     console.error('재고 요약 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '재고 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '재고 조회에 실패했습니다.');
   }
 
-  type InventorySummaryRow = {
-    product_id: string;
-    product_name: string;
-    model_name: string;
-    udi_di: string;
-    quantity: number;
-  };
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(InventorySummaryRowSchema, data, 'get_inventory_summary');
+  if (!parsed.success) {
+    console.error('get_inventory_summary 검증 실패:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
 
-  const summaries: InventorySummary[] = ((data || []) as InventorySummaryRow[]).map(
-    (row) => ({
-      productId: row.product_id,
-      productName: row.product_name,
-      modelName: row.model_name || '',
-      udiDi: row.udi_di || '',
-      totalQuantity: Number(row.quantity),
-    })
-  );
+  const summaries: InventorySummary[] = parsed.data.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name || '',
+    udiDi: row.udi_di || '',
+    totalQuantity: Number(row.quantity),
+  }));
 
-  return { success: true, data: summaries };
+  return createSuccessResponse(summaries);
 }
 
 /**
@@ -94,44 +87,36 @@ export async function getProductInventoryDetail(
   const { data: lotData, error: lotError } = lotResult;
 
   if (productError || !product) {
-    return {
-      success: false,
-      error: {
-        code: 'PRODUCT_NOT_FOUND',
-        message: '제품을 찾을 수 없습니다.',
-      },
-    };
+    return createErrorResponse('PRODUCT_NOT_FOUND', '제품을 찾을 수 없습니다.');
   }
 
   if (lotError) {
     console.error('Lot별 재고 조회 실패:', lotError);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '재고 상세 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '재고 상세 조회에 실패했습니다.');
   }
 
-  const byLot: InventoryByLot[] = (lotData || []).map((lot) => ({
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(InventoryByLotRowSchema, lotData, 'get_inventory_by_lot');
+  if (!parsed.success) {
+    console.error('get_inventory_by_lot 검증 실패:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const byLot: InventoryByLot[] = parsed.data.map((lot) => ({
     lotId: lot.lot_id,
     lotNumber: lot.lot_number,
     manufactureDate: lot.manufacture_date,
-    expiryDate: lot.expiry_date,
+    expiryDate: lot.expiry_date ?? '',
     quantity: lot.quantity,
   }));
 
   const totalQuantity = byLot.reduce((sum, lot) => sum + lot.quantity, 0);
 
-  return {
-    success: true,
-    data: {
-      product: product as Product,
-      totalQuantity,
-      byLot,
-    },
-  };
+  return createSuccessResponse({
+    product: product as Product,
+    totalQuantity,
+    byLot,
+  });
 }
 
 /**
@@ -192,15 +177,12 @@ export async function getAvailableProductsForShipment(
   // 재고 요약 조회
   const summaryResult = await getInventorySummary(organizationId);
   if (!summaryResult.success) {
-    return {
-      success: false,
-      error: summaryResult.error,
-    };
+    return createErrorResponse(summaryResult.error!.code, summaryResult.error!.message);
   }
 
   const summaries = summaryResult.data || [];
   if (summaries.length === 0) {
-    return { success: true, data: [] };
+    return createSuccessResponse([]);
   }
 
   // 재고가 있는 제품들의 상세 정보 조회
@@ -219,13 +201,7 @@ export async function getAvailableProductsForShipment(
       details: error.details,
       hint: error.hint,
     });
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '제품 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '제품 조회에 실패했습니다.');
   }
 
   // 재고 수량 매핑
@@ -238,7 +214,7 @@ export async function getAvailableProductsForShipment(
     }))
     .filter((p) => p.availableQuantity > 0);
 
-  return { success: true, data: result };
+  return createSuccessResponse(result);
 }
 
 /**
@@ -261,7 +237,7 @@ export async function getProductsWithLotsForShipment(
 
   const products = productsResult.data;
   if (products.length === 0) {
-    return { success: true, data: [] };
+    return createSuccessResponse([]);
   }
 
   // 2. 모든 제품의 Lot 정보를 한 번에 조회 (N+1 방지)
@@ -290,15 +266,30 @@ export async function getProductsWithLotsForShipment(
       })
     );
 
-    return { success: true, data: productsWithLots };
+    return createSuccessResponse(productsWithLots);
+  }
+
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(InventoryByLotsBulkRowSchema, allLotsData, 'get_inventory_by_lots_bulk');
+  if (!parsed.success) {
+    console.error('get_inventory_by_lots_bulk 검증 실패:', parsed.error);
+    // 검증 실패 시 fallback
+    const productsWithLots = await Promise.all(
+      products.map(async (product) => {
+        const detailResult = await getProductInventoryDetail(organizationId, product.id);
+        return {
+          ...product,
+          lots: detailResult.success ? detailResult.data!.byLot : [],
+        };
+      })
+    );
+    return createSuccessResponse(productsWithLots);
   }
 
   // 3. Lot 데이터를 제품별로 그룹화
   const lotsByProduct = new Map<string, InventoryByLot[]>();
 
-  const typedLotsData = (allLotsData ?? []) as InventoryByLotsBulkRow[];
-
-  for (const lot of typedLotsData) {
+  for (const lot of parsed.data) {
     const productId = lot.product_id;
     if (!lotsByProduct.has(productId)) {
       lotsByProduct.set(productId, []);
@@ -307,7 +298,7 @@ export async function getProductsWithLotsForShipment(
       lotId: lot.lot_id,
       lotNumber: lot.lot_number,
       manufactureDate: lot.manufacture_date,
-      expiryDate: lot.expiry_date,
+      expiryDate: lot.expiry_date ?? '',
       quantity: lot.quantity,
     });
   }
@@ -318,5 +309,5 @@ export async function getProductsWithLotsForShipment(
     lots: lotsByProduct.get(product.id) || [],
   }));
 
-  return { success: true, data: productsWithLots };
+  return createSuccessResponse(productsWithLots);
 }

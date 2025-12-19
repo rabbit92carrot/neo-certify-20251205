@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { LOGIN_PATH } from '@/constants/routes';
+import { toast } from 'sonner';
 
 interface LogoutButtonProps {
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
@@ -31,8 +32,8 @@ export function LogoutButton({
       await supabase.auth.signOut();
       router.push(LOGIN_PATH);
       router.refresh();
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
+      toast.error('로그아웃에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
     }

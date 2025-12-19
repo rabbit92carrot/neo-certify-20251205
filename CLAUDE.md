@@ -12,7 +12,7 @@ Neo-Certify (네오인증서) is a product authentication system for tracking PD
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 (App Router) with React 19
+- **Framework**: Next.js 16.0.8 (App Router) with React 19
 - **Language**: TypeScript (strict mode)
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
 - **Styling**: Tailwind CSS 4 with shadcn/ui components
@@ -46,6 +46,7 @@ npx vitest run tests/unit/auth.service.test.ts  # Run single test file
 npm run test:e2e         # Run E2E tests
 npm run test:e2e:ui      # Run with Playwright UI
 npm run test:e2e:headed  # Run with visible browser
+npm run test:e2e:debug   # Run with Playwright debugger
 npx playwright test auth.spec.ts  # Run single E2E file
 
 # Database
@@ -77,16 +78,18 @@ src/
 ├── services/               # Business logic (server-side)
 ├── lib/
 │   ├── supabase/           # Supabase client setup (client, server, admin)
-│   └── validations/        # Zod validation schemas
+│   ├── validations/        # Zod validation schemas
+│   └── utils/              # Domain-split utilities (ui, date, time, format, csv, validation)
 ├── types/
-│   ├── api.types.ts        # API response types
-│   ├── forms.types.ts      # Form data types (inferred from Zod)
-│   └── database.types.ts   # Generated from Supabase
+│   ├── api.types.ts                # API response types
+│   ├── forms.types.ts              # Form data types (inferred from Zod)
+│   ├── database-generated.types.ts # Auto-generated from Supabase (npm run gen:types)
+│   └── database.types.ts           # Extends generated types with custom RPC functions
 ├── constants/              # Constants (routes, navigation, messages)
 └── hooks/                  # Custom hooks (useCart, useInfiniteScroll)
 
 supabase/
-├── migrations/             # SQL migrations (timestamped, 40+ files)
+├── migrations/             # SQL migrations (timestamped, 130+ files)
 └── seed.sql                # Seed data for testing
 
 tests/
@@ -111,6 +114,7 @@ e2e/                        # Playwright E2E tests
 - All database operations go through `src/services/*.service.ts`
 - Services use `createClient()` from `@/lib/supabase/server` for server-side operations
 - Return `ApiResponse<T>` type with `success` flag and either `data` or `error`
+- Use SSOT helpers from `common.service.ts`: `createSuccessResponse()`, `createErrorResponse()`, `handlePostgrestError()`
 
 **Server Actions**
 - Located in `src/app/(dashboard)/*/actions.ts` per route group
@@ -121,6 +125,56 @@ e2e/                        # Playwright E2E tests
 Zod Schema → Form Types (forms.types.ts) → Service Input
 Database Types (generated) → API Types (api.types.ts) → Service Output
 ```
+
+### Custom Hooks
+
+| Hook | Purpose |
+|------|---------|
+| `useCart()` | Session-scoped cart state for shipment/treatment flows |
+| `useAuth()` | User, organization, and manufacturerSettings state with auth subscription |
+| `useInfiniteScroll()` | Intersection Observer for triggering pagination loads |
+| `useCursorPagination()` | High-performance cursor-based pagination for large datasets (10K+ rows) |
+
+### Common Service Utilities
+
+Use these helpers from `common.service.ts` for consistency:
+
+**Response Builders:**
+- `createSuccessResponse<T>(data)`, `createErrorResponse(code, message, details?)`
+- `createUnauthorizedResponse()`, `createForbiddenResponse()`, `createNotFoundResponse()`
+
+**Error Handling:**
+- `handlePostgrestError(error)` - Maps PostgreSQL error codes (e.g., 23505 → DUPLICATE_ENTRY)
+- `handleGenericError(error)` - Catches generic JS errors
+- `ERROR_CODES` constant for standardized error codes
+
+**RPC Validation:**
+- `parseRpcResult<T>(schema, data, context)` - Zod validation for RPC results
+- `parseRpcArray<T>()`, `parseRpcSingle<T>()` - Convenience wrappers
+- Schemas in `src/lib/validations/rpc-schemas.ts`
+
+**Organization Helpers:**
+- `getOrganizationName(id, cache?)`, `getOrganizationNames(ids)` - With caching for batch queries
+- `createOrganizationNameCache()` - Request-scoped deduplication
+
+**Privacy:**
+- `maskPhoneNumber()`, `maskEmail()` - PII masking for display
+
+### Supabase Clients
+
+| Client | Import | When to Use |
+|--------|--------|-------------|
+| `createClient()` | `@/lib/supabase/server` | Server-side with RLS (respects user permissions) |
+| `createAdminClient()` | `@/lib/supabase/admin` | Admin operations bypassing RLS |
+| `createBrowserClient()` | `@/lib/supabase/client` | Client-side (browser) operations |
+
+### Performance Patterns
+
+- **Cursor Pagination**: Use `useCursorPagination()` + `get_history_summary()` for datasets >1000 rows
+- **Virtual Tables**: Use `VirtualDataTable` (TanStack Virtual) for rendering 10K+ rows efficiently
+- **N+1 Prevention**: Use `getOrganizationNames()` bulk fetch with caching instead of individual queries
+- **Memoization**: Memoize column definitions (`useMemo`) and row keys in table components
+- **FIFO Locking**: DB uses `FOR UPDATE SKIP LOCKED` for concurrent shipment safety
 
 ### Database Functions (PostgreSQL)
 
@@ -133,6 +187,8 @@ Key functions across `supabase/migrations/`:
 - `create_shipment_atomic()`: Atomic shipment creation with FIFO selection
 - `get_dashboard_stats_*()`: Role-specific dashboard statistics
 - `get_admin_event_summary()`: Admin event history aggregation
+- `get_history_summary()`: Organization history with cursor-based pagination
+- `get_admin_event_summary_cursor()` / `get_history_summary_cursor()`: High-performance cursor variants (custom types in `database.types.ts`)
 
 ### Organization Types and Routes
 
@@ -188,3 +244,34 @@ Use `@/*` for imports from `src/`:
 import { createClient } from '@/lib/supabase/server';
 import type { ApiResponse } from '@/types/api.types';
 ```
+
+## Critical Guidelines
+
+### Context Memory Management
+
+**IMPORTANT**: 작업 중 context memory가 부족하다고 예상되면:
+1. **절대로** 작업을 임의로 축약하거나 우회하여 진행하지 않습니다
+2. 작업을 즉시 중단하고 사용자에게 memory 부족 상황을 보고합니다
+3. 완료된 작업과 남은 작업을 명확히 정리하여 사용자에게 전달합니다
+
+### Type Safety and Workarounds
+
+**금지 사항**: 타입 오류를 우회하기 위해 다음 방법을 사용하지 않습니다:
+- `any` 타입 캐스팅 (`as any`)
+- `// @ts-ignore` 또는 `// @ts-expect-error` 주석
+- `eslint-disable` 주석으로 타입 관련 규칙 비활성화
+
+**올바른 해결책**:
+1. **새 RPC 함수 추가 시**: `npm run gen:types`로 database-generated.types.ts 재생성
+2. **타입 불일치 시**: 실제 타입 정의를 수정하거나 확장
+3. **해결이 어려운 경우**: 사용자에게 상황을 설명하고 지침을 요청
+
+```bash
+# RPC 함수 추가 후 타입 재생성
+npx supabase start  # 로컬 Supabase 실행 필요
+npm run gen:types   # database-generated.types.ts 자동 생성
+```
+
+**Custom RPC 함수 타입 추가 시**:
+- `npm run gen:types`가 생성하지 못하는 복잡한 RPC 함수는 `src/types/database.types.ts`에 직접 정의
+- `MergeDeep`을 사용하여 생성된 타입과 병합 (예: `get_history_summary_cursor`)

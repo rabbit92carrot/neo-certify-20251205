@@ -20,11 +20,18 @@ import type {
   TreatmentItemSummary,
 } from '@/types/api.types';
 import type { TreatmentCreateData, TreatmentHistoryQueryData } from '@/lib/validations/treatment';
-import type { Database } from '@/types/database.types';
-
-// RPC 반환 타입 정의
-type TreatmentSummariesRow = Database['public']['Functions']['get_treatment_summaries']['Returns'][number];
-type HospitalPatientsRow = Database['public']['Functions']['get_hospital_patients']['Returns'][number];
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  parseRpcArray,
+  parseRpcSingle,
+} from './common.service';
+import {
+  TreatmentAtomicResultSchema,
+  RecallTreatmentResultSchema,
+  TreatmentSummaryRowSchema,
+  HospitalPatientRowSchema,
+} from '@/lib/validations/rpc-schemas';
 
 // ============================================================================
 // 타입 정의
@@ -131,14 +138,6 @@ export async function createTreatment(
     quantity: item.quantity,
   }));
 
-  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
-  type TreatmentAtomicResult = {
-    treatment_id: string | null;
-    total_quantity: number;
-    error_code: string | null;
-    error_message: string | null;
-  };
-
   // 2. 원자적 시술 생성 DB 함수 호출 (환자 생성 포함)
   // 병원 ID는 DB 함수 내에서 get_user_organization_id()로 도출됨
   const { data: result, error } = await supabase.rpc('create_treatment_atomic', {
@@ -149,27 +148,20 @@ export async function createTreatment(
 
   if (error) {
     console.error('원자적 시술 생성 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'TREATMENT_CREATE_FAILED',
-        message: '시술 생성에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('TREATMENT_CREATE_FAILED', '시술 생성에 실패했습니다.');
   }
 
-  // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as TreatmentAtomicResult[] | null;
-  const row = resultArray?.[0];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(TreatmentAtomicResultSchema, result, 'create_treatment_atomic');
+  if (!parsed.success) {
+    console.error('create_treatment_atomic 검증 실패:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const row = parsed.data;
 
   if (row?.error_code) {
-    return {
-      success: false,
-      error: {
-        code: row.error_code,
-        message: row.error_message || '시술 생성에 실패했습니다.',
-      },
-    };
+    return createErrorResponse(row.error_code, row.error_message || '시술 생성에 실패했습니다.');
   }
 
   const treatmentId = row?.treatment_id || '';
@@ -186,21 +178,25 @@ export async function createTreatment(
 
     const hospitalName = (treatmentRecord?.hospital as { name: string } | null)?.name || '병원';
 
-    // 제품 정보 조회 (알림 메시지용)
+    // 제품 정보 조회 (알림 메시지용) - 벌크 쿼리로 N+1 최적화
     const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
-    for (const item of data.items) {
-      const { data: productInfo } = await supabase
-        .from('products')
-        .select('name, organization:organizations!inner(name)')
-        .eq('id', item.productId)
-        .single();
+    const productIds = data.items.map(item => item.productId);
+    const { data: productsInfo } = await supabase
+      .from('products')
+      .select('id, name, organization:organizations!inner(name)')
+      .in('id', productIds);
 
-      if (productInfo) {
-        itemSummaryForMessage.push({
-          productName: productInfo.name,
-          manufacturerName: (productInfo.organization as { name: string }).name,
-          quantity: item.quantity,
-        });
+    if (productsInfo) {
+      const productMap = new Map(productsInfo.map(p => [p.id, p]));
+      for (const item of data.items) {
+        const productInfo = productMap.get(item.productId);
+        if (productInfo) {
+          itemSummaryForMessage.push({
+            productName: productInfo.name,
+            manufacturerName: (productInfo.organization as { name: string }).name,
+            quantity: item.quantity,
+          });
+        }
       }
     }
 
@@ -221,13 +217,10 @@ export async function createTreatment(
     // 알림 기록 실패는 치명적이지 않으므로 계속 진행
   }
 
-  return {
-    success: true,
-    data: {
-      treatmentId,
-      totalQuantity,
-    },
-  };
+  return createSuccessResponse({
+    treatmentId,
+    totalQuantity,
+  });
 }
 
 // ============================================================================
@@ -279,13 +272,7 @@ export async function getTreatmentHistory(
 
   if (error) {
     console.error('시술 이력 조회 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // 모든 시술의 요약 정보를 한 번에 조회 (N+1 최적화)
@@ -307,19 +294,16 @@ export async function getTreatmentHistory(
 
   const total = count || 0;
 
-  return {
-    success: true,
-    data: {
-      items: treatmentSummaries,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: treatmentSummaries,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -348,7 +332,14 @@ async function getTreatmentSummariesBulk(
     return result;
   }
 
-  const rows = data as TreatmentSummariesRow[];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(TreatmentSummaryRowSchema, data, 'get_treatment_summaries');
+  if (!parsed.success) {
+    console.error('get_treatment_summaries 검증 실패:', parsed.error);
+    return result;
+  }
+
+  const rows = parsed.data;
 
   // 시술별로 그룹화
   const treatmentMap = new Map<string, Map<string, { name: string; quantity: number }>>();
@@ -415,13 +406,7 @@ export async function recallTreatment(
     .single();
 
   if (treatmentError || !treatment) {
-    return {
-      success: false,
-      error: {
-        code: 'TREATMENT_NOT_FOUND',
-        message: '시술 기록을 찾을 수 없습니다.',
-      },
-    };
+    return createErrorResponse('TREATMENT_NOT_FOUND', '시술 기록을 찾을 수 없습니다.');
   }
 
   // 2. 알림 메시지용 제품 요약 조회 (회수 전에 조회해야 함)
@@ -433,14 +418,6 @@ export async function recallTreatment(
   const codeIds = details?.map((d) => d.virtual_code_id) || [];
   const summary = codeIds.length > 0 ? await getTreatmentSummaryFromCodes(codeIds) : [];
 
-  // 타입 정의: 마이그레이션 적용 후 npm run gen:types로 재생성 필요
-  type RecallAtomicResult = {
-    success: boolean;
-    recalled_count: number;
-    error_code: string | null;
-    error_message: string | null;
-  };
-
   // 3. 원자적 회수 DB 함수 호출
   // 병원 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
   const { data: result, error } = await supabase.rpc('recall_treatment_atomic', {
@@ -450,27 +427,23 @@ export async function recallTreatment(
 
   if (error) {
     console.error('원자적 시술 회수 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'RECALL_FAILED',
-        message: '시술 회수에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('RECALL_FAILED', '시술 회수에 실패했습니다.');
   }
 
-  // 결과 확인 (DB 함수는 TABLE 반환)
-  const resultArray = result as RecallAtomicResult[] | null;
-  const row = resultArray?.[0];
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(RecallTreatmentResultSchema, result, 'recall_treatment_atomic');
+  if (!parsed.success) {
+    console.error('recall_treatment_atomic 검증 실패:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const row = parsed.data;
 
   if (!row?.success) {
-    return {
-      success: false,
-      error: {
-        code: row?.error_code || 'RECALL_FAILED',
-        message: row?.error_message || '시술 회수에 실패했습니다.',
-      },
-    };
+    return createErrorResponse(
+      row?.error_code || 'RECALL_FAILED',
+      row?.error_message || '시술 회수에 실패했습니다.'
+    );
   }
 
   // 4. 환자에게 회수 알림 메시지 기록 (트랜잭션 외부)
@@ -493,7 +466,7 @@ export async function recallTreatment(
     // 알림 기록 실패는 치명적이지 않으므로 계속 진행
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
@@ -556,32 +529,20 @@ export async function checkTreatmentRecallAllowed(
     .single();
 
   if (treatmentError || !treatment) {
-    return {
-      success: false,
-      error: {
-        code: 'TREATMENT_NOT_FOUND',
-        message: '시술 기록을 찾을 수 없습니다.',
-      },
-    };
+    return createErrorResponse('TREATMENT_NOT_FOUND', '시술 기록을 찾을 수 없습니다.');
   }
 
   if (treatment.hospital_id !== hospitalId) {
-    return {
-      success: true,
-      data: { allowed: false, reason: '해당 병원에서만 회수할 수 있습니다.' },
-    };
+    return createSuccessResponse({ allowed: false, reason: '해당 병원에서만 회수할 수 있습니다.' });
   }
 
   const hoursDiff = getHoursDifference(treatment.created_at);
 
   if (hoursDiff > 24) {
-    return {
-      success: true,
-      data: { allowed: false, reason: '24시간 경과하여 처리할 수 없습니다.' },
-    };
+    return createSuccessResponse({ allowed: false, reason: '24시간 경과하여 처리할 수 없습니다.' });
   }
 
-  return { success: true, data: { allowed: true } };
+  return createSuccessResponse({ allowed: true });
 }
 
 // ============================================================================
@@ -615,21 +576,18 @@ export async function getHospitalPatients(
 
   if (error) {
     console.error('병원 환자 검색 실패:', error);
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
+  }
+
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(HospitalPatientRowSchema, data, 'get_hospital_patients');
+  if (!parsed.success) {
+    console.error('get_hospital_patients 검증 실패:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   // 결과에서 전화번호만 추출
-  const typedData = data as HospitalPatientsRow[] | null;
-  const phoneNumbers = (typedData ?? []).map((row) => row.phone_number);
+  const phoneNumbers = parsed.data.map((row) => row.phone_number);
 
-  return {
-    success: true,
-    data: phoneNumbers,
-  };
+  return createSuccessResponse(phoneNumbers);
 }

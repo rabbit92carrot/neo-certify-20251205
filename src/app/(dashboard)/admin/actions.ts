@@ -280,6 +280,38 @@ export async function getRecallHistoryAction(query: {
   });
 }
 
+/**
+ * 회수 이력 조회 Action (커서 기반 무한 스크롤)
+ */
+export async function getRecallHistoryCursorAction(query: {
+  startDate?: string;
+  endDate?: string;
+  type?: 'shipment' | 'treatment' | 'all';
+  limit?: number;
+  cursorTime?: string;
+  cursorKey?: string;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false as const,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getRecallHistoryCursor({
+    startDate: query.startDate,
+    endDate: query.endDate,
+    type: query.type ?? 'all',
+    limit: query.limit ?? 20,
+    cursorTime: query.cursorTime,
+    cursorKey: query.cursorKey,
+  });
+}
+
 // ============================================================================
 // 관리자 이력 Actions
 // ============================================================================
@@ -358,6 +390,44 @@ export async function getAllProductsForSelectAction() {
   return adminService.getAllProductsForSelect();
 }
 
+/**
+ * 조직 검색 Action (Lazy Load용)
+ * 검색어 기반으로 조직을 검색합니다.
+ */
+export async function searchOrganizationsAction(query: string, limit: number = 20) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.searchOrganizations(query, limit);
+}
+
+/**
+ * 제품 검색 Action (Lazy Load용)
+ * 검색어 기반으로 제품을 검색합니다.
+ */
+export async function searchProductsAction(query: string, limit: number = 20) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.searchProducts(query, limit);
+}
+
 // ============================================================================
 // 이벤트 요약 Actions (이력 조회 개선)
 // ============================================================================
@@ -398,6 +468,47 @@ export async function getAdminEventSummaryAction(query: {
     productId: query.productId,
     organizationId: query.organizationId,
     includeRecalled: query.includeRecalled ?? true,
+  });
+}
+
+/**
+ * 관리자 이벤트 요약 커서 기반 조회 Action
+ * 무한 스크롤용 - OFFSET 대비 대용량 데이터에서 일관된 성능
+ */
+export async function getAdminEventSummaryCursorAction(query: {
+  startDate?: string;
+  endDate?: string;
+  actionTypes?: string[];
+  lotNumber?: string;
+  productId?: string;
+  organizationId?: string;
+  includeRecalled?: boolean;
+  limit?: number;
+  cursorTime?: string;
+  cursorKey?: string;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getAdminEventSummaryCursor({
+    startDate: query.startDate,
+    endDate: query.endDate,
+    actionTypes: query.actionTypes,
+    lotNumber: query.lotNumber,
+    productId: query.productId,
+    organizationId: query.organizationId,
+    includeRecalled: query.includeRecalled ?? true,
+    limit: query.limit ?? 50,
+    cursorTime: query.cursorTime,
+    cursorKey: query.cursorKey,
   });
 }
 
@@ -524,6 +635,30 @@ export async function acknowledgeUsageLogAction(logId: string) {
   }
 
   const result = await adminService.acknowledgeUsageLog(logId, adminId);
+
+  if (result.success) {
+    revalidatePath('/admin/alerts');
+  }
+
+  return result;
+}
+
+/**
+ * 비활성 제품 사용 로그 일괄 확인 처리 Action
+ */
+export async function acknowledgeUsageLogsAction(logIds: string[]) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await adminService.acknowledgeUsageLogs(logIds, adminId);
 
   if (result.success) {
     revalidatePath('/admin/alerts');

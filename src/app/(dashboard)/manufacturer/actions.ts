@@ -12,6 +12,7 @@ import * as lotService from '@/services/lot.service';
 import * as manufacturerSettingsService from '@/services/manufacturer-settings.service';
 import * as shipmentService from '@/services/shipment.service';
 import * as alertService from '@/services/alert.service';
+import * as historyService from '@/services/history.service';
 import {
   productCreateSchema,
   productUpdateSchema,
@@ -19,8 +20,9 @@ import {
 } from '@/lib/validations/product';
 import { manufacturerSettingsSchema } from '@/lib/validations/organization';
 import { shipmentCreateSchema, recallSchema } from '@/lib/validations/shipment';
-import type { ApiResponse, Product, ProductDeactivationReason, OrganizationAlertType } from '@/types/api.types';
+import type { ApiResponse, Product, ProductDeactivationReason, OrganizationAlertType, HistoryActionType } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
+import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
 
 // ============================================================================
 // 헬퍼 함수
@@ -523,4 +525,37 @@ export async function getAlertDetailAction(alertId: string) {
   }
 
   return alertService.getAlertDetail(organizationId, alertId);
+}
+
+// ============================================================================
+// 거래 이력 Actions (커서 기반 페이지네이션)
+// ============================================================================
+
+/**
+ * 제조사 거래이력 조회 (커서 기반)
+ * 생산, 출고, 회수 이력을 무한 스크롤로 조회합니다.
+ */
+export async function getManufacturerHistoryCursorAction(
+  query: {
+    actionTypes?: HistoryActionType[];
+    startDate?: string;
+    endDate?: string;
+    isRecall?: boolean;
+    limit?: number;
+    cursorTime?: string;
+    cursorKey?: string;
+  }
+): Promise<ApiResponse<CursorPaginatedHistory>> {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return historyService.getManufacturerHistoryCursor(organizationId, query as HistoryCursorQuery);
 }

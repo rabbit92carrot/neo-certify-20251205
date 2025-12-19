@@ -14,10 +14,6 @@ import {
   Package,
   AlertTriangle,
   Factory,
-  Truck,
-  Building2,
-  Stethoscope,
-  User,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,9 +32,9 @@ import type {
   AdminHistoryDetail,
   VirtualCodeStatus,
   HistoryActionType,
-  OrganizationType,
 } from '@/types/api.types';
 import { VIRTUAL_CODE_STATUS_LABELS } from '@/constants/product';
+import { getOwnerIcon } from './admin-event/utils';
 
 interface AdminHistoryTableProps {
   histories: AdminHistoryItem[];
@@ -59,24 +55,6 @@ function getStatusBadgeVariant(
       return 'destructive';
     default:
       return 'outline';
-  }
-}
-
-/**
- * 조직 타입별 아이콘
- */
-function getOwnerIcon(type: OrganizationType | 'PATIENT'): React.ReactNode {
-  switch (type) {
-    case 'MANUFACTURER':
-      return <Factory className="h-3 w-3" />;
-    case 'DISTRIBUTOR':
-      return <Truck className="h-3 w-3" />;
-    case 'HOSPITAL':
-      return <Stethoscope className="h-3 w-3" />;
-    case 'PATIENT':
-      return <User className="h-3 w-3" />;
-    default:
-      return <Building2 className="h-3 w-3" />;
   }
 }
 

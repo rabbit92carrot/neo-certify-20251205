@@ -1,0 +1,212 @@
+'use client';
+
+/**
+ * 서버 검색 지원 Combobox 컴포넌트
+ * - debounced 검색으로 서버 조회
+ * - 최소 2글자 이상 입력 시 검색 시작
+ */
+
+import * as React from 'react';
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { useDebounce } from '@/hooks/useDebounce';
+
+export interface SearchableComboboxOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+  description?: string;
+}
+
+export interface SearchableComboboxProps {
+  /** 현재 선택된 값 */
+  value: string;
+  /** 값 변경 핸들러 */
+  onValueChange: (value: string) => void;
+  /** 검색 함수 - 검색어를 받아서 옵션 목록 반환 */
+  onSearch: (query: string) => Promise<SearchableComboboxOption[]>;
+  /** 기본 옵션 (검색 전 표시, 예: '전체' 옵션) */
+  defaultOption?: SearchableComboboxOption;
+  /** 초기 옵션 목록 (이미 선택된 값 표시용) */
+  initialOptions?: SearchableComboboxOption[];
+  /** 플레이스홀더 */
+  placeholder?: string;
+  /** 검색 입력 플레이스홀더 */
+  searchPlaceholder?: string;
+  /** 검색 결과 없음 메시지 */
+  emptyMessage?: string;
+  /** 검색 최소 글자 수 안내 */
+  minCharsMessage?: string;
+  /** 비활성화 */
+  disabled?: boolean;
+  className?: string;
+  /** 검색 대기 시간 (ms) */
+  debounceMs?: number;
+  /** 최소 검색 글자 수 */
+  minSearchLength?: number;
+}
+
+function SearchableCombobox({
+  value,
+  onValueChange,
+  onSearch,
+  defaultOption,
+  initialOptions = [],
+  placeholder = '선택하세요...',
+  searchPlaceholder = '2글자 이상 입력...',
+  emptyMessage = '검색 결과가 없습니다.',
+  minCharsMessage = '2글자 이상 입력하세요.',
+  disabled = false,
+  className,
+  debounceMs = 300,
+  minSearchLength = 2,
+}: SearchableComboboxProps) {
+  const [open, setOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [options, setOptions] = React.useState<SearchableComboboxOption[]>(initialOptions);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const debouncedQuery = useDebounce(searchQuery, debounceMs);
+
+  // 검색 실행
+  React.useEffect(() => {
+    if (debouncedQuery.length < minSearchLength) {
+      setOptions(initialOptions);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    onSearch(debouncedQuery)
+      .then((results) => {
+        if (!cancelled) {
+          setOptions(results);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOptions([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery, minSearchLength, onSearch, initialOptions]);
+
+  // 선택된 옵션 찾기
+  const allOptions = defaultOption ? [defaultOption, ...options] : options;
+  const selectedOption = allOptions.find((option) => option.value === value) ||
+    initialOptions.find((option) => option.value === value);
+
+  // 표시할 옵션 목록
+  const displayOptions = defaultOption ? [defaultOption, ...options] : options;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className={cn(
+            'w-full justify-between font-normal',
+            !selectedOption && 'text-muted-foreground',
+            className
+          )}
+        >
+          {selectedOption ? (
+            <span className="flex items-center gap-2 truncate">
+              {selectedOption.icon}
+              <span className="truncate">{selectedOption.label}</span>
+            </span>
+          ) : (
+            placeholder
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-0"
+        align="start"
+        sideOffset={4}
+        style={{ width: 'var(--radix-popover-trigger-width)' }}
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          <CommandList>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : searchQuery.length > 0 && searchQuery.length < minSearchLength ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                {minCharsMessage}
+              </div>
+            ) : displayOptions.length === 0 ? (
+              <CommandEmpty>{emptyMessage}</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {displayOptions.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.value}
+                    onSelect={() => {
+                      onValueChange(option.value === value ? '' : option.value);
+                      setOpen(false);
+                      setSearchQuery('');
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4 shrink-0',
+                        value === option.value ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {option.icon}
+                      <span className="truncate">{option.label}</span>
+                    </div>
+                    {option.description && (
+                      <span className="ml-auto text-xs text-muted-foreground truncate max-w-[40%]">
+                        {option.description}
+                      </span>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export { SearchableCombobox };

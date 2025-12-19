@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface CodeListDisplayProps {
   codes: string[];
@@ -63,7 +64,7 @@ export function CodeListDisplay({
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 1500);
     } catch {
-      console.error('복사 실패');
+      toast.error('클립보드 복사에 실패했습니다');
     }
   }, []);
 
@@ -74,7 +75,7 @@ export function CodeListDisplay({
       setCopiedCode('__ALL__');
       setTimeout(() => setCopiedCode(null), 1500);
     } catch {
-      console.error('전체 복사 실패');
+      toast.error('전체 복사에 실패했습니다');
     }
   }, [codes]);
 

@@ -11,6 +11,8 @@ import { createClient } from '@/lib/supabase/server';
 import type { ApiResponse, PaginatedResponse, NotificationMessage } from '@/types/api.types';
 import type { Enums } from '@/types/database.types';
 import { ERROR_CODES } from '@/constants/errors';
+import { CONFIG } from '@/constants/config';
+import { createErrorResponse, createSuccessResponse } from './common.service';
 
 // ============================================================================
 // 타입 정의
@@ -49,7 +51,7 @@ export interface NotificationItem {
 // 상수
 // ============================================================================
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;
 
 const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   CERTIFICATION: '정품 인증',
@@ -98,13 +100,7 @@ export async function getNotificationMessages(
 
     if (error) {
       console.error('[Notification Service] Query error:', error);
-      return {
-        success: false,
-        error: {
-          code: ERROR_CODES.SERVER_ERROR,
-          message: '알림 메시지 조회 중 오류가 발생했습니다.',
-        },
-      };
+      return createErrorResponse(ERROR_CODES.SERVER_ERROR, '알림 메시지 조회 중 오류가 발생했습니다.');
     }
 
     // 데이터 변환
@@ -121,28 +117,19 @@ export async function getNotificationMessages(
     const totalCount = count ?? 0;
     const totalPages = Math.ceil(totalCount / pageSize);
 
-    return {
-      success: true,
-      data: {
-        items,
-        meta: {
-          page,
-          pageSize,
-          total: totalCount,
-          totalPages,
-          hasMore: page < totalPages,
-        },
+    return createSuccessResponse({
+      items,
+      meta: {
+        page,
+        pageSize,
+        total: totalCount,
+        totalPages,
+        hasMore: page < totalPages,
       },
-    };
+    });
   } catch (error) {
     console.error('[Notification Service] Unexpected error:', error);
-    return {
-      success: false,
-      error: {
-        code: ERROR_CODES.SERVER_ERROR,
-        message: '서버 오류가 발생했습니다.',
-      },
-    };
+    return createErrorResponse(ERROR_CODES.SERVER_ERROR, '서버 오류가 발생했습니다.');
   }
 }
 
@@ -180,13 +167,7 @@ export async function getNotificationStats(): Promise<
       .select('*', { count: 'exact', head: true });
 
     if (totalError) {
-      return {
-        success: false,
-        error: {
-          code: ERROR_CODES.SERVER_ERROR,
-          message: '통계 조회 오류',
-        },
-      };
+      return createErrorResponse(ERROR_CODES.SERVER_ERROR, '통계 조회 오류');
     }
 
     // 인증 카운트
@@ -196,13 +177,7 @@ export async function getNotificationStats(): Promise<
       .eq('type', 'CERTIFICATION');
 
     if (certError) {
-      return {
-        success: false,
-        error: {
-          code: ERROR_CODES.SERVER_ERROR,
-          message: '통계 조회 오류',
-        },
-      };
+      return createErrorResponse(ERROR_CODES.SERVER_ERROR, '통계 조회 오류');
     }
 
     // 회수 카운트
@@ -212,13 +187,7 @@ export async function getNotificationStats(): Promise<
       .eq('type', 'RECALL');
 
     if (recallError) {
-      return {
-        success: false,
-        error: {
-          code: ERROR_CODES.SERVER_ERROR,
-          message: '통계 조회 오류',
-        },
-      };
+      return createErrorResponse(ERROR_CODES.SERVER_ERROR, '통계 조회 오류');
     }
 
     // 발송 완료 카운트
@@ -228,33 +197,18 @@ export async function getNotificationStats(): Promise<
       .eq('is_sent', true);
 
     if (sentError) {
-      return {
-        success: false,
-        error: {
-          code: ERROR_CODES.SERVER_ERROR,
-          message: '통계 조회 오류',
-        },
-      };
+      return createErrorResponse(ERROR_CODES.SERVER_ERROR, '통계 조회 오류');
     }
 
-    return {
-      success: true,
-      data: {
-        totalCount: totalCount ?? 0,
-        certificationCount: certificationCount ?? 0,
-        recallCount: recallCount ?? 0,
-        sentCount: sentCount ?? 0,
-        pendingCount: (totalCount ?? 0) - (sentCount ?? 0),
-      },
-    };
+    return createSuccessResponse({
+      totalCount: totalCount ?? 0,
+      certificationCount: certificationCount ?? 0,
+      recallCount: recallCount ?? 0,
+      sentCount: sentCount ?? 0,
+      pendingCount: (totalCount ?? 0) - (sentCount ?? 0),
+    });
   } catch (error) {
     console.error('[Notification Service] Stats error:', error);
-    return {
-      success: false,
-      error: {
-        code: ERROR_CODES.SERVER_ERROR,
-        message: '서버 오류가 발생했습니다.',
-      },
-    };
+    return createErrorResponse(ERROR_CODES.SERVER_ERROR, '서버 오류가 발생했습니다.');
   }
 }

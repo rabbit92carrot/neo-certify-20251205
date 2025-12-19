@@ -11,6 +11,7 @@ import type {
   ProductUpdateData,
   ProductListQueryData,
 } from '@/lib/validations/product';
+import { createErrorResponse, createSuccessResponse, createNotFoundResponse } from './common.service';
 
 // 캐시 TTL 상수 (초)
 const PRODUCTS_CACHE_TTL = 300; // 5분
@@ -51,30 +52,21 @@ export async function getProducts(
   const { data, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   const total = count || 0;
 
-  return {
-    success: true,
-    data: {
-      items: data || [],
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: data || [],
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -97,16 +89,10 @@ export async function getActiveProducts(
     .order('name', { ascending: true });
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: error.message,
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', error.message);
   }
 
-  return { success: true, data: data || [] };
+  return createSuccessResponse(data || []);
 }
 
 /**
@@ -151,16 +137,10 @@ export async function getProduct(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: '제품을 찾을 수 없습니다.',
-      },
-    };
+    return createNotFoundResponse('제품을 찾을 수 없습니다.');
   }
 
-  return { success: true, data };
+  return createSuccessResponse(data);
 }
 
 /**
@@ -185,13 +165,7 @@ export async function createProduct(
     .single();
 
   if (existing) {
-    return {
-      success: false,
-      error: {
-        code: 'DUPLICATE_UDI_DI',
-        message: '이미 등록된 UDI-DI입니다.',
-      },
-    };
+    return createErrorResponse('DUPLICATE_UDI_DI', '이미 등록된 UDI-DI입니다.');
   }
 
   const { data: product, error } = await supabase
@@ -206,16 +180,10 @@ export async function createProduct(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'CREATE_FAILED',
-        message: '제품 등록에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('CREATE_FAILED', '제품 등록에 실패했습니다.');
   }
 
-  return { success: true, data: product };
+  return createSuccessResponse(product);
 }
 
 /**
@@ -248,13 +216,7 @@ export async function updateProduct(
       .single();
 
     if (existing) {
-      return {
-        success: false,
-        error: {
-          code: 'DUPLICATE_UDI_DI',
-          message: '이미 등록된 UDI-DI입니다.',
-        },
-      };
+      return createErrorResponse('DUPLICATE_UDI_DI', '이미 등록된 UDI-DI입니다.');
     }
   }
 
@@ -267,16 +229,10 @@ export async function updateProduct(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_FAILED',
-        message: '제품 수정에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('UPDATE_FAILED', '제품 수정에 실패했습니다.');
   }
 
-  return { success: true, data: product };
+  return createSuccessResponse(product);
 }
 
 /**
@@ -311,16 +267,10 @@ export async function deactivateProduct(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'DEACTIVATE_FAILED',
-        message: '제품 비활성화에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('DEACTIVATE_FAILED', '제품 비활성화에 실패했습니다.');
   }
 
-  return { success: true, data: product };
+  return createSuccessResponse(product);
 }
 
 /**
@@ -351,14 +301,8 @@ export async function activateProduct(
     .single();
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'ACTIVATE_FAILED',
-        message: '제품 활성화에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('ACTIVATE_FAILED', '제품 활성화에 실패했습니다.');
   }
 
-  return { success: true, data: product };
+  return createSuccessResponse(product);
 }

@@ -49,7 +49,11 @@ export function Pagination({
   const pageNumbers = getPageNumbers();
 
   return (
-    <div className="flex items-center justify-center gap-1">
+    <nav
+      className="flex items-center justify-center gap-1"
+      role="navigation"
+      aria-label="페이지 네비게이션"
+    >
       {/* 첫 페이지 */}
       {showFirstLast && (
         <Button
@@ -59,7 +63,7 @@ export function Pagination({
           disabled={!canGoPrevious}
           className="h-8 w-8"
         >
-          <ChevronsLeft className="h-4 w-4" />
+          <ChevronsLeft className="h-4 w-4" aria-hidden="true" />
           <span className="sr-only">첫 페이지</span>
         </Button>
       )}
@@ -72,7 +76,7 @@ export function Pagination({
         disabled={!canGoPrevious}
         className="h-8 w-8"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">이전 페이지</span>
       </Button>
 
@@ -84,6 +88,8 @@ export function Pagination({
           size="icon"
           onClick={() => onPageChange(page)}
           className="h-8 w-8"
+          aria-current={page === currentPage ? 'page' : undefined}
+          aria-label={`${page}페이지${page === currentPage ? ' (현재 페이지)' : ''}`}
         >
           {page}
         </Button>
@@ -97,7 +103,7 @@ export function Pagination({
         disabled={!canGoNext}
         className="h-8 w-8"
       >
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">다음 페이지</span>
       </Button>
 
@@ -110,10 +116,10 @@ export function Pagination({
           disabled={!canGoNext}
           className="h-8 w-8"
         >
-          <ChevronsRight className="h-4 w-4" />
+          <ChevronsRight className="h-4 w-4" aria-hidden="true" />
           <span className="sr-only">마지막 페이지</span>
         </Button>
       )}
-    </div>
+    </nav>
   );
 }

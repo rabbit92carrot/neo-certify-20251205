@@ -11,6 +11,7 @@ import type {
   OrganizationAlert,
   OrganizationAlertType,
 } from '@/types/api.types';
+import { createErrorResponse, createSuccessResponse, createNotFoundResponse } from './common.service';
 
 // 캐시 TTL 상수 (초)
 const ALERT_COUNT_CACHE_TTL = 60; // 1분
@@ -54,13 +55,7 @@ export async function getOrganizationAlerts(
   const { data, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '알림 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '알림 조회에 실패했습니다.');
   }
 
   const total = count || 0;
@@ -78,19 +73,16 @@ export async function getOrganizationAlerts(
     createdAt: row.created_at,
   }));
 
-  return {
-    success: true,
-    data: {
-      items: alerts,
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasMore: offset + pageSize < total,
-      },
+  return createSuccessResponse({
+    items: alerts,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      hasMore: offset + pageSize < total,
     },
-  };
+  });
 }
 
 /**
@@ -116,16 +108,10 @@ export async function markAlertAsRead(
     .eq('recipient_org_id', organizationId);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_FAILED',
-        message: '알림 읽음 처리에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('UPDATE_FAILED', '알림 읽음 처리에 실패했습니다.');
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
@@ -151,16 +137,10 @@ export async function markAlertsAsRead(
     .eq('recipient_org_id', organizationId);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_FAILED',
-        message: '알림 읽음 처리에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('UPDATE_FAILED', '알림 읽음 처리에 실패했습니다.');
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
@@ -184,16 +164,10 @@ export async function markAllAlertsAsRead(
     .eq('is_read', false);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'UPDATE_FAILED',
-        message: '알림 읽음 처리에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('UPDATE_FAILED', '알림 읽음 처리에 실패했습니다.');
   }
 
-  return { success: true };
+  return createSuccessResponse(undefined);
 }
 
 /**
@@ -214,16 +188,10 @@ export async function getUnreadAlertCount(
     .eq('is_read', false);
 
   if (error) {
-    return {
-      success: false,
-      error: {
-        code: 'QUERY_ERROR',
-        message: '알림 카운트 조회에 실패했습니다.',
-      },
-    };
+    return createErrorResponse('QUERY_ERROR', '알림 카운트 조회에 실패했습니다.');
   }
 
-  return { success: true, data: count || 0 };
+  return createSuccessResponse(count || 0);
 }
 
 /**
@@ -266,13 +234,7 @@ export async function getAlertDetail(
     .single();
 
   if (error || !data) {
-    return {
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: '알림을 찾을 수 없습니다.',
-      },
-    };
+    return createNotFoundResponse('알림을 찾을 수 없습니다.');
   }
 
   const alert: OrganizationAlert = {
@@ -287,5 +249,5 @@ export async function getAlertDetail(
     createdAt: data.created_at,
   };
 
-  return { success: true, data: alert };
+  return createSuccessResponse(alert);
 }

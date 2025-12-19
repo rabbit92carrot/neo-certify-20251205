@@ -11,7 +11,6 @@ export const metadata: Metadata = {
 
 interface PageProps {
   searchParams: Promise<{
-    page?: string;
     startDate?: string;
     endDate?: string;
     type?: string;
@@ -32,7 +31,6 @@ export default async function AdminRecallsPage({
 
       <Suspense fallback={<LoadingSpinner />}>
         <RecallTableWrapper
-          page={params.page ? parseInt(params.page) : 1}
           startDate={params.startDate}
           endDate={params.endDate}
           type={params.type as 'shipment' | 'treatment' | 'all' | undefined}

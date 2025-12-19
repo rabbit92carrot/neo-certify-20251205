@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
-import { getDistributorHistory } from '@/services/history.service';
-import { PageHeader } from '@/components/shared';
-import { TransactionHistoryTable } from '@/components/tables/TransactionHistoryTable';
+import { PageHeader, HistoryPageWrapper } from '@/components/shared';
+import { getDistributorHistoryCursorAction } from '../actions';
 
 export const metadata = {
   title: '거래 이력 | 유통사',
@@ -11,6 +10,7 @@ export const metadata = {
 
 /**
  * 유통사 거래이력 페이지
+ * 커서 기반 무한 스크롤로 성능 최적화
  */
 export default async function DistributorHistoryPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
@@ -19,14 +19,6 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
     redirect('/login');
   }
 
-  // 거래이력 조회 (입고, 출고, 회수)
-  const historyResult = await getDistributorHistory(user.organization.id, {
-    page: 1,
-    pageSize: 50,
-  });
-
-  const histories = historyResult.success ? historyResult.data!.items : [];
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -34,9 +26,14 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
         description="입고, 출고, 회수 이력을 확인할 수 있습니다. 제품을 클릭하여 고유식별코드를 확인하세요."
       />
 
-      <TransactionHistoryTable
-        histories={histories}
+      <HistoryPageWrapper
         currentOrgId={user.organization.id}
+        fetchHistoryCursor={getDistributorHistoryCursorAction}
+        actionTypeOptions={[
+          { value: 'RECEIVED', label: '입고' },
+          { value: 'SHIPPED', label: '출고' },
+          { value: 'RECALLED', label: '회수' },
+        ]}
       />
     </div>
   );
