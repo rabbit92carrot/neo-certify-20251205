@@ -423,6 +423,8 @@ export interface RecallHistoryItem {
     productName: string;
     quantity: number;
   }[];
+  /** 회수된 코드 ID 배열 (코드 상세 조회용) */
+  codeIds?: string[];
 }
 
 // ============================================================================

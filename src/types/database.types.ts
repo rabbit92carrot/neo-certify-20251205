@@ -92,6 +92,38 @@ type CustomFunctions = {
       has_more: boolean;
     }[];
   };
+
+  /**
+   * Cursor-based pagination for recalls
+   * RPC: get_all_recalls_cursor
+   * Migration: 20251219500006_add_get_all_recalls_cursor.sql
+   */
+  get_all_recalls_cursor: {
+    Args: {
+      p_start_date?: string;
+      p_end_date?: string;
+      p_type?: string;
+      p_limit?: number;
+      p_cursor_time?: string;
+      p_cursor_key?: string;
+    };
+    Returns: {
+      recall_id: string;
+      recall_type: string;
+      recall_date: string;
+      recall_reason: string | null;
+      quantity: number;
+      from_org_id: string;
+      from_org_name: string;
+      from_org_type: string;
+      to_id: string | null;
+      to_name: string | null;
+      to_type: string | null;
+      product_summary: Json;
+      code_ids: string[] | null;
+      has_more: boolean;
+    }[];
+  };
 };
 
 /**

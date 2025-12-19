@@ -201,6 +201,7 @@ export type Database = {
           manufacture_date: string
           product_id: string
           quantity: number
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
@@ -210,6 +211,7 @@ export type Database = {
           manufacture_date: string
           product_id: string
           quantity: number
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
@@ -219,6 +221,7 @@ export type Database = {
           manufacture_date?: string
           product_id?: string
           quantity?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -402,14 +405,17 @@ export type Database = {
         Row: {
           created_at: string
           phone_number: string
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
           phone_number: string
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
           phone_number?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -593,6 +599,7 @@ export type Database = {
           id: string
           patient_phone: string
           treatment_date: string
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
@@ -600,6 +607,7 @@ export type Database = {
           id?: string
           patient_phone: string
           treatment_date: string
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
@@ -607,6 +615,7 @@ export type Database = {
           id?: string
           patient_phone?: string
           treatment_date?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -762,6 +771,7 @@ export type Database = {
               treatment_id: string
             }[]
           }
+      date_trunc_minute_immutable: { Args: { ts: string }; Returns: string }
       generate_hmac_signature: { Args: { payload: string }; Returns: string }
       generate_lot_number: {
         Args: {
@@ -811,6 +821,35 @@ export type Database = {
           p_start_date?: string
         }
         Returns: number
+      }
+      get_admin_event_summary_cursor: {
+        Args: {
+          p_action_types?: string[]
+          p_cursor_key?: string
+          p_cursor_time?: string
+          p_end_date?: string
+          p_include_recalled?: boolean
+          p_limit?: number
+          p_lot_number?: string
+          p_organization_id?: string
+          p_product_id?: string
+          p_start_date?: string
+        }
+        Returns: {
+          action_type: string
+          event_time: string
+          from_owner_id: string
+          from_owner_type: string
+          group_key: string
+          has_more: boolean
+          is_recall: boolean
+          lot_summaries: Json
+          recall_reason: string
+          sample_code_ids: string[]
+          to_owner_id: string
+          to_owner_type: string
+          total_quantity: number
+        }[]
       }
       get_all_recalls: {
         Args: {
@@ -889,14 +928,14 @@ export type Database = {
           action_type: string
           created_at: string
           from_owner_id: string
-          from_owner_name: string | null
+          from_owner_name: string
           from_owner_type: string
           group_key: string
           is_recall: boolean
           product_summaries: Json
           recall_reason: string
           to_owner_id: string
-          to_owner_name: string | null
+          to_owner_name: string
           to_owner_type: string
           total_quantity: number
         }[]
@@ -910,6 +949,34 @@ export type Database = {
           p_start_date?: string
         }
         Returns: number
+      }
+      get_history_summary_cursor: {
+        Args: {
+          p_action_types?: string[]
+          p_cursor_key?: string
+          p_cursor_time?: string
+          p_end_date?: string
+          p_is_recall?: boolean
+          p_limit?: number
+          p_organization_id: string
+          p_start_date?: string
+        }
+        Returns: {
+          action_type: string
+          created_at: string
+          from_owner_id: string
+          from_owner_name: string
+          from_owner_type: string
+          group_key: string
+          has_more: boolean
+          is_recall: boolean
+          product_summaries: Json
+          recall_reason: string
+          to_owner_id: string
+          to_owner_name: string
+          to_owner_type: string
+          total_quantity: number
+        }[]
       }
       get_hospital_patients: {
         Args: {
