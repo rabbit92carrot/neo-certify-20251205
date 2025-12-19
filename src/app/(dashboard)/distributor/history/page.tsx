@@ -29,6 +29,11 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
       <HistoryPageWrapper
         currentOrgId={user.organization.id}
         fetchHistoryCursor={getDistributorHistoryCursorAction}
+        actionTypeOptions={[
+          { value: 'RECEIVED', label: '입고' },
+          { value: 'SHIPPED', label: '출고' },
+          { value: 'RECALLED', label: '회수' },
+        ]}
       />
     </div>
   );

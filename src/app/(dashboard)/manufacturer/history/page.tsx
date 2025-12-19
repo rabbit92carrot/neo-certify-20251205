@@ -29,6 +29,11 @@ export default async function ManufacturerHistoryPage(): Promise<React.ReactElem
       <HistoryPageWrapper
         currentOrgId={user.organization.id}
         fetchHistoryCursor={getManufacturerHistoryCursorAction}
+        actionTypeOptions={[
+          { value: 'PRODUCED', label: '생산' },
+          { value: 'SHIPPED', label: '출고' },
+          { value: 'RECALLED', label: '회수' },
+        ]}
       />
     </div>
   );

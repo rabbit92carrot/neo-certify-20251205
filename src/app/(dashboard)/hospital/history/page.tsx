@@ -29,6 +29,11 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
       <HistoryPageWrapper
         currentOrgId={user.organization.id}
         fetchHistoryCursor={getHospitalHistoryCursorAction}
+        actionTypeOptions={[
+          { value: 'RECEIVED', label: '입고' },
+          { value: 'TREATED', label: '시술' },
+          { value: 'RECALLED', label: '회수' },
+        ]}
       />
     </div>
   );
