@@ -386,6 +386,7 @@ export const AdminEventSummaryCursorRowSchema = z.object({
     productId: z.string().uuid(),
     productName: z.string(),
     quantity: z.number(),
+    codeIds: z.array(z.string().uuid()).optional(), // Lot별 코드 ID 배열
   })).nullable(),
   sample_code_ids: z.array(z.string().uuid()).nullable(),
   has_more: z.boolean(),
@@ -417,8 +418,38 @@ export const HistorySummaryCursorRowSchema = z.object({
     productId: z.string().uuid(),
     productName: z.string(),
     quantity: z.number(),
+    codes: z.array(z.string()).optional(), // 제품별 가상 코드 (NC-XXXXXXXX 형식)
   })).nullable(),
   has_more: z.boolean(),
 });
 
 export type HistorySummaryCursorRow = z.infer<typeof HistorySummaryCursorRowSchema>;
+
+/**
+ * 전체 회수 조회 커서 기반 스키마
+ * RPC: get_all_recalls_cursor
+ *
+ * DB 함수 반환 구조 (20251219500006_add_get_all_recalls_cursor.sql):
+ * - AllRecallsRowSchema 필드 + code_ids (TEXT[]) + has_more (BOOLEAN)
+ */
+export const AllRecallsCursorRowSchema = z.object({
+  recall_id: z.string(),
+  recall_type: z.string(),
+  recall_date: z.string(),
+  recall_reason: z.string().nullable(),
+  quantity: z.number(),
+  from_org_id: z.string(),
+  from_org_name: z.string(),
+  from_org_type: z.string(),
+  to_id: z.string().nullable(),
+  to_name: z.string().nullable(),
+  to_type: z.string().nullable(),
+  product_summary: z.array(z.object({
+    productName: z.string(),
+    quantity: z.number(),
+  })).nullable(),
+  code_ids: z.array(z.string()).nullable(),
+  has_more: z.boolean(),
+});
+
+export type AllRecallsCursorRow = z.infer<typeof AllRecallsCursorRowSchema>;
