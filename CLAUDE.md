@@ -81,14 +81,15 @@ src/
 │   ├── validations/        # Zod validation schemas
 │   └── utils/              # Domain-split utilities (ui, date, time, format, csv, validation)
 ├── types/
-│   ├── api.types.ts        # API response types
-│   ├── forms.types.ts      # Form data types (inferred from Zod)
-│   └── database.types.ts   # Generated from Supabase
+│   ├── api.types.ts                # API response types
+│   ├── forms.types.ts              # Form data types (inferred from Zod)
+│   ├── database-generated.types.ts # Auto-generated from Supabase (npm run gen:types)
+│   └── database.types.ts           # Extends generated types with custom RPC functions
 ├── constants/              # Constants (routes, navigation, messages)
 └── hooks/                  # Custom hooks (useCart, useInfiniteScroll)
 
 supabase/
-├── migrations/             # SQL migrations (timestamped, 100+ files)
+├── migrations/             # SQL migrations (timestamped, 130+ files)
 └── seed.sql                # Seed data for testing
 
 tests/
@@ -187,6 +188,7 @@ Key functions across `supabase/migrations/`:
 - `get_dashboard_stats_*()`: Role-specific dashboard statistics
 - `get_admin_event_summary()`: Admin event history aggregation
 - `get_history_summary()`: Organization history with cursor-based pagination
+- `get_admin_event_summary_cursor()` / `get_history_summary_cursor()`: High-performance cursor variants (custom types in `database.types.ts`)
 
 ### Organization Types and Routes
 
@@ -260,12 +262,16 @@ import type { ApiResponse } from '@/types/api.types';
 - `eslint-disable` 주석으로 타입 관련 규칙 비활성화
 
 **올바른 해결책**:
-1. **새 RPC 함수 추가 시**: `npm run gen:types`로 database.types.ts 재생성
+1. **새 RPC 함수 추가 시**: `npm run gen:types`로 database-generated.types.ts 재생성
 2. **타입 불일치 시**: 실제 타입 정의를 수정하거나 확장
 3. **해결이 어려운 경우**: 사용자에게 상황을 설명하고 지침을 요청
 
 ```bash
 # RPC 함수 추가 후 타입 재생성
 npx supabase start  # 로컬 Supabase 실행 필요
-npm run gen:types   # database.types.ts 자동 생성
+npm run gen:types   # database-generated.types.ts 자동 생성
 ```
+
+**Custom RPC 함수 타입 추가 시**:
+- `npm run gen:types`가 생성하지 못하는 복잡한 RPC 함수는 `src/types/database.types.ts`에 직접 정의
+- `MergeDeep`을 사용하여 생성된 타입과 병합 (예: `get_history_summary_cursor`)
