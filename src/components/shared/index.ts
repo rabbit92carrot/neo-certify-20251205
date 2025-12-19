@@ -12,3 +12,4 @@ export { CartDisplay } from './CartDisplay';
 export { CollapsibleCard } from './CollapsibleCard';
 export { ProductCard } from './ProductCard';
 export { AsyncStatCard } from './AsyncStatCard';
+export { HistoryPageWrapper } from './HistoryPageWrapper';

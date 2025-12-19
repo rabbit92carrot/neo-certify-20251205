@@ -357,3 +357,68 @@ export type UpsertLotResult = z.infer<typeof UpsertLotResultSchema>;
 export type TreatmentSummaryRow = z.infer<typeof TreatmentSummaryRowSchema>;
 export type HospitalPatientRow = z.infer<typeof HospitalPatientRowSchema>;
 export type ShipmentBatchSummaryRow = z.infer<typeof ShipmentBatchSummaryRowSchema>;
+
+// ============================================================================
+// Cursor Pagination Schemas
+// ============================================================================
+
+/**
+ * 관리자 이벤트 요약 커서 기반 스키마
+ * RPC: get_admin_event_summary_cursor
+ *
+ * DB 함수 반환 구조 (20251219000003_add_cursor_pagination_support.sql):
+ * - AdminEventSummaryRowSchema 필드 + has_more (BOOLEAN)
+ */
+export const AdminEventSummaryCursorRowSchema = z.object({
+  group_key: z.string(),
+  event_time: z.string(),
+  action_type: z.string(),
+  from_owner_type: z.string().nullable(),
+  from_owner_id: z.string().nullable(),
+  to_owner_type: z.string().nullable(),
+  to_owner_id: z.string().nullable(),
+  is_recall: z.boolean(),
+  recall_reason: z.string().nullable(),
+  total_quantity: z.number(),
+  lot_summaries: z.array(z.object({
+    lotId: z.string().uuid(),
+    lotNumber: z.string(),
+    productId: z.string().uuid(),
+    productName: z.string(),
+    quantity: z.number(),
+  })).nullable(),
+  sample_code_ids: z.array(z.string().uuid()).nullable(),
+  has_more: z.boolean(),
+});
+
+export type AdminEventSummaryCursorRow = z.infer<typeof AdminEventSummaryCursorRowSchema>;
+
+/**
+ * 이력 요약 커서 기반 스키마
+ * RPC: get_history_summary_cursor
+ *
+ * DB 함수 반환 구조 (20251219000003_add_cursor_pagination_support.sql):
+ * - HistorySummaryRowSchema 필드 + has_more (BOOLEAN)
+ */
+export const HistorySummaryCursorRowSchema = z.object({
+  group_key: z.string(),
+  action_type: z.string(),
+  from_owner_type: z.string().nullable(),
+  from_owner_id: z.string().nullable(),
+  from_owner_name: z.string().nullable(),
+  to_owner_type: z.string().nullable(),
+  to_owner_id: z.string().nullable(),
+  to_owner_name: z.string().nullable(),
+  is_recall: z.boolean(),
+  recall_reason: z.string().nullable(),
+  created_at: z.string(),
+  total_quantity: z.number(),
+  product_summaries: z.array(z.object({
+    productId: z.string().uuid(),
+    productName: z.string(),
+    quantity: z.number(),
+  })).nullable(),
+  has_more: z.boolean(),
+});
+
+export type HistorySummaryCursorRow = z.infer<typeof HistorySummaryCursorRowSchema>;

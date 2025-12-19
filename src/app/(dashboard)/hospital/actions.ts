@@ -8,10 +8,12 @@
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/services/auth.service';
 import * as treatmentService from '@/services/treatment.service';
+import * as historyService from '@/services/history.service';
 import { treatmentCreateSchema, treatmentRecallSchema } from '@/lib/validations/treatment';
 import { normalizePhoneNumber } from '@/lib/validations/common';
-import type { ApiResponse } from '@/types/api.types';
+import type { ApiResponse, HistoryActionType } from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
+import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
 
 // ============================================================================
 // 헬퍼 함수
@@ -167,4 +169,37 @@ export async function recallTreatmentAction(
   }
 
   return result;
+}
+
+// ============================================================================
+// 거래 이력 Actions (커서 기반 페이지네이션)
+// ============================================================================
+
+/**
+ * 병원 거래이력 조회 (커서 기반)
+ * 입고, 시술, 회수 이력을 무한 스크롤로 조회합니다.
+ */
+export async function getHospitalHistoryCursorAction(
+  query: {
+    actionTypes?: HistoryActionType[];
+    startDate?: string;
+    endDate?: string;
+    isRecall?: boolean;
+    limit?: number;
+    cursorTime?: string;
+    cursorKey?: string;
+  }
+): Promise<ApiResponse<CursorPaginatedHistory>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return historyService.getHospitalHistoryCursor(organizationId, query as HistoryCursorQuery);
 }
