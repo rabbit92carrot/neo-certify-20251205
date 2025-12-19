@@ -280,6 +280,38 @@ export async function getRecallHistoryAction(query: {
   });
 }
 
+/**
+ * 회수 이력 조회 Action (커서 기반 무한 스크롤)
+ */
+export async function getRecallHistoryCursorAction(query: {
+  startDate?: string;
+  endDate?: string;
+  type?: 'shipment' | 'treatment' | 'all';
+  limit?: number;
+  cursorTime?: string;
+  cursorKey?: string;
+}) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false as const,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getRecallHistoryCursor({
+    startDate: query.startDate,
+    endDate: query.endDate,
+    type: query.type ?? 'all',
+    limit: query.limit ?? 20,
+    cursorTime: query.cursorTime,
+    cursorKey: query.cursorKey,
+  });
+}
+
 // ============================================================================
 // 관리자 이력 Actions
 // ============================================================================
@@ -356,6 +388,44 @@ export async function getAllProductsForSelectAction() {
   }
 
   return adminService.getAllProductsForSelect();
+}
+
+/**
+ * 조직 검색 Action (Lazy Load용)
+ * 검색어 기반으로 조직을 검색합니다.
+ */
+export async function searchOrganizationsAction(query: string, limit: number = 20) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.searchOrganizations(query, limit);
+}
+
+/**
+ * 제품 검색 Action (Lazy Load용)
+ * 검색어 기반으로 제품을 검색합니다.
+ */
+export async function searchProductsAction(query: string, limit: number = 20) {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.searchProducts(query, limit);
 }
 
 // ============================================================================

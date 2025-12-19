@@ -2,23 +2,21 @@
 
 /**
  * 관리자 이력 페이지 래퍼 컴포넌트
- * 커서 기반 무한 스크롤 + CSV 다운로드
+ * 전통적 페이지네이션 + CSV 다운로드
  *
  * 성능 최적화:
- * - 커서 기반 페이지네이션 (OFFSET 대비 10-50배 성능 향상)
+ * - 커서 기반 페이지네이션 내부 사용 (OFFSET 대비 10-50배 성능 향상)
  * - 조직/제품 목록 캐싱 (첫 로드 시 1회만 조회)
- * - count 쿼리 제거 (hasMore 플래그로 대체)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Download, Loader2, RefreshCw } from 'lucide-react';
+import { Download, Loader2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { AdminEventSummaryTable } from '@/components/tables/AdminEventSummaryTable';
 import { AdminEventSummaryFilter } from '@/components/shared/AdminEventSummaryFilter';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { generateCsvString, downloadCsv, formatDateTimeKorea } from '@/lib/utils';
-import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import {
   getAdminEventSummaryCursorAction,
   getAllOrganizationsForSelectAction,
@@ -38,6 +36,12 @@ interface CsvItem {
   productNames: string;
   isRecall: string;
   [key: string]: string | number;
+}
+
+// 페이지별 커서 캐시 타입
+interface PageCursor {
+  time?: string;
+  key?: string;
 }
 
 interface HistoryTableWrapperProps {
@@ -65,23 +69,25 @@ export function HistoryTableWrapper({
   // 이벤트 데이터 상태
   const [events, setEvents] = useState<AdminEventSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(true);
 
   // 필터 데이터 (캐싱됨)
   const [organizations, setOrganizations] = useState<
     { id: string; name: string; type: OrganizationType }[]
   >([]);
   const [products, setProducts] = useState<
-    { id: string; name: string; manufacturerName: string }[]
+    { id: string; name: string; modelName: string; manufacturerName: string }[]
   >([]);
 
   // CSV 로딩 상태
   const [csvLoading, setCsvLoading] = useState(false);
 
-  // 커서 상태
-  const cursorRef = useRef<{ time?: string; key?: string }>({});
+  // 페이지별 커서 캐시 (이전 페이지로 돌아갈 때 사용)
+  const pageCursorsRef = useRef<Map<number, PageCursor>>(new Map());
 
   // 필터 데이터 캐시 (마운트 간 유지)
   const filterDataLoadedRef = useRef(false);
@@ -124,116 +130,83 @@ export function HistoryTableWrapper({
   }, []);
 
   /**
-   * 첫 페이지 로드
+   * 특정 페이지 로드
    */
-  const loadFirst = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    cursorRef.current = {};
+  const loadPage = useCallback(
+    async (page: number) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const result = await getAdminEventSummaryCursorAction({
-        startDate,
-        endDate,
-        actionTypes: actionTypesArray,
-        lotNumber,
-        organizationId,
-        productId,
-        includeRecalled,
-        limit: PAGE_SIZE,
-      });
+      try {
+        // 페이지 1은 커서 없이, 그 외는 해당 페이지의 커서 사용
+        const cursor = page === 1 ? {} : pageCursorsRef.current.get(page) || {};
 
-      if (result.success && result.data) {
-        setEvents(result.data.items);
-        setHasMore(result.data.meta.hasMore);
+        const result = await getAdminEventSummaryCursorAction({
+          startDate,
+          endDate,
+          actionTypes: actionTypesArray,
+          lotNumber,
+          organizationId,
+          productId,
+          includeRecalled,
+          limit: PAGE_SIZE,
+          cursorTime: cursor.time,
+          cursorKey: cursor.key,
+        });
 
-        // 다음 커서 저장
-        const lastItem = result.data.items.at(-1);
-        if (lastItem) {
-          cursorRef.current = {
-            time: lastItem.eventTime,
-            key: lastItem.id,
-          };
+        if (result.success && result.data) {
+          setEvents(result.data.items);
+          setHasNextPage(result.data.meta.hasMore);
+          setCurrentPage(page);
+
+          // 다음 페이지 커서 저장
+          const lastItem = result.data.items.at(-1);
+          if (lastItem && result.data.meta.hasMore) {
+            pageCursorsRef.current.set(page + 1, {
+              time: lastItem.eventTime,
+              key: lastItem.id,
+            });
+          }
+        } else {
+          setError(result.error?.message || '데이터를 불러오는데 실패했습니다.');
         }
-      } else {
-        setError(result.error?.message || '데이터를 불러오는데 실패했습니다.');
+      } catch {
+        setError('데이터를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      setError('데이터를 불러오는데 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [startDate, endDate, actionTypesArray, lotNumber, organizationId, productId, includeRecalled]);
+    },
+    [startDate, endDate, actionTypesArray, lotNumber, organizationId, productId, includeRecalled]
+  );
 
   /**
-   * 다음 페이지 로드
+   * 필터 변경 시 리셋
    */
-  const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore) {
-      return;
-    }
-
-    setIsLoadingMore(true);
-
-    try {
-      const result = await getAdminEventSummaryCursorAction({
-        startDate,
-        endDate,
-        actionTypes: actionTypesArray,
-        lotNumber,
-        organizationId,
-        productId,
-        includeRecalled,
-        limit: PAGE_SIZE,
-        cursorTime: cursorRef.current.time,
-        cursorKey: cursorRef.current.key,
-      });
-
-      if (result.success && result.data) {
-        const { items, meta } = result.data;
-        setEvents((prev) => [...prev, ...items]);
-        setHasMore(meta.hasMore);
-
-        // 다음 커서 저장
-        const lastItem = items.at(-1);
-        if (lastItem) {
-          cursorRef.current = {
-            time: lastItem.eventTime,
-            key: lastItem.id,
-          };
-        }
-      }
-    } catch {
-      toast.error('추가 데이터를 불러오는데 실패했습니다.');
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [
-    isLoadingMore,
-    hasMore,
-    startDate,
-    endDate,
-    actionTypesArray,
-    lotNumber,
-    organizationId,
-    productId,
-    includeRecalled,
-  ]);
-
-  // 무한 스크롤 설정
-  const { observerRef } = useInfiniteScroll({
-    isLoading: isLoadingMore,
-    hasMore,
-    onLoadMore: loadMore,
-    rootMargin: '200px',
-  });
-
-  // 초기 로드 및 필터 변경 시 리셋
   useEffect(() => {
+    pageCursorsRef.current.clear();
+    setCurrentPage(1);
     void loadFilterData();
-    void loadFirst();
+    void loadPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey]);
+
+  /**
+   * 이전 페이지
+   */
+  const handlePrevPage = useCallback(() => {
+    if (currentPage > 1) {
+      void loadPage(currentPage - 1);
+    }
+  }, [currentPage, loadPage]);
+
+  /**
+   * 다음 페이지
+   */
+  const handleNextPage = useCallback(() => {
+    if (hasNextPage) {
+      void loadPage(currentPage + 1);
+    }
+  }, [hasNextPage, currentPage, loadPage]);
 
   // CSV 다운로드
   const handleCsvDownload = useCallback(async () => {
@@ -287,11 +260,12 @@ export function HistoryTableWrapper({
 
   // 새로고침
   const handleRefresh = useCallback(() => {
-    void loadFirst();
-  }, [loadFirst]);
+    pageCursorsRef.current.clear();
+    void loadPage(1);
+  }, [loadPage]);
 
   // 초기 로딩 상태
-  if (isLoading && events.length === 0) {
+  if (isLoading && events.length === 0 && currentPage === 1) {
     return <LoadingSpinner />;
   }
 
@@ -319,8 +293,7 @@ export function HistoryTableWrapper({
           {events.length > 0 && (
             <>
               <span className="font-medium text-foreground">{events.length.toLocaleString()}</span>
-              건 로드됨
-              {hasMore && ' (스크롤하여 더 보기)'}
+              건 (페이지 {currentPage})
             </>
           )}
         </div>
@@ -350,16 +323,37 @@ export function HistoryTableWrapper({
       </div>
 
       {/* 테이블 */}
-      <AdminEventSummaryTable events={events} />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <AdminEventSummaryTable events={events} />
+      )}
 
-      {/* 무한 스크롤 트리거 */}
-      <div ref={observerRef} className="h-10 flex items-center justify-center">
-        {isLoadingMore && (
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        )}
-        {!hasMore && events.length > 0 && (
-          <p className="text-sm text-muted-foreground">모든 데이터를 불러왔습니다.</p>
-        )}
+      {/* 페이지네이션 */}
+      <div className="flex items-center justify-center gap-4 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePrevPage}
+          disabled={currentPage === 1 || isLoading}
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          이전
+        </Button>
+        <span className="text-sm text-muted-foreground">
+          페이지 <span className="font-medium text-foreground">{currentPage}</span>
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleNextPage}
+          disabled={!hasNextPage || isLoading}
+        >
+          다음
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
       </div>
     </div>
   );

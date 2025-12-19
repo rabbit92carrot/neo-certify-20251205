@@ -3,17 +3,24 @@
 /**
  * 관리자 이벤트 요약 필터 컴포넌트
  * 기간, 이벤트 타입, Lot 번호, 조직, 제품 필터
+ *
+ * 성능 최적화:
+ * - 조직/제품 필터: Lazy Load 방식 (2글자 이상 입력 시 서버 검색)
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar, Search, X, Filter, Building2, Hospital, Factory } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import {
+  SearchableCombobox,
+  type SearchableComboboxOption,
+} from '@/components/ui/searchable-combobox';
 import {
   Popover,
   PopoverContent,
@@ -23,6 +30,10 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import {
+  searchOrganizationsAction,
+  searchProductsAction,
+} from '@/app/(dashboard)/admin/actions';
 import type { OrganizationType } from '@/types/api.types';
 
 // 이벤트 타입 정의
@@ -37,7 +48,7 @@ const EVENT_TYPE_OPTIONS = [
 
 interface AdminEventSummaryFilterProps {
   organizations: { id: string; name: string; type: OrganizationType }[];
-  products: { id: string; name: string; manufacturerName: string }[];
+  products: { id: string; name: string; modelName: string; manufacturerName: string }[];
 }
 
 export function AdminEventSummaryFilter({
@@ -47,9 +58,9 @@ export function AdminEventSummaryFilter({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 필터 상태
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>();
+  // 필터 상태 (기본값: 3일 전~오늘)
+  const [startDate, setStartDate] = useState<Date | undefined>(() => subDays(new Date(), 3));
+  const [endDate, setEndDate] = useState<Date | undefined>(() => new Date());
   const [actionTypes, setActionTypes] = useState<string[]>([]);
   const [lotNumber, setLotNumber] = useState<string>('');
   const [organizationId, setOrganizationId] = useState<string>('');
@@ -65,8 +76,9 @@ export function AdminEventSummaryFilter({
 
       const start = searchParams.get('startDate');
       const end = searchParams.get('endDate');
-      setStartDate(start ? new Date(start) : undefined);
-      setEndDate(end ? new Date(end) : undefined);
+      // URL에 날짜가 없으면 기본값 (3일 전~오늘) 사용
+      setStartDate(start ? new Date(start) : subDays(new Date(), 3));
+      setEndDate(end ? new Date(end) : new Date());
 
       // actionTypes는 콤마로 구분된 문자열
       const types = searchParams.get('actionTypes');
@@ -99,10 +111,10 @@ export function AdminEventSummaryFilter({
     router.push(`/admin/history?${params.toString()}`);
   }, [startDate, endDate, actionTypes, lotNumber, organizationId, productId, includeRecalled, router]);
 
-  // 필터 초기화
+  // 필터 초기화 (기본값: 3일 전~오늘로 리셋)
   const resetFilters = useCallback(() => {
-    setStartDate(undefined);
-    setEndDate(undefined);
+    setStartDate(subDays(new Date(), 3));
+    setEndDate(new Date());
     setActionTypes([]);
     setLotNumber('');
     setOrganizationId('');
@@ -141,30 +153,62 @@ export function AdminEventSummaryFilter({
     }
   }, []);
 
-  // 조직 옵션 (출발지/도착지 통합)
-  const organizationOptions: ComboboxOption[] = useMemo(
-    () => [
-      { value: '', label: '전체' },
-      ...organizations.map((org) => ({
-        value: org.id,
-        label: org.name,
-        icon: getOrgIcon(org.type),
-      })),
-    ],
-    [organizations, getOrgIcon]
+  // 조직 검색 함수 (Lazy Load)
+  const handleOrganizationSearch = useCallback(
+    async (query: string): Promise<SearchableComboboxOption[]> => {
+      const result = await searchOrganizationsAction(query, 20);
+      if (result.success && result.data) {
+        return result.data.map((org) => ({
+          value: org.id,
+          label: org.name,
+          icon: getOrgIcon(org.type),
+        }));
+      }
+      return [];
+    },
+    [getOrgIcon]
   );
 
-  // 제품 옵션
-  const productOptions: ComboboxOption[] = useMemo(
-    () => [
-      { value: '', label: '전체' },
-      ...products.map((product) => ({
-        value: product.id,
-        label: product.name,
-        description: product.manufacturerName,
-      })),
-    ],
-    [products]
+  // 제품 검색 함수 (Lazy Load)
+  const handleProductSearch = useCallback(
+    async (query: string): Promise<SearchableComboboxOption[]> => {
+      const result = await searchProductsAction(query, 20);
+      if (result.success && result.data) {
+        return result.data.map((product) => ({
+          value: product.id,
+          label: product.modelName,
+          description: `${product.name} · ${product.manufacturerName}`,
+        }));
+      }
+      return [];
+    },
+    []
+  );
+
+  // 초기 조직 옵션 (이미 선택된 값 표시용)
+  const initialOrgOptions: SearchableComboboxOption[] = useMemo(
+    () =>
+      organizations
+        .filter((org) => org.id === organizationId)
+        .map((org) => ({
+          value: org.id,
+          label: org.name,
+          icon: getOrgIcon(org.type),
+        })),
+    [organizations, organizationId, getOrgIcon]
+  );
+
+  // 초기 제품 옵션 (이미 선택된 값 표시용)
+  const initialProductOptions: SearchableComboboxOption[] = useMemo(
+    () =>
+      products
+        .filter((product) => product.id === productId)
+        .map((product) => ({
+          value: product.id,
+          label: product.modelName,
+          description: `${product.name} · ${product.manufacturerName}`,
+        })),
+    [products, productId]
   );
 
   // 회수 이력 옵션
@@ -262,27 +306,35 @@ export function AdminEventSummaryFilter({
           />
         </div>
 
-        {/* 조직 (출발지/도착지 통합) */}
+        {/* 조직 (Lazy Load 검색) */}
         <div className="space-y-2">
           <Label className="text-xs">관련 조직</Label>
-          <Combobox
-            options={organizationOptions}
+          <SearchableCombobox
             value={organizationId}
             onValueChange={setOrganizationId}
+            onSearch={handleOrganizationSearch}
+            defaultOption={{ value: '', label: '전체' }}
+            initialOptions={initialOrgOptions}
             placeholder="전체"
-            searchPlaceholder="조직명 검색..."
+            searchPlaceholder="조직명 검색 (2자 이상)..."
+            emptyMessage="검색 결과가 없습니다."
+            minCharsMessage="2글자 이상 입력하세요."
           />
         </div>
 
-        {/* 제품 종류 */}
+        {/* 제품 종류 (Lazy Load 검색) */}
         <div className="space-y-2">
           <Label className="text-xs">제품 종류</Label>
-          <Combobox
-            options={productOptions}
+          <SearchableCombobox
             value={productId}
             onValueChange={setProductId}
+            onSearch={handleProductSearch}
+            defaultOption={{ value: '', label: '전체' }}
+            initialOptions={initialProductOptions}
             placeholder="전체"
-            searchPlaceholder="제품 검색..."
+            searchPlaceholder="제품 검색 (2자 이상)..."
+            emptyMessage="검색 결과가 없습니다."
+            minCharsMessage="2글자 이상 입력하세요."
           />
         </div>
 
