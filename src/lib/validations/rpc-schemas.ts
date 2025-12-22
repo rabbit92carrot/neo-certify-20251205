@@ -453,3 +453,52 @@ export const AllRecallsCursorRowSchema = z.object({
 });
 
 export type AllRecallsCursorRow = z.infer<typeof AllRecallsCursorRowSchema>;
+
+// ============================================================================
+// Hospital Known Products Schemas
+// ============================================================================
+
+/**
+ * 병원 Known Products 조회 결과 스키마
+ * RPC: get_hospital_known_products
+ */
+export const HospitalKnownProductRowSchema = z.object({
+  id: z.string().uuid(),
+  product_id: z.string().uuid(),
+  product_name: z.string(),
+  model_name: z.string().nullable(),
+  udi_di: z.string().nullable(),
+  alias: z.string().nullable(),
+  is_active: z.boolean(),
+  first_received_at: z.string(),
+  current_inventory: z.number(),
+});
+
+export type HospitalKnownProductRow = z.infer<typeof HospitalKnownProductRowSchema>;
+
+/**
+ * 제품 설정 업데이트 결과 스키마
+ * RPC: update_hospital_product_settings
+ */
+export const UpdateHospitalProductSettingsResultSchema = z.object({
+  success: z.boolean(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+});
+
+export type UpdateHospitalProductSettingsResult = z.infer<typeof UpdateHospitalProductSettingsResultSchema>;
+
+/**
+ * 시술 등록용 활성 제품 조회 결과 스키마
+ * RPC: get_active_products_for_treatment
+ */
+export const ActiveProductForTreatmentRowSchema = z.object({
+  product_id: z.string().uuid(),
+  product_name: z.string(),
+  model_name: z.string().nullable(),
+  udi_di: z.string().nullable(),
+  alias: z.string().nullable(),
+  available_quantity: z.number(),
+});
+
+export type ActiveProductForTreatmentRow = z.infer<typeof ActiveProductForTreatmentRowSchema>;

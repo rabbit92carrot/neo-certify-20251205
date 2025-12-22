@@ -122,6 +122,7 @@ export type TreatmentRecord = Tables<'treatment_records'>;
 export type TreatmentDetail = Tables<'treatment_details'>;
 export type History = Tables<'histories'>;
 export type NotificationMessage = Tables<'notification_messages'>;
+export type HospitalKnownProductTable = Tables<'hospital_known_products'>;
 
 // ============================================================================
 // Enum 타입 별칭
@@ -214,6 +215,8 @@ export interface TreatmentDetailWithCode extends TreatmentDetail {
 export interface TreatmentItemSummary {
   productId: string;
   productName: string;
+  modelName?: string;
+  alias?: string | null;
   quantity: number;
 }
 
@@ -241,6 +244,13 @@ export interface InventorySummary {
 }
 
 /**
+ * 제품별 재고 요약 (별칭 포함)
+ */
+export interface InventorySummaryWithAlias extends InventorySummary {
+  alias: string | null;
+}
+
+/**
  * Lot별 재고 상세
  */
 export interface InventoryByLot {
@@ -258,6 +268,37 @@ export interface ProductInventoryDetail {
   product: Product;
   totalQuantity: number;
   byLot: InventoryByLot[];
+}
+
+// ============================================================================
+// 병원 제품 관리 타입
+// ============================================================================
+
+/**
+ * 병원의 Known Product (별칭, 활성화 상태 포함)
+ */
+export interface HospitalKnownProduct {
+  id: string;
+  productId: string;
+  productName: string;
+  modelName: string;
+  udiDi: string;
+  alias: string | null;
+  isActive: boolean;
+  firstReceivedAt: string;
+  currentInventory: number;
+}
+
+/**
+ * 시술 등록용 제품 (별칭 포함)
+ */
+export interface ProductForTreatment {
+  productId: string;
+  productName: string;
+  modelName: string;
+  udiDi: string;
+  alias: string | null;
+  availableQuantity: number;
 }
 
 // ============================================================================
