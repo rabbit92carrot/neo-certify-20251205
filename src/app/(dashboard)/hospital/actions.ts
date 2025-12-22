@@ -9,11 +9,13 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/services/auth.service';
 import * as treatmentService from '@/services/treatment.service';
 import * as historyService from '@/services/history.service';
+import * as hospitalProductService from '@/services/hospital-product.service';
 import { treatmentCreateSchema, treatmentRecallSchema } from '@/lib/validations/treatment';
 import { normalizePhoneNumber } from '@/lib/validations/common';
-import type { ApiResponse, HistoryActionType } from '@/types/api.types';
+import type { ApiResponse, HistoryActionType, HospitalKnownProduct, ProductForTreatment } from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
 import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
+import type { GetKnownProductsQuery } from '@/services/hospital-product.service';
 
 // ============================================================================
 // 헬퍼 함수
@@ -202,4 +204,95 @@ export async function getHospitalHistoryCursorAction(
   }
 
   return historyService.getHospitalHistoryCursor(organizationId, query as HistoryCursorQuery);
+}
+
+// ============================================================================
+// 제품 관리 Actions
+// ============================================================================
+
+/**
+ * 병원 Known Products 목록 조회 Action
+ * 입고받은 제품 목록 (별칭, 활성화 상태 포함)
+ */
+export async function getHospitalKnownProductsAction(
+  query?: GetKnownProductsQuery
+): Promise<ApiResponse<HospitalKnownProduct[]>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return hospitalProductService.getHospitalKnownProducts(organizationId, query);
+}
+
+/**
+ * 제품 설정 업데이트 Action (별칭, 활성화 상태)
+ */
+export async function updateHospitalProductSettingsAction(
+  productId: string,
+  settings: { alias?: string | null; isActive?: boolean }
+): Promise<ApiResponse<void>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await hospitalProductService.updateHospitalProductSettings(
+    organizationId,
+    productId,
+    settings
+  );
+
+  if (result.success) {
+    revalidatePath('/hospital/settings');
+    revalidatePath('/hospital/treatment');
+  }
+
+  return result;
+}
+
+/**
+ * 별칭 중복 체크 Action
+ */
+export async function checkAliasExistsAction(
+  alias: string,
+  excludeProductId?: string
+): Promise<boolean> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return false;
+  }
+
+  return hospitalProductService.checkAliasExists(organizationId, alias, excludeProductId);
+}
+
+/**
+ * 시술 등록용 활성 제품 목록 조회 Action
+ * 재고가 있고 활성화된 제품만 반환 (별칭 포함)
+ */
+export async function getActiveProductsForTreatmentAction(): Promise<ApiResponse<ProductForTreatment[]>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return hospitalProductService.getActiveProductsForTreatment(organizationId);
 }
