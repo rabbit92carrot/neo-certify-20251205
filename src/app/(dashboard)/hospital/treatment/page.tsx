@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
-import { getAvailableProductsForShipment } from '@/services/inventory.service';
+import { getActiveProductsForTreatment } from '@/services/hospital-product.service';
 import { PageHeader } from '@/components/shared';
 import { TreatmentForm } from '@/components/forms/TreatmentForm';
 import { createTreatmentAction } from '../actions';
@@ -20,8 +20,8 @@ export default async function HospitalTreatmentPage(): Promise<React.ReactElemen
     redirect('/login');
   }
 
-  // 시술 가능한 제품 목록 조회 (재고가 있는 제품)
-  const productsResult = await getAvailableProductsForShipment(user.organization.id);
+  // 시술 가능한 제품 목록 조회 (활성화된 제품 + 재고가 있는 제품)
+  const productsResult = await getActiveProductsForTreatment(user.organization.id);
   const products = productsResult.success ? productsResult.data! : [];
 
   return (

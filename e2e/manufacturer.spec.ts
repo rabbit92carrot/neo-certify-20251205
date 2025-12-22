@@ -20,8 +20,15 @@ test.describe('제조사 대시보드', () => {
   });
 
   test('통계 카드에 숫자가 표시된다', async ({ page }) => {
+    // 대시보드 통계 로딩 완료 대기 (스켈레톤이 사라지고 실제 값이 표시될 때까지)
+    // 통계 카드 제목이 보이면 카드 자체는 렌더링된 것
+    await expect(page.locator('text=총 재고량')).toBeVisible({ timeout: 15000 });
+
     // 통계 값이 숫자로 표시되는지 확인 (text-2xl font-bold 클래스)
+    // 로딩 완료 대기: 첫 번째 통계 값이 나타날 때까지
     const statValues = page.locator('.text-2xl.font-bold');
+    await expect(statValues.first()).toBeVisible({ timeout: 15000 });
+
     const count = await statValues.count();
 
     expect(count).toBeGreaterThanOrEqual(4);

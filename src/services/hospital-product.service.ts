@@ -1,0 +1,276 @@
+/**
+ * 병원 제품 관리 서비스
+ *
+ * 병원의 known products (입고받은 제품) 관리 기능을 제공합니다:
+ * - known products 목록 조회 (검색, 필터링)
+ * - 제품 별칭 설정/삭제
+ * - 제품 활성화/비활성화
+ * - 시술 등록용 활성 제품 조회
+ */
+
+import { createClient } from '@/lib/supabase/server';
+import type { ApiResponse, HospitalKnownProduct, ProductForTreatment } from '@/types/api.types';
+import {
+  createSuccessResponse,
+  createErrorResponse,
+  handlePostgrestError,
+} from './common.service';
+import { parseRpcArray, parseRpcSingle } from './common.service';
+import {
+  HospitalKnownProductRowSchema,
+  UpdateHospitalProductSettingsResultSchema,
+  ActiveProductForTreatmentRowSchema,
+} from '@/lib/validations/rpc-schemas';
+
+// ============================================================================
+// 타입 정의
+// ============================================================================
+
+/**
+ * Known Products 조회 쿼리 파라미터
+ */
+export interface GetKnownProductsQuery {
+  search?: string;
+  aliasFilter?: 'with_alias' | 'without_alias';
+  activeFilter?: boolean;
+}
+
+/**
+ * 제품 설정 업데이트 파라미터
+ */
+export interface UpdateProductSettingsParams {
+  alias?: string | null;
+  isActive?: boolean;
+}
+
+// ============================================================================
+// 병원 Known Products 조회
+// ============================================================================
+
+/**
+ * 병원의 known products 목록 조회
+ *
+ * @param hospitalId - 병원 조직 ID
+ * @param query - 검색/필터링 조건
+ * @returns Known products 목록
+ */
+export async function getHospitalKnownProducts(
+  hospitalId: string,
+  query?: GetKnownProductsQuery
+): Promise<ApiResponse<HospitalKnownProduct[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('get_hospital_known_products', {
+    p_hospital_id: hospitalId,
+    p_search: query?.search ?? undefined,
+    p_alias_filter: query?.aliasFilter ?? undefined,
+    p_active_filter: query?.activeFilter ?? undefined,
+  });
+
+  if (error) {
+    console.error('[hospital-product.service] getHospitalKnownProducts error:', error);
+    return handlePostgrestError(error, '제품 목록 조회에 실패했습니다.');
+  }
+
+  // RPC 결과 검증
+  const parsed = parseRpcArray(
+    HospitalKnownProductRowSchema,
+    data,
+    'get_hospital_known_products'
+  );
+
+  if (!parsed.success) {
+    console.error('[hospital-product.service] RPC validation failed:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  // 결과 변환
+  const products: HospitalKnownProduct[] = parsed.data.map((row) => ({
+    id: row.id,
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name || '',
+    udiDi: row.udi_di || '',
+    alias: row.alias,
+    isActive: row.is_active,
+    firstReceivedAt: row.first_received_at,
+    currentInventory: row.current_inventory,
+  }));
+
+  return createSuccessResponse(products);
+}
+
+// ============================================================================
+// 제품 설정 업데이트
+// ============================================================================
+
+/**
+ * 제품 설정 업데이트 (별칭, 활성화 상태)
+ *
+ * @param hospitalId - 병원 조직 ID
+ * @param productId - 제품 ID
+ * @param settings - 업데이트할 설정 (별칭, 활성화)
+ * @returns 업데이트 결과
+ */
+export async function updateHospitalProductSettings(
+  hospitalId: string,
+  productId: string,
+  settings: UpdateProductSettingsParams
+): Promise<ApiResponse<void>> {
+  const supabase = await createClient();
+
+  // alias: null → 빈 문자열('')로 변환 (RPC에서 빈 문자열을 NULL로 처리)
+  // alias: undefined → RPC 파라미터 생략 (기존 값 유지)
+  // alias: 'value' → 해당 값으로 업데이트
+  const aliasParam = settings.alias === null ? '' : settings.alias;
+
+  const { data, error } = await supabase.rpc('update_hospital_product_settings', {
+    p_hospital_id: hospitalId,
+    p_product_id: productId,
+    p_alias: aliasParam,
+    p_is_active: settings.isActive,
+  });
+
+  if (error) {
+    console.error('[hospital-product.service] updateHospitalProductSettings error:', error);
+    return handlePostgrestError(error, '설정 저장에 실패했습니다.');
+  }
+
+  // RPC 결과 검증
+  const parsed = parseRpcSingle(
+    UpdateHospitalProductSettingsResultSchema,
+    data,
+    'update_hospital_product_settings'
+  );
+
+  if (!parsed.success) {
+    console.error('[hospital-product.service] RPC validation failed:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  if (!parsed.data) {
+    return createErrorResponse('VALIDATION_ERROR', '알 수 없는 오류');
+  }
+
+  // DB 함수 에러 응답 처리
+  if (!parsed.data.success) {
+    return createErrorResponse(
+      parsed.data.error_code || 'UPDATE_FAILED',
+      parsed.data.error_message || '설정 저장에 실패했습니다.'
+    );
+  }
+
+  return createSuccessResponse(undefined);
+}
+
+// ============================================================================
+// 별칭 중복 체크
+// ============================================================================
+
+/**
+ * 별칭 중복 여부 확인
+ *
+ * @param hospitalId - 병원 조직 ID
+ * @param alias - 확인할 별칭
+ * @param excludeProductId - 중복 체크에서 제외할 제품 ID (수정 시)
+ * @returns 중복 여부 (true = 중복)
+ */
+export async function checkAliasExists(
+  hospitalId: string,
+  alias: string,
+  excludeProductId?: string
+): Promise<boolean> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('check_hospital_alias_duplicate', {
+    p_hospital_id: hospitalId,
+    p_alias: alias,
+    p_exclude_product_id: excludeProductId ?? undefined,
+  });
+
+  if (error) {
+    console.error('[hospital-product.service] checkAliasExists error:', error);
+    return false; // 에러 시 중복 아님으로 처리 (저장 시 DB 제약조건에서 잡힘)
+  }
+
+  return data === true;
+}
+
+// ============================================================================
+// 시술 등록용 제품 조회
+// ============================================================================
+
+/**
+ * 시술 등록용 활성 제품 목록 조회
+ * - 재고가 있고 활성화된 제품만 반환
+ * - 별칭 정보 포함
+ *
+ * @param hospitalId - 병원 조직 ID
+ * @returns 시술 등록 가능한 제품 목록
+ */
+export async function getActiveProductsForTreatment(
+  hospitalId: string
+): Promise<ApiResponse<ProductForTreatment[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('get_active_products_for_treatment', {
+    p_hospital_id: hospitalId,
+  });
+
+  if (error) {
+    console.error('[hospital-product.service] getActiveProductsForTreatment error:', error);
+    return handlePostgrestError(error, '제품 목록 조회에 실패했습니다.');
+  }
+
+  // RPC 결과 검증
+  const parsed = parseRpcArray(
+    ActiveProductForTreatmentRowSchema,
+    data,
+    'get_active_products_for_treatment'
+  );
+
+  if (!parsed.success) {
+    console.error('[hospital-product.service] RPC validation failed:', parsed.error);
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  // 결과 변환
+  const products: ProductForTreatment[] = parsed.data.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name || '',
+    udiDi: row.udi_di || '',
+    alias: row.alias,
+    availableQuantity: row.available_quantity,
+  }));
+
+  return createSuccessResponse(products);
+}
+
+// ============================================================================
+// 유틸리티 함수
+// ============================================================================
+
+/**
+ * 제품 표시명 반환 (별칭 우선)
+ *
+ * @param alias - 별칭 (nullable)
+ * @param productName - 제품명
+ * @param modelName - 모델명
+ * @returns 표시할 제품명
+ */
+export function getProductDisplayName(
+  alias: string | null,
+  productName: string,
+  modelName?: string
+): { primary: string; secondary: string | null } {
+  if (alias) {
+    // 별칭이 있으면 별칭을 메인으로, 원본 정보를 서브로
+    const secondary = modelName ? `${productName} · ${modelName}` : productName;
+    return { primary: alias, secondary };
+  }
+
+  // 별칭이 없으면 제품명 (모델명) 형태
+  const primary = modelName ? `${productName} (${modelName})` : productName;
+  return { primary, secondary: null };
+}

@@ -115,6 +115,54 @@ export type Database = {
           },
         ]
       }
+      hospital_known_products: {
+        Row: {
+          alias: string | null
+          created_at: string
+          first_received_at: string
+          hospital_id: string
+          id: string
+          is_active: boolean
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          alias?: string | null
+          created_at?: string
+          first_received_at?: string
+          hospital_id: string
+          id?: string
+          is_active?: boolean
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          alias?: string | null
+          created_at?: string
+          first_received_at?: string
+          hospital_id?: string
+          id?: string
+          is_active?: boolean
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hospital_known_products_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hospital_known_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inactive_product_usage_logs: {
         Row: {
           acknowledged_at: string | null
@@ -711,6 +759,14 @@ export type Database = {
         Args: { p_additional_quantity: number; p_lot_id: string }
         Returns: number
       }
+      check_hospital_alias_duplicate: {
+        Args: {
+          p_alias: string
+          p_exclude_product_id?: string
+          p_hospital_id: string
+        }
+        Returns: boolean
+      }
       count_unique_patients: {
         Args: { p_hospital_id: string }
         Returns: number
@@ -783,6 +839,17 @@ export type Database = {
       }
       generate_virtual_code: { Args: never; Returns: string }
       generate_virtual_code_v2: { Args: never; Returns: string }
+      get_active_products_for_treatment: {
+        Args: { p_hospital_id: string }
+        Returns: {
+          alias: string
+          available_quantity: number
+          model_name: string
+          product_id: string
+          product_name: string
+          udi_di: string
+        }[]
+      }
       get_admin_event_summary: {
         Args: {
           p_action_types?: string[]
@@ -877,6 +944,32 @@ export type Database = {
       get_all_recalls_count: {
         Args: { p_end_date?: string; p_start_date?: string; p_type?: string }
         Returns: number
+      }
+      get_all_recalls_cursor: {
+        Args: {
+          p_cursor_key?: string
+          p_cursor_time?: string
+          p_end_date?: string
+          p_limit?: number
+          p_start_date?: string
+          p_type?: string
+        }
+        Returns: {
+          code_ids: string[]
+          from_org_id: string
+          from_org_name: string
+          from_org_type: string
+          has_more: boolean
+          product_summary: Json
+          quantity: number
+          recall_date: string
+          recall_id: string
+          recall_reason: string
+          recall_type: string
+          to_id: string
+          to_name: string
+          to_type: string
+        }[]
       }
       get_dashboard_stats_admin: {
         Args: never
@@ -976,6 +1069,25 @@ export type Database = {
           to_owner_name: string
           to_owner_type: string
           total_quantity: number
+        }[]
+      }
+      get_hospital_known_products: {
+        Args: {
+          p_active_filter?: boolean
+          p_alias_filter?: string
+          p_hospital_id: string
+          p_search?: string
+        }
+        Returns: {
+          alias: string
+          current_inventory: number
+          first_received_at: string
+          id: string
+          is_active: boolean
+          model_name: string
+          product_id: string
+          product_name: string
+          udi_di: string
         }[]
       }
       get_hospital_patients: {
@@ -1184,6 +1296,19 @@ export type Database = {
         }
         Returns: {
           virtual_code_id: string
+        }[]
+      }
+      update_hospital_product_settings: {
+        Args: {
+          p_alias?: string
+          p_hospital_id: string
+          p_is_active?: boolean
+          p_product_id: string
+        }
+        Returns: {
+          error_code: string
+          error_message: string
+          success: boolean
         }[]
       }
       upsert_lot: {

@@ -537,6 +537,22 @@ export async function cleanupAllTestData(): Promise<void> {
       .in('organization_id', createdIds.organizations);
   }
 
+  // 8.5. Organization Alerts 삭제 (Organizations 삭제 전에 해야 함)
+  if (createdIds.organizations.length > 0) {
+    await adminClient
+      .from('organization_alerts')
+      .delete()
+      .in('recipient_org_id', createdIds.organizations);
+  }
+
+  // 8.6. Inactive Product Usage Logs 삭제
+  if (createdIds.products.length > 0) {
+    await adminClient
+      .from('inactive_product_usage_logs')
+      .delete()
+      .in('product_id', createdIds.products);
+  }
+
   // 9. Organizations 삭제
   if (createdIds.organizations.length > 0) {
     await adminClient

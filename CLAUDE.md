@@ -12,11 +12,12 @@ Neo-Certify (네오인증서) is a product authentication system for tracking PD
 
 ## Tech Stack
 
-- **Framework**: Next.js 16.0.8 (App Router) with React 19
+- **Framework**: Next.js 15 (App Router) with React 19
 - **Language**: TypeScript (strict mode)
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
 - **Styling**: Tailwind CSS 4 with shadcn/ui components
-- **Validation**: Zod schemas
+- **Forms**: react-hook-form 7 with @hookform/resolvers
+- **Validation**: Zod 4 (note: uses `z.object()` not `z.infer`, see migration guide)
 - **Testing**: Vitest (unit/integration), Playwright (E2E)
 
 ## Common Commands
@@ -61,21 +62,24 @@ npm run gen:types        # Generate TypeScript types from DB schema
 
 ```
 src/
-├── app/                    # Next.js App Router pages
+├── app/
 │   ├── (auth)/             # Auth pages (login, register)
 │   ├── (dashboard)/        # Protected dashboard pages by org type
-│   │   ├── manufacturer/   # Manufacturer pages
-│   │   ├── distributor/    # Distributor pages
-│   │   ├── hospital/       # Hospital pages
-│   │   └── admin/          # Admin pages
+│   │   ├── admin/          # Admin: dashboard, approvals, organizations, history, recalls, alerts, inbox
+│   │   ├── manufacturer/   # Manufacturer: dashboard, products, production, shipment, shipment-history, inventory, history, inbox, settings
+│   │   ├── distributor/    # Distributor: dashboard, shipment, shipment-history, inventory, history
+│   │   └── hospital/       # Hospital: dashboard, treatment, treatment-history, inventory, history
+│   ├── api/auth/           # API routes (logout)
 │   └── auth/callback/      # Supabase auth callback
 ├── components/
 │   ├── ui/                 # shadcn/ui base components
-│   ├── forms/              # Form components with react-hook-form
-│   ├── tables/             # Data table components
+│   ├── forms/              # Form components (lot/ subfolder for lot-specific forms)
+│   ├── tables/             # Data tables (admin-event/ subfolder for admin history)
 │   ├── layout/             # Layout components (DashboardLayout, Header)
-│   └── shared/             # Shared components (StatCard, DataTable, CartDisplay)
-├── services/               # Business logic (server-side)
+│   └── shared/             # Shared components (StatCard, DataTable, VirtualDataTable, CartDisplay, SearchableCombobox)
+├── services/
+│   ├── admin/              # Admin-specific services
+│   └── *.service.ts        # Domain services (auth, shipment, inventory, etc.)
 ├── lib/
 │   ├── supabase/           # Supabase client setup (client, server, admin)
 │   ├── validations/        # Zod validation schemas
@@ -86,10 +90,10 @@ src/
 │   ├── database-generated.types.ts # Auto-generated from Supabase (npm run gen:types)
 │   └── database.types.ts           # Extends generated types with custom RPC functions
 ├── constants/              # Constants (routes, navigation, messages)
-└── hooks/                  # Custom hooks (useCart, useInfiniteScroll)
+└── hooks/                  # Custom hooks (useCart, useAuth, useInfiniteScroll, useCursorPagination, useDebounce)
 
 supabase/
-├── migrations/             # SQL migrations (timestamped, 130+ files)
+├── migrations/             # SQL migrations (squashed - 6 files as of 2024-12-19)
 └── seed.sql                # Seed data for testing
 
 tests/
@@ -119,6 +123,7 @@ e2e/                        # Playwright E2E tests
 **Server Actions**
 - Located in `src/app/(dashboard)/*/actions.ts` per route group
 - Wrap service calls with auth checks and error handling
+- Pattern: `'use server'` → auth check → call service → return `ApiResponse<T>`
 
 **Type Flow**
 ```
@@ -134,6 +139,7 @@ Database Types (generated) → API Types (api.types.ts) → Service Output
 | `useAuth()` | User, organization, and manufacturerSettings state with auth subscription |
 | `useInfiniteScroll()` | Intersection Observer for triggering pagination loads |
 | `useCursorPagination()` | High-performance cursor-based pagination for large datasets (10K+ rows) |
+| `useDebounce()` | Delays value updates (e.g., search input to reduce API calls) |
 
 ### Common Service Utilities
 
@@ -170,34 +176,56 @@ Use these helpers from `common.service.ts` for consistency:
 
 ### Performance Patterns
 
-- **Cursor Pagination**: Use `useCursorPagination()` + `get_history_summary()` for datasets >1000 rows
-- **Virtual Tables**: Use `VirtualDataTable` (TanStack Virtual) for rendering 10K+ rows efficiently
+- **Cursor Pagination**: Use `useCursorPagination()` + `*_cursor` RPC functions for datasets >1000 rows
+- **Virtual Tables**: Use `VirtualDataTable` (`src/components/shared/`) with TanStack Virtual for rendering 10K+ rows
 - **N+1 Prevention**: Use `getOrganizationNames()` bulk fetch with caching instead of individual queries
 - **Memoization**: Memoize column definitions (`useMemo`) and row keys in table components
 - **FIFO Locking**: DB uses `FOR UPDATE SKIP LOCKED` for concurrent shipment safety
+- **Debouncing**: Use `useDebounce()` for search inputs to reduce API calls
 
 ### Database Functions (PostgreSQL)
 
-Key functions across `supabase/migrations/`:
-- `select_fifo_codes()`: FIFO-based virtual code selection with `FOR UPDATE SKIP LOCKED`
-- `is_recall_allowed()`: 24-hour recall window validation
+Key functions in `supabase/migrations/20251219210000_squashed.sql` (75 functions total):
+
+**Atomic Operations:**
+- `create_shipment_atomic()`: Atomic shipment with FIFO selection
+- `create_treatment_atomic()`: Atomic treatment record creation
+- `recall_shipment_atomic()` / `recall_treatment_atomic()`: Recall with ownership reversion
+- `select_fifo_codes()`: FIFO-based code selection with `FOR UPDATE SKIP LOCKED`
+
+**Inventory & Code Management:**
 - `get_inventory_count()` / `get_inventory_by_lot()` / `get_inventory_by_lots_bulk()`: Inventory queries
-- `generate_virtual_code()`: Unique code generation (format: NC-XXXXXXXX)
-- `generate_lot_number()`: Lot number generation based on manufacturer settings
-- `create_shipment_atomic()`: Atomic shipment creation with FIFO selection
-- `get_dashboard_stats_*()`: Role-specific dashboard statistics
-- `get_admin_event_summary()`: Admin event history aggregation
-- `get_history_summary()`: Organization history with cursor-based pagination
-- `get_admin_event_summary_cursor()` / `get_history_summary_cursor()`: High-performance cursor variants (custom types in `database.types.ts`)
+- `get_inventory_summary()`: Owner's full inventory summary
+- `generate_virtual_code()` / `generate_virtual_code_v2()`: Unique code generation (NC-XXXXXXXX)
+- `generate_lot_number()`: Lot number based on manufacturer settings
+- `upsert_lot()` / `add_quantity_to_lot()`: Lot management
+
+**History & Pagination:**
+- `get_history_summary()` / `get_history_summary_cursor()`: Organization history (offset/cursor)
+- `get_admin_event_summary()` / `get_admin_event_summary_cursor()`: Admin event aggregation
+- `get_all_recalls()` / `get_all_recalls_cursor()`: Recall history
+- `*_count()` variants for total counts
+
+**Dashboard:**
+- `get_dashboard_stats_admin/manufacturer/distributor/hospital()`: Role-specific statistics
+
+**Validation:**
+- `is_recall_allowed()`: 24-hour recall window check
+- `is_admin()` / `get_user_organization_id()` / `get_user_organization_type()`: Auth helpers
+
+**Triggers:**
+- `create_virtual_codes_for_lot()`: Auto-generates codes on lot insert
+- `record_virtual_code_history()`: Tracks ownership changes
+- `record_production_history()`: Logs production events
 
 ### Organization Types and Routes
 
 | Type | Route Prefix | Main Features |
 |------|--------------|---------------|
-| MANUFACTURER | `/manufacturer/*` | Products, Production, Shipment, Settings |
-| DISTRIBUTOR | `/distributor/*` | Shipment, Inventory |
-| HOSPITAL | `/hospital/*` | Treatment, Inventory |
-| ADMIN | `/admin/*` | Organizations, Approvals, History |
+| MANUFACTURER | `/manufacturer/*` | Dashboard, Products, Production, Shipment, Shipment-History, Inventory, History, Inbox, Settings |
+| DISTRIBUTOR | `/distributor/*` | Dashboard, Shipment, Shipment-History, Inventory, History |
+| HOSPITAL | `/hospital/*` | Dashboard, Treatment, Treatment-History, Inventory, History |
+| ADMIN | `/admin/*` | Dashboard, Organizations, Approvals, History, Recalls, Alerts, Inbox |
 
 ### Business Rules
 

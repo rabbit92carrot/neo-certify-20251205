@@ -27,13 +27,22 @@ import {
 } from '@/components/ui/table';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils';
-import type { ProductInventoryDetail, InventorySummary } from '@/types/api.types';
+import type { ProductInventoryDetail, InventorySummary, InventorySummaryWithAlias } from '@/types/api.types';
+
+type SummaryType = InventorySummary | InventorySummaryWithAlias;
 
 interface InventoryTableProps {
-  /** 제품별 재고 요약 */
-  summaries: InventorySummary[];
+  /** 제품별 재고 요약 (별칭 포함 가능) */
+  summaries: SummaryType[];
   /** 상세 정보 조회 함수 */
   getDetail: (productId: string) => Promise<ProductInventoryDetail | null>;
+}
+
+/**
+ * 별칭 여부 확인 헬퍼
+ */
+function hasAlias(summary: SummaryType): summary is InventorySummaryWithAlias {
+  return 'alias' in summary && summary.alias !== null;
 }
 
 /**
@@ -43,7 +52,7 @@ function ProductInventoryCard({
   summary,
   getDetail,
 }: {
-  summary: InventorySummary;
+  summary: SummaryType;
   getDetail: (productId: string) => Promise<ProductInventoryDetail | null>;
 }): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -92,7 +101,9 @@ function ProductInventoryCard({
             <div className="flex items-center gap-2 min-w-0">
               <Package className="h-5 w-5 text-gray-400 flex-shrink-0" />
               <div className="min-w-0">
-                <span className="font-medium">{summary.productName}</span>
+                <span className="font-medium">
+                  {hasAlias(summary) ? summary.alias : summary.productName}
+                </span>
                 {summary.modelName && (
                   <div className="text-xs text-muted-foreground truncate">{summary.modelName}</div>
                 )}
