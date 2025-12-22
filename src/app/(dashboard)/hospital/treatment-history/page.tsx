@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getTreatmentHistory } from '@/services/treatment.service';
+import { getHospitalKnownProducts } from '@/services/hospital-product.service';
 import { PageHeader } from '@/components/shared';
 import { TreatmentHistoryTable } from '@/components/tables/TreatmentHistoryTable';
 import { recallTreatmentAction } from '../actions';
@@ -28,6 +29,28 @@ export default async function HospitalTreatmentHistoryPage(): Promise<React.Reac
 
   const treatments = historyResult.success ? historyResult.data!.items : [];
 
+  // 별칭 정보 조회
+  const knownProductsResult = await getHospitalKnownProducts(user.organization.id);
+  const aliasMap = new Map<string, { alias: string | null; modelName: string }>();
+  if (knownProductsResult.success && knownProductsResult.data) {
+    knownProductsResult.data.forEach((kp) => {
+      aliasMap.set(kp.productId, { alias: kp.alias, modelName: kp.modelName });
+    });
+  }
+
+  // 시술 이력에 별칭 정보 병합
+  const treatmentsWithAlias = treatments.map((t) => ({
+    ...t,
+    itemSummary: t.itemSummary.map((item) => {
+      const aliasInfo = aliasMap.get(item.productId);
+      return {
+        ...item,
+        alias: aliasInfo?.alias ?? null,
+        modelName: aliasInfo?.modelName ?? undefined,
+      };
+    }),
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -36,7 +59,7 @@ export default async function HospitalTreatmentHistoryPage(): Promise<React.Reac
       />
 
       <TreatmentHistoryTable
-        treatments={treatments}
+        treatments={treatmentsWithAlias}
         onRecall={recallTreatmentAction}
       />
     </div>

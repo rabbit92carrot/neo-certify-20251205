@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { PageHeader, HistoryPageWrapper } from '@/components/shared';
 import { getHospitalHistoryCursorAction } from '../actions';
+import { getHospitalKnownProducts } from '@/services/hospital-product.service';
 
 export const metadata = {
   title: '거래 이력 | 병원',
@@ -19,6 +20,15 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
     redirect('/login');
   }
 
+  // 별칭 정보 조회 (병원만 해당)
+  const knownProductsResult = await getHospitalKnownProducts(user.organization.id);
+  const productAliasMap: Record<string, { alias: string | null; modelName: string }> = {};
+  if (knownProductsResult.success && knownProductsResult.data) {
+    knownProductsResult.data.forEach((kp) => {
+      productAliasMap[kp.productId] = { alias: kp.alias, modelName: kp.modelName };
+    });
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -34,6 +44,7 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
           { value: 'TREATED', label: '시술' },
           { value: 'RECALLED', label: '회수' },
         ]}
+        productAliasMap={productAliasMap}
       />
     </div>
   );

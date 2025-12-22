@@ -26,16 +26,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useCart } from '@/hooks/useCart';
 import { formatPhoneNumber, normalizePhoneNumber } from '@/lib/validations/common';
 import { searchHospitalPatientsAction } from '@/app/(dashboard)/hospital/actions';
-import type { Product } from '@/types/api.types';
+import type { ProductForTreatment } from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
 
-interface ProductWithInventory extends Product {
-  availableQuantity: number;
-}
-
 interface TreatmentFormProps {
-  /** 시술 가능한 제품 목록 (재고 포함) */
-  products: ProductWithInventory[];
+  /** 시술 가능한 제품 목록 (활성화 + 재고 있음) */
+  products: ProductForTreatment[];
   /** 시술 등록 액션 */
   onSubmit: (
     patientPhone: string,
@@ -52,7 +48,7 @@ export function TreatmentForm({
   onSubmit,
 }: TreatmentFormProps): React.ReactElement {
   const [isPending, startTransition] = useTransition();
-  const [selectedProduct, setSelectedProduct] = useState<ProductWithInventory | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductForTreatment | null>(null);
   const [quantity, setQuantity] = useState<string>('1');
   const [patientPhone, setPatientPhone] = useState<string>('');
   const [treatmentDate, setTreatmentDate] = useState<string>(() => {
@@ -77,11 +73,16 @@ export function TreatmentForm({
   } = useCart();
 
   // 선택된 제품의 현재 가용 수량 계산 (장바구니에 담긴 수량 제외)
-  const getAvailableQuantity = (product: ProductWithInventory): number => {
+  const getAvailableQuantity = (product: ProductForTreatment): number => {
     const cartQuantity = items
-      .filter((item) => item.productId === product.id && !item.lotId)
+      .filter((item) => item.productId === product.productId && !item.lotId)
       .reduce((sum, item) => sum + item.quantity, 0);
     return product.availableQuantity - cartQuantity;
+  };
+
+  // 제품 표시명 반환 (별칭 우선)
+  const getDisplayName = (product: ProductForTreatment): string => {
+    return product.alias || product.productName;
   };
 
   // 환자 검색 핸들러 (debounce 300ms)
@@ -165,8 +166,8 @@ export function TreatmentForm({
     }
 
     addItem({
-      productId: selectedProduct.id,
-      productName: selectedProduct.name,
+      productId: selectedProduct.productId,
+      productName: getDisplayName(selectedProduct),
       quantity: qty,
     });
 
@@ -334,13 +335,14 @@ export function TreatmentForm({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {products.map((product) => {
                   const availableQty = getAvailableQuantity(product);
+                  const displayName = getDisplayName(product);
                   return (
                     <ProductCard
-                      key={product.id}
-                      name={product.name}
-                      modelName={product.model_name}
+                      key={product.productId}
+                      name={displayName}
+                      modelName={product.modelName}
                       additionalInfo={`재고: ${availableQty}개`}
-                      isSelected={selectedProduct?.id === product.id}
+                      isSelected={selectedProduct?.productId === product.productId}
                       onClick={() => setSelectedProduct(product)}
                       disabled={availableQty === 0}
                     />
@@ -360,7 +362,7 @@ export function TreatmentForm({
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-2">
-                  선택된 제품: <strong>{selectedProduct.name}</strong>
+                  선택된 제품: <strong>{getDisplayName(selectedProduct)}</strong>
                   {' '}- 가용 재고: <strong>{currentAvailableQty}개</strong>
                 </p>
               </div>
@@ -403,7 +405,7 @@ export function TreatmentForm({
             items={items}
             onUpdateQuantity={(productId, qty, lotId) => {
               // 재고 확인
-              const product = products.find((p) => p.id === productId);
+              const product = products.find((p) => p.productId === productId);
               if (product) {
                 const availableQty = getAvailableQuantity(product);
                 const currentItem = items.find((item) => item.productId === productId && item.lotId === lotId);

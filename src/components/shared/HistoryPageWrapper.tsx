@@ -44,6 +44,11 @@ interface ActionTypeOption {
   label: string;
 }
 
+/**
+ * 제품 별칭 맵 타입 (병원용)
+ */
+export type ProductAliasMap = Record<string, { alias: string | null; modelName: string }>;
+
 interface HistoryPageWrapperProps {
   /** 현재 조직 ID */
   currentOrgId: string;
@@ -61,6 +66,8 @@ interface HistoryPageWrapperProps {
   initialData?: TransactionHistorySummary[];
   /** 조직별 액션 타입 옵션 */
   actionTypeOptions: ActionTypeOption[];
+  /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
+  productAliasMap?: ProductAliasMap;
 }
 
 // 페이지별 커서 캐시 타입
@@ -77,6 +84,7 @@ export function HistoryPageWrapper({
   fetchHistoryCursor,
   initialData = [],
   actionTypeOptions,
+  productAliasMap,
 }: HistoryPageWrapperProps): React.ReactElement {
   // 필터 상태 (기본값: 3일 전~오늘)
   const [startDate, setStartDate] = useState<Date | undefined>(subDays(new Date(), 3));
@@ -307,7 +315,11 @@ export function HistoryPageWrapper({
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <TransactionHistoryTable histories={histories} currentOrgId={currentOrgId} />
+        <TransactionHistoryTable
+          histories={histories}
+          currentOrgId={currentOrgId}
+          productAliasMap={productAliasMap}
+        />
       )}
 
       {/* 페이지네이션 */}

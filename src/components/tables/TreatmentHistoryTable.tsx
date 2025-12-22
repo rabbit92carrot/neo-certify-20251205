@@ -150,11 +150,20 @@ function TreatmentRecordCard({
                     key={item.productId}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                   >
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-gray-400" />
-                      <span className="font-medium">{item.productName}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <span className="font-medium">
+                          {item.alias || item.productName}
+                        </span>
+                        {item.modelName && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.modelName}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant="secondary">{item.quantity}개</Badge>
+                    <Badge variant="secondary" className="flex-shrink-0">{item.quantity}개</Badge>
                   </div>
                 ))}
               </div>

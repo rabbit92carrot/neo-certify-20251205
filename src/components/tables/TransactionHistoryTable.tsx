@@ -33,12 +33,15 @@ import { CodeListDisplay } from '@/components/shared/CodeListDisplay';
 import { cn } from '@/lib/utils';
 import type { TransactionHistorySummary } from '@/services/history.service';
 import type { HistoryActionType } from '@/types/api.types';
+import type { ProductAliasMap } from '@/components/shared/HistoryPageWrapper';
 
 interface TransactionHistoryTableProps {
   /** 거래이력 목록 */
   histories: TransactionHistorySummary[];
   /** 현재 조직 ID (방향 표시용) */
   currentOrgId: string;
+  /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
+  productAliasMap?: ProductAliasMap;
 }
 
 /**
@@ -96,6 +99,7 @@ function getActionBadgeVariant(
  */
 function ProductItemRow({
   item,
+  aliasInfo,
 }: {
   item: {
     productId: string;
@@ -103,9 +107,14 @@ function ProductItemRow({
     quantity: number;
     codes: string[];
   };
+  aliasInfo?: { alias: string | null; modelName: string };
 }): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasCodes = item.codes && item.codes.length > 0;
+
+  // 별칭이 있으면 별칭 사용, 없으면 제품명 사용
+  const displayName = aliasInfo?.alias || item.productName;
+  const modelName = aliasInfo?.modelName;
 
   return (
     <div className="border rounded-lg bg-white overflow-hidden">
@@ -133,7 +142,14 @@ function ProductItemRow({
             </span>
           )}
           <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
-          <span className="text-sm text-left">{item.productName}</span>
+          <div className="min-w-0 text-left">
+            <span className="text-sm font-medium">{displayName}</span>
+            {modelName && (
+              <div className="text-xs text-muted-foreground truncate">
+                {modelName}
+              </div>
+            )}
+          </div>
         </div>
         <Badge variant="secondary" className="flex-shrink-0">
           {item.quantity}개
@@ -156,9 +172,11 @@ function ProductItemRow({
 function TransactionHistoryCard({
   history,
   currentOrgId,
+  productAliasMap,
 }: {
   history: TransactionHistorySummary;
   currentOrgId: string;
+  productAliasMap?: ProductAliasMap;
 }): React.ReactElement {
   // 내가 보낸 것인지, 받은 것인지
   const isOutgoing = history.fromOwner?.id === currentOrgId;
@@ -291,7 +309,11 @@ function TransactionHistoryCard({
             </p>
           )}
           {history.items.map((item) => (
-            <ProductItemRow key={item.productId} item={item} />
+            <ProductItemRow
+              key={item.productId}
+              item={item}
+              aliasInfo={productAliasMap?.[item.productId]}
+            />
           ))}
         </div>
 
@@ -314,6 +336,7 @@ function TransactionHistoryCard({
 export function TransactionHistoryTable({
   histories,
   currentOrgId,
+  productAliasMap,
 }: TransactionHistoryTableProps): React.ReactElement {
   if (histories.length === 0) {
     return (
@@ -332,6 +355,7 @@ export function TransactionHistoryTable({
           key={history.id}
           history={history}
           currentOrgId={currentOrgId}
+          productAliasMap={productAliasMap}
         />
       ))}
     </div>
