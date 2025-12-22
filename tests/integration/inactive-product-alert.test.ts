@@ -29,6 +29,22 @@ describe('비활성 제품 알림 통합 테스트', () => {
   let hospitalOrg: Awaited<ReturnType<typeof createTestOrganization>>;
 
   beforeEach(async () => {
+    // 이전 테스트에서 남은 테스트 조직 관련 알림 정리
+    // 다른 테스트에서 삭제된 ADMIN 조직을 참조하는 알림이 FK 위반을 일으킬 수 있음
+    const { data: staleOrgs } = await adminClient
+      .from('organizations')
+      .select('id')
+      .like('email', 'test_%');
+
+    if (staleOrgs && staleOrgs.length > 0) {
+      const staleOrgIds = staleOrgs.map((o) => o.id);
+      // 연관된 알림 먼저 삭제
+      await adminClient
+        .from('organization_alerts')
+        .delete()
+        .in('recipient_org_id', staleOrgIds);
+    }
+
     // 테스트 조직 생성
     adminOrg = await createTestOrganization({ type: 'ADMIN', status: 'ACTIVE' });
     manufacturerOrg = await createTestOrganization({ type: 'MANUFACTURER', status: 'ACTIVE' });
@@ -98,17 +114,19 @@ describe('비활성 제품 알림 통합 테스트', () => {
         p_quantity: 3,
       });
 
-      // 관리자 알림 확인
+      // 관리자 알림 확인 (productId로 해당 알림 찾기)
       const adminAlerts = await getOrganizationAlerts(adminOrg.id, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
-      expect(adminAlerts.length).toBeGreaterThanOrEqual(1);
+      const alert = adminAlerts.find(a =>
+        (a.metadata as { productId?: string })?.productId === inactiveProduct.id
+      );
 
-      const alert = adminAlerts[0];
-      expect(alert.alert_type).toBe('INACTIVE_PRODUCT_USAGE');
-      expect(alert.title).toBe('비활성 제품 사용 감지');
-      expect(alert.is_read).toBe(false);
+      expect(alert).toBeDefined();
+      expect(alert?.alert_type).toBe('INACTIVE_PRODUCT_USAGE');
+      expect(alert?.title).toBe('비활성 제품 사용 감지');
+      expect(alert?.is_read).toBe(false);
     });
 
     it('비활성 제품 사용 시 제조사에게 알림이 생성되어야 한다', async () => {

@@ -390,14 +390,14 @@ describe('Admin Service Integration Tests', () => {
 
       await adminClient.from('histories').insert(receivedHistories);
 
-      // DB 함수로 이벤트 요약 조회 (p_action_types는 null로 전달하여 모든 타입 조회)
+      // DB 함수로 이벤트 요약 조회 (특정 조직 ID로 필터링하여 쿼리 범위 축소)
       const { data: summaryData, error } = await adminClient.rpc('get_admin_event_summary', {
         p_start_date: null,
         p_end_date: null,
         p_action_types: null,
         p_lot_number: null,
         p_product_id: null,
-        p_organization_id: null,
+        p_organization_id: manufacturer.id,
         p_include_recalled: true,
         p_limit: 50,
         p_offset: 0,
@@ -488,27 +488,27 @@ describe('Admin Service Integration Tests', () => {
 
       await adminClient.from('histories').insert(recallHistories);
 
-      // 회수 이벤트 포함 조회
+      // 회수 이벤트 포함 조회 (특정 조직 ID로 필터링하여 쿼리 범위 축소)
       const { data: withRecalled } = await adminClient.rpc('get_admin_event_summary', {
         p_start_date: null,
         p_end_date: null,
         p_action_types: null,
         p_lot_number: null,
         p_product_id: null,
-        p_organization_id: null,
+        p_organization_id: manufacturer.id,
         p_include_recalled: true,
         p_limit: 50,
         p_offset: 0,
       });
 
-      // 회수 이벤트 제외 조회
+      // 회수 이벤트 제외 조회 (특정 조직 ID로 필터링하여 쿼리 범위 축소)
       const { data: withoutRecalled } = await adminClient.rpc('get_admin_event_summary', {
         p_start_date: null,
         p_end_date: null,
         p_action_types: null,
         p_lot_number: null,
         p_product_id: null,
-        p_organization_id: null,
+        p_organization_id: manufacturer.id,
         p_include_recalled: false,
         p_limit: 50,
         p_offset: 0,
@@ -535,7 +535,7 @@ describe('Admin Service Integration Tests', () => {
       const product = await createTestProduct({ organizationId: manufacturer.id });
       await createTestLot({ productId: product.id, quantity: 3 });
 
-      // 모든 이벤트 조회 (타입 필터 없이)
+      // 모든 이벤트 조회 (특정 조직 ID로 필터링하여 쿼리 범위 축소)
       const { data: allEvents, error: allError } = await adminClient.rpc(
         'get_admin_event_summary',
         {
@@ -544,7 +544,7 @@ describe('Admin Service Integration Tests', () => {
           p_action_types: null,
           p_lot_number: null,
           p_product_id: null,
-          p_organization_id: null,
+          p_organization_id: manufacturer.id,
           p_include_recalled: true,
           p_limit: 100,
           p_offset: 0,
