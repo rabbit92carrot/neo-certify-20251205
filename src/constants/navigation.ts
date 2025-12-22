@@ -76,6 +76,7 @@ export const HOSPITAL_NAV_ITEMS: NavigationItem[] = [
   { label: '시술 이력', mobileLabel: '시술이력', href: '/hospital/treatment-history', icon: 'History' },
   { label: '재고 조회', mobileLabel: '재고조회', href: '/hospital/inventory', icon: 'Warehouse' },
   { label: '거래 이력', mobileLabel: '거래이력', href: '/hospital/history', icon: 'FileText' },
+  { label: '제품 관리', mobileLabel: '제품관리', href: '/hospital/settings', icon: 'Settings' },
 ];
 
 /**
