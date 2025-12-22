@@ -115,6 +115,47 @@ export type Database = {
           },
         ]
       }
+      hospital_known_patients: {
+        Row: {
+          created_at: string
+          first_treatment_at: string
+          hospital_id: string
+          id: string
+          last_treatment_at: string
+          patient_phone: string
+          treatment_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_treatment_at?: string
+          hospital_id: string
+          id?: string
+          last_treatment_at?: string
+          patient_phone: string
+          treatment_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_treatment_at?: string
+          hospital_id?: string
+          id?: string
+          last_treatment_at?: string
+          patient_phone?: string
+          treatment_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hospital_known_patients_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hospital_known_products: {
         Row: {
           alias: string | null
@@ -828,6 +869,10 @@ export type Database = {
             }[]
           }
       date_trunc_minute_immutable: { Args: { ts: string }; Returns: string }
+      decrement_hospital_known_patient: {
+        Args: { p_hospital_id: string; p_patient_phone: string }
+        Returns: undefined
+      }
       generate_hmac_signature: { Args: { payload: string }; Returns: string }
       generate_lot_number: {
         Args: {
@@ -1310,6 +1355,14 @@ export type Database = {
           error_message: string
           success: boolean
         }[]
+      }
+      upsert_hospital_known_patient: {
+        Args: {
+          p_hospital_id: string
+          p_patient_phone: string
+          p_treatment_date?: string
+        }
+        Returns: undefined
       }
       upsert_lot: {
         Args: {
