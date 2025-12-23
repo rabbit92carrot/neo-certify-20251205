@@ -59,8 +59,8 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 1. Mock 라우트는 항상 통과
-  if (pathname.startsWith('/mock')) {
+  // 1. 공개 라우트는 항상 통과 (Mock, 인증확인, 문의)
+  if (pathname.startsWith('/mock') || pathname.startsWith('/verify') || pathname.startsWith('/inquiry')) {
     return supabaseResponse;
   }
 
