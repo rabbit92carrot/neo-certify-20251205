@@ -369,7 +369,9 @@ export type Database = {
           created_at: string
           id: string
           is_sent: boolean
+          metadata: Json | null
           patient_phone: string
+          treatment_id: string | null
           type: Database["public"]["Enums"]["notification_type"]
         }
         Insert: {
@@ -377,7 +379,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_sent?: boolean
+          metadata?: Json | null
           patient_phone: string
+          treatment_id?: string | null
           type: Database["public"]["Enums"]["notification_type"]
         }
         Update: {
@@ -385,7 +389,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_sent?: boolean
+          metadata?: Json | null
           patient_phone?: string
+          treatment_id?: string | null
           type?: Database["public"]["Enums"]["notification_type"]
         }
         Relationships: [
@@ -395,6 +401,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["phone_number"]
+          },
+          {
+            foreignKeyName: "notification_messages_treatment_id_fkey"
+            columns: ["treatment_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_records"
+            referencedColumns: ["id"]
           },
         ]
       }
