@@ -53,6 +53,7 @@ export interface TreatmentRecordSummary extends TreatmentRecord {
 
 /**
  * 정품 인증 알림 메시지 생성
+ * 환자가 여러 제품을 시술해도 하나의 이벤트에 메시지 하나가 전송됨
  */
 function generateCertificationMessage(params: {
   treatmentDate: string;
@@ -60,39 +61,38 @@ function generateCertificationMessage(params: {
   itemSummary: { productName: string; manufacturerName: string; quantity: number }[];
 }): string {
   const { treatmentDate, hospitalName, itemSummary } = params;
-  const formattedDate = treatmentDate;
 
   const productLines = itemSummary
-    .map((item) => `- 제품: ${item.productName} ${item.quantity}개`)
+    .map((item) => `- ${item.productName} ${item.quantity}개`)
     .join('\n');
-
-  // 제조사는 첫 번째 제품의 제조사로 표시 (단일 제조사 가정)
-  const manufacturerName = itemSummary[0]?.manufacturerName || '';
 
   return `[네오인증서] 정품 인증 완료
 
 안녕하세요.
-${formattedDate}에 ${hospitalName}에서 시술받으신
+${treatmentDate}에 ${hospitalName}에서 시술받으신
 제품의 정품 인증이 완료되었습니다.
 
 ■ 시술 정보
 ${productLines}
-- 제조사: ${manufacturerName}
-- 시술일: ${formattedDate}
+- 시술일: ${treatmentDate}
 - 시술 병원: ${hospitalName}
 
-본 제품은 정품임이 확인되었습니다.`;
+본 제품은 정품임이 확인되었습니다.
+
+아래 버튼을 눌러 개별 인증코드를 확인하세요.`;
 }
 
 /**
  * 회수 알림 메시지 생성
+ * 병원 연락처와 고객센터 문의 버튼 안내 포함
  */
 function generateRecallMessage(params: {
   hospitalName: string;
+  hospitalContact: string;
   reason: string;
   itemSummary: { productName: string; quantity: number }[];
 }): string {
-  const { hospitalName, reason, itemSummary } = params;
+  const { hospitalName, hospitalContact, reason, itemSummary } = params;
 
   const productLines = itemSummary
     .map((item) => `- 회수 제품: ${item.productName} ${item.quantity}개`)
@@ -106,10 +106,12 @@ ${hospitalName}에서 발급한 정품 인증이
 
 ■ 회수 정보
 - 병원: ${hospitalName}
+- 병원 연락처: ${hospitalContact}
 - 회수 사유: ${reason}
 ${productLines}
 
-문의사항은 해당 병원으로 연락해주세요.`;
+문의사항은 병원으로 연락해주세요.
+병원과 연락이 어려운 경우 아래 버튼을 통해 고객센터로 문의해주세요.`;
 }
 
 // ============================================================================
@@ -210,6 +212,12 @@ export async function createTreatment(
       type: 'CERTIFICATION',
       patient_phone: normalizedPhone,
       content: certificationMessage,
+      treatment_id: treatmentId,
+      metadata: {
+        buttons: [
+          { name: '인증코드 확인하기', url: `/verify/${treatmentId}` }
+        ]
+      },
       is_sent: false,
     });
   } catch (notificationError) {
@@ -401,7 +409,7 @@ export async function recallTreatment(
   // 1. 시술 기록 조회 (알림 메시지용 - 회수 전에 조회해야 함)
   const { data: treatment, error: treatmentError } = await supabase
     .from('treatment_records')
-    .select('patient_phone, hospital:organizations!treatment_records_hospital_id_fkey(name)')
+    .select('patient_phone, hospital:organizations!treatment_records_hospital_id_fkey(name, representative_contact)')
     .eq('id', treatmentId)
     .single();
 
@@ -448,9 +456,12 @@ export async function recallTreatment(
 
   // 4. 환자에게 회수 알림 메시지 기록 (트랜잭션 외부)
   try {
-    const hospitalInfo = treatment.hospital as { name: string };
+    const hospitalInfo = treatment.hospital as { name: string; representative_contact: string };
+    const hospitalContact = hospitalInfo.representative_contact || '연락처 정보 없음';
+
     const recallMessage = generateRecallMessage({
       hospitalName: hospitalInfo.name,
+      hospitalContact,
       reason,
       itemSummary: summary,
     });
@@ -459,6 +470,13 @@ export async function recallTreatment(
       type: 'RECALL',
       patient_phone: treatment.patient_phone,
       content: recallMessage,
+      treatment_id: treatmentId, // 회수된 시술 ID 저장 (인증 페이지에서 회수 여부 판단용)
+      metadata: {
+        hospitalContact,
+        buttons: [
+          { name: '고객센터 문의', url: '/inquiry' }
+        ]
+      },
       is_sent: false,
     });
   } catch (notificationError) {
