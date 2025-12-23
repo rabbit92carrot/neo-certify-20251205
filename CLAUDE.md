@@ -93,7 +93,7 @@ src/
 └── hooks/                  # Custom hooks (useCart, useAuth, useInfiniteScroll, useCursorPagination, useDebounce)
 
 supabase/
-├── migrations/             # SQL migrations (squashed - 6 files as of 2024-12-19)
+├── migrations/             # SQL migrations (squashed base + incremental)
 └── seed.sql                # Seed data for testing
 
 tests/
@@ -185,7 +185,7 @@ Use these helpers from `common.service.ts` for consistency:
 
 ### Database Functions (PostgreSQL)
 
-Key functions in `supabase/migrations/20251219210000_squashed.sql` (75 functions total):
+Key functions across migrations (81+ functions total):
 
 **Atomic Operations:**
 - `create_shipment_atomic()`: Atomic shipment with FIFO selection
@@ -212,6 +212,12 @@ Key functions in `supabase/migrations/20251219210000_squashed.sql` (75 functions
 **Validation:**
 - `is_recall_allowed()`: 24-hour recall window check
 - `is_admin()` / `get_user_organization_id()` / `get_user_organization_type()`: Auth helpers
+
+**Hospital Cache Tables:**
+- `hospital_known_products`: Cached product info per hospital for fast autocomplete
+- `hospital_known_patients`: Cached patient info with phone search optimization (dual B-tree index)
+- `sync_hospital_known_product()` / `sync_hospital_known_patient()`: Auto-sync triggers on treatment
+- `get_hospital_known_products()` / `search_hospital_patients()`: Optimized lookup RPCs
 
 **Triggers:**
 - `create_virtual_codes_for_lot()`: Auto-generates codes on lot insert
