@@ -31,6 +31,7 @@ Thumbs.db
 # Test documentation (local only)
 docs/TEST_GUIDE.md
 docs/E2E_TESTING_GUIDE.md
+docs/analysis-report-*.md
 
 # next.js
 /.next/
