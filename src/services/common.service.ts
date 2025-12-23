@@ -7,8 +7,12 @@
 
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
 import type { ApiResponse } from '@/types/api.types';
 import type { PostgrestError } from '@supabase/supabase-js';
+
+// Logger 인스턴스 생성
+const logger = createLogger('common.service');
 
 // ============================================================================
 // 상수
@@ -34,6 +38,7 @@ export const ERROR_CODES = {
   // 인증/권한 에러
   UNAUTHORIZED: 'UNAUTHORIZED',
   FORBIDDEN: 'FORBIDDEN',
+  RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
 
   // 비즈니스 로직 에러
   INSUFFICIENT_STOCK: 'INSUFFICIENT_STOCK',
@@ -78,7 +83,11 @@ export function handlePostgrestError<T = never>(
   error: PostgrestError,
   defaultMessage = '데이터 처리 중 오류가 발생했습니다.'
 ): ApiResponse<T> {
-  console.error('Postgrest 에러:', error);
+  logger.error('Postgrest 에러', {
+    code: error.code,
+    message: error.message,
+    hint: error.hint,
+  });
 
   // 특정 에러 코드 매핑
   if (error.code === '23505') {
@@ -104,7 +113,7 @@ export function handleGenericError<T = never>(
   error: unknown,
   defaultMessage = '알 수 없는 오류가 발생했습니다.'
 ): ApiResponse<T> {
-  console.error('일반 에러:', error);
+  logger.error('일반 에러', error);
 
   if (error instanceof Error) {
     return createErrorResponse(ERROR_CODES.UNKNOWN, error.message);
@@ -201,7 +210,7 @@ export async function getOrganizationNames(
     .in('id', uniqueIds);
 
   if (error) {
-    console.error('조직 이름 일괄 조회 실패:', error);
+    logger.error('조직 이름 일괄 조회 실패', error);
     return new Map();
   }
 
@@ -395,8 +404,13 @@ export function parseRpcResult<T>(
     const errorPath = firstIssue?.path?.join('.') || 'root';
     const errorMessage = firstIssue?.message || 'Unknown validation error';
 
-    console.error(`[RPC Validation] ${context} failed at '${errorPath}':`, errorMessage);
-    console.error('[RPC Validation] Full issues:', JSON.stringify(issues, null, 2));
+    logger.error(`RPC 검증 실패: ${context}`, {
+      path: errorPath,
+      message: errorMessage,
+      issueCount: issues.length,
+    });
+    // 개발 환경에서만 상세 이슈 출력
+    logger.debug(`RPC 검증 상세 이슈: ${context}`, issues);
 
     return {
       success: false,
