@@ -7,8 +7,8 @@
  * - RECALL: 인증 회수 알림
  */
 
-import { createClient } from '@/lib/supabase/server';
-import type { ApiResponse, PaginatedResponse, NotificationMessage } from '@/types/api.types';
+import { createAdminClient } from '@/lib/supabase/admin';
+import type { ApiResponse, PaginatedResponse } from '@/types/api.types';
 import type { Enums } from '@/types/database.types';
 import { ERROR_CODES } from '@/constants/errors';
 import { CONFIG } from '@/constants/config';
@@ -19,6 +19,26 @@ import { createErrorResponse, createSuccessResponse } from './common.service';
 // ============================================================================
 
 export type NotificationType = Enums<'notification_type'>;
+
+/**
+ * 알림 메시지 버튼 (카카오 알림톡 스타일)
+ */
+export interface NotificationButton {
+  /** 버튼 이름 */
+  name: string;
+  /** 버튼 URL */
+  url: string;
+}
+
+/**
+ * 알림 메시지 메타데이터
+ */
+export interface NotificationMetadata {
+  /** URL 버튼 목록 */
+  buttons?: NotificationButton[];
+  /** 병원 연락처 (회수 메시지용) */
+  hospitalContact?: string;
+}
 
 /**
  * 알림 메시지 조회 파라미터
@@ -45,6 +65,10 @@ export interface NotificationItem {
   content: string;
   isSent: boolean;
   createdAt: string;
+  /** 연결된 시술 ID (인증 메시지용) */
+  treatmentId?: string;
+  /** 메타데이터 (버튼, 병원연락처 등) */
+  metadata?: NotificationMetadata;
 }
 
 // ============================================================================
@@ -70,7 +94,8 @@ export async function getNotificationMessages(
   params: NotificationQueryParams = {}
 ): Promise<ApiResponse<PaginatedResponse<NotificationItem>>> {
   try {
-    const supabase = await createClient();
+    // Mock 페이지용 - RLS 우회를 위해 Admin Client 사용
+    const supabase = createAdminClient();
 
     const { phoneNumber, type, page = 1, pageSize = DEFAULT_PAGE_SIZE } = params;
 
@@ -104,7 +129,7 @@ export async function getNotificationMessages(
     }
 
     // 데이터 변환
-    const items: NotificationItem[] = (messages || []).map((msg: NotificationMessage) => ({
+    const items: NotificationItem[] = (messages || []).map((msg) => ({
       id: msg.id,
       type: msg.type,
       typeLabel: NOTIFICATION_TYPE_LABELS[msg.type],
@@ -112,6 +137,8 @@ export async function getNotificationMessages(
       content: msg.content,
       isSent: msg.is_sent,
       createdAt: msg.created_at,
+      treatmentId: msg.treatment_id ?? undefined,
+      metadata: msg.metadata as NotificationMetadata | undefined,
     }));
 
     const totalCount = count ?? 0;
@@ -159,7 +186,8 @@ export async function getNotificationStats(): Promise<
   }>
 > {
   try {
-    const supabase = await createClient();
+    // Mock 페이지용 - RLS 우회를 위해 Admin Client 사용
+    const supabase = createAdminClient();
 
     // 전체 카운트
     const { count: totalCount, error: totalError } = await supabase
