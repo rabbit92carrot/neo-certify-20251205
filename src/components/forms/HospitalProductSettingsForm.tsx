@@ -118,7 +118,7 @@ export function HospitalProductSettingsForm(): React.ReactElement {
   // ============================================================================
 
   const handleSave = useCallback(async () => {
-    if (!selectedProduct || aliasError) return;
+    if (!selectedProduct || aliasError) {return;}
 
     setIsSaving(true);
 
@@ -141,7 +141,7 @@ export function HospitalProductSettingsForm(): React.ReactElement {
   }, [selectedProduct, aliasError, alias, isActive, loadProducts]);
 
   const handleDeleteAlias = useCallback(async () => {
-    if (!selectedProduct) return;
+    if (!selectedProduct) {return;}
 
     setIsSaving(true);
 

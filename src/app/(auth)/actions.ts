@@ -80,9 +80,7 @@ export async function registerAction(
     const fieldErrors: Record<string, string[]> = {};
     validationResult.error.issues.forEach((issue) => {
       const path = issue.path.join('.');
-      if (!fieldErrors[path]) {
-        fieldErrors[path] = [];
-      }
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     });
 
@@ -138,9 +136,7 @@ export async function loginAction(
     const fieldErrors: Record<string, string[]> = {};
     validationResult.error.issues.forEach((issue) => {
       const path = issue.path.join('.');
-      if (!fieldErrors[path]) {
-        fieldErrors[path] = [];
-      }
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     });
 
