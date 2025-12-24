@@ -56,14 +56,14 @@ export function LotForm({ products, settings }: LotFormProps): React.ReactElemen
 
   // 오늘 날짜
   const today = new Date().toISOString().split('T')[0] ?? '';
-  const expiryMonths = settings?.expiry_months || CONFIG.DEFAULT_EXPIRY_MONTHS;
+  const expiryMonths = settings?.expiry_months ?? CONFIG.DEFAULT_EXPIRY_MONTHS;
 
   // 선택된 제품 정보
   const selectedProduct = useMemo(() => {
     if (!selectedProductId) {
       return null;
     }
-    return products.find((p) => p.id === selectedProductId) || null;
+    return products.find((p) => p.id === selectedProductId) ?? null;
   }, [products, selectedProductId]);
 
   // 기본 사용기한 계산 (오늘 + N개월 - 1일)

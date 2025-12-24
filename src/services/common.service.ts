@@ -215,7 +215,7 @@ export async function getOrganizationNames(
   }
 
   const result = new Map<string, string>();
-  for (const row of data || []) {
+  for (const row of data ?? []) {
     result.set(row.id, row.name);
   }
 

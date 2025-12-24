@@ -53,8 +53,8 @@ export function TreatmentForm({
   const [selectedProduct, setSelectedProduct] = useState<ProductForTreatment | null>(null);
   const [quantity, setQuantity] = useState<string>('1');
   const [treatmentDate, setTreatmentDate] = useState<string>(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return today ?? '';
+    const today = new Date().toISOString().split('T')[0] ?? '';
+    return today;
   });
 
   // 환자 검색 훅 (SSOT: 검색 로직 통합)

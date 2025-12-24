@@ -80,7 +80,7 @@ export async function getRecallHistory(
     const { data: shipments } = await shipmentQuery;
 
     // N+1 최적화: 모든 출고 뭉치의 상세 정보를 한 번에 조회
-    const shipmentBatchIds = (shipments || []).map((s) => s.id);
+    const shipmentBatchIds = (shipments ?? []).map((s) => s.id);
     const { data: allShipmentDetails } = await supabase
       .from('shipment_details')
       .select(
@@ -97,15 +97,15 @@ export async function getRecallHistory(
 
     // 출고 뭉치별 상세 그룹화
     const detailsByBatchId = new Map<string, typeof allShipmentDetails>();
-    for (const detail of allShipmentDetails || []) {
-      const existing = detailsByBatchId.get(detail.shipment_batch_id) || [];
+    for (const detail of allShipmentDetails ?? []) {
+      const existing = detailsByBatchId.get(detail.shipment_batch_id) ?? [];
       existing.push(detail);
       detailsByBatchId.set(detail.shipment_batch_id, existing);
     }
 
     // 각 출고 회수 처리 (DB 쿼리 없이 메모리에서)
-    for (const shipment of shipments || []) {
-      const details = detailsByBatchId.get(shipment.id) || [];
+    for (const shipment of shipments ?? []) {
+      const details = detailsByBatchId.get(shipment.id) ?? [];
 
       // 제품별 수량 집계
       const productCounts = new Map<string, number>();
@@ -115,7 +115,7 @@ export async function getRecallHistory(
             lot: { product: { name: string } };
           }
         ).lot.product.name;
-        productCounts.set(productName, (productCounts.get(productName) || 0) + 1);
+        productCounts.set(productName, (productCounts.get(productName) ?? 0) + 1);
       }
 
       const fromOrg = shipment.from_org as { id: string; name: string; type: OrganizationType };
@@ -124,8 +124,8 @@ export async function getRecallHistory(
       recallItems.push({
         id: shipment.id,
         type: 'shipment',
-        recallDate: shipment.recall_date || '',
-        recallReason: shipment.recall_reason || '',
+        recallDate: shipment.recall_date ?? '',
+        recallReason: shipment.recall_reason ?? '',
         quantity: details.length,
         fromOrganization: {
           id: fromOrg.id,
@@ -192,7 +192,7 @@ export async function getRecallHistory(
       }
     >();
 
-    for (const recall of treatmentRecalls || []) {
+    for (const recall of treatmentRecalls ?? []) {
       const key = `${recall.created_at.slice(0, 16)}_${recall.to_owner_id}_${recall.from_owner_id}`;
       const productName = (
         recall.virtual_code as {
@@ -204,7 +204,7 @@ export async function getRecallHistory(
         const existing = groupedRecalls.get(key)!;
         existing.productCounts.set(
           productName,
-          (existing.productCounts.get(productName) || 0) + 1
+          (existing.productCounts.get(productName) ?? 0) + 1
         );
       } else {
         const productCounts = new Map<string, number>();
@@ -212,9 +212,9 @@ export async function getRecallHistory(
         groupedRecalls.set(key, {
           id: recall.id,
           recallDate: recall.created_at,
-          recallReason: recall.recall_reason || '',
-          fromOrganizationId: recall.to_owner_id || '',
-          patientPhone: recall.from_owner_id || '',
+          recallReason: recall.recall_reason ?? '',
+          fromOrganizationId: recall.to_owner_id ?? '',
+          patientPhone: recall.from_owner_id ?? '',
           productCounts,
         });
       }
@@ -228,7 +228,7 @@ export async function getRecallHistory(
       .in('id', orgIds);
 
     const orgMap = new Map<string, { id: string; name: string; type: string }>();
-    for (const org of orgs || []) {
+    for (const org of orgs ?? []) {
       orgMap.set(org.id, org);
     }
 
@@ -343,7 +343,7 @@ export async function getRecallHistoryOptimized(
     id: row.recall_id,
     type: row.recall_type as 'shipment' | 'treatment',
     recallDate: row.recall_date,
-    recallReason: row.recall_reason || '',
+    recallReason: row.recall_reason ?? '',
     quantity: Number(row.quantity),
     fromOrganization: {
       id: row.from_org_id,
@@ -360,7 +360,7 @@ export async function getRecallHistoryOptimized(
     items: (row.product_summary as { productName: string; quantity: number }[] | null) ?? [],
   }));
 
-  const totalCount = Number(total) || 0;
+  const totalCount = Number(total) ?? 0;
 
   return createSuccessResponse({
     items,
@@ -394,8 +394,8 @@ export async function getRecallHistoryCursor(query: {
     p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
     p_type: type,
     p_limit: limit,
-    p_cursor_time: cursorTime || undefined,
-    p_cursor_key: cursorKey || undefined,
+    p_cursor_time: cursorTime ?? undefined,
+    p_cursor_key: cursorKey ?? undefined,
   });
 
   if (error) {
@@ -421,7 +421,7 @@ export async function getRecallHistoryCursor(query: {
     id: row.recall_id,
     type: row.recall_type as 'shipment' | 'treatment',
     recallDate: row.recall_date,
-    recallReason: row.recall_reason || '',
+    recallReason: row.recall_reason ?? '',
     quantity: Number(row.quantity),
     fromOrganization: {
       id: row.from_org_id,

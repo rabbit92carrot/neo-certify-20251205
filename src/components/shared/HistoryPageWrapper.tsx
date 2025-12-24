@@ -127,7 +127,7 @@ export function HistoryPageWrapper({
 
       try {
         // 페이지 1은 커서 없이, 그 외는 해당 페이지의 커서 사용
-        const cursor = page === 1 ? {} : pageCursorsRef.current.get(page) || {};
+        const cursor = page === 1 ? {} : pageCursorsRef.current.get(page) ?? {};
 
         // 액션 타입 배열 구성
         const actionTypes =

@@ -172,12 +172,12 @@ export async function getOrganizations(
     }
   }
 
-  const organizationsWithStats: OrganizationWithStats[] = (organizations || []).map((org) => ({
+  const organizationsWithStats: OrganizationWithStats[] = (organizations ?? []).map((org) => ({
     ...org,
-    virtualCodeCount: countByOrgId.get(org.id) || 0,
+    virtualCodeCount: countByOrgId.get(org.id) ?? 0,
   }));
 
-  const total = count || 0;
+  const total = count ?? 0;
 
   return createSuccessResponse({
     items: organizationsWithStats,
@@ -217,10 +217,10 @@ export async function getPendingOrganizations(
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
-  const total = count || 0;
+  const total = count ?? 0;
 
   return createSuccessResponse({
-    items: data || [],
+    items: data ?? [],
     meta: {
       page,
       pageSize,

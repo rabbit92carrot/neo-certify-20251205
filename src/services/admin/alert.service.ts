@@ -62,9 +62,9 @@ export async function getInactiveProductUsageLogs(
     return createErrorResponse('QUERY_ERROR', '사용 로그 조회에 실패했습니다.');
   }
 
-  const total = count || 0;
+  const total = count ?? 0;
 
-  const logs: InactiveProductUsageLog[] = (data || []).map((row) => ({
+  const logs: InactiveProductUsageLog[] = (data ?? []).map((row) => ({
     id: row.id,
     usageType: row.usage_type as 'SHIPMENT' | 'TREATMENT',
     usageId: row.usage_id,
@@ -167,5 +167,5 @@ export async function getUnacknowledgedUsageLogCount(): Promise<ApiResponse<numb
     return createErrorResponse('QUERY_ERROR', '카운트 조회에 실패했습니다.');
   }
 
-  return createSuccessResponse(count || 0);
+  return createSuccessResponse(count ?? 0);
 }

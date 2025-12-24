@@ -129,7 +129,7 @@ export async function getAdminHistory(
   }
 
   // N+1 최적화: 한 번에 모든 이력 조회
-  const codeIds = (virtualCodes || []).map((vc) => vc.id);
+  const codeIds = (virtualCodes ?? []).map((vc) => vc.id);
   const { data: allHistories } = await supabase
     .from('histories')
     .select('*')
@@ -138,14 +138,14 @@ export async function getAdminHistory(
 
   // 가상 코드별 이력 그룹화
   const historiesByCodeId = new Map<string, typeof allHistories>();
-  for (const h of allHistories || []) {
-    const existing = historiesByCodeId.get(h.virtual_code_id) || [];
+  for (const h of allHistories ?? []) {
+    const existing = historiesByCodeId.get(h.virtual_code_id) ?? [];
     existing.push(h);
     historiesByCodeId.set(h.virtual_code_id, existing);
   }
 
   // N+1 최적화: 현재 소유자(조직) 정보 배치 조회
-  const ownerOrgIds = (virtualCodes || [])
+  const ownerOrgIds = (virtualCodes ?? [])
     .filter((vc) => vc.owner_id && vc.owner_type !== 'PATIENT')
     .map((vc) => vc.owner_id);
   const uniqueOwnerOrgIds = [...new Set(ownerOrgIds)];
@@ -156,13 +156,13 @@ export async function getAdminHistory(
     .in('id', uniqueOwnerOrgIds);
 
   const ownerOrgMap = new Map<string, { id: string; name: string; type: string }>();
-  for (const org of ownerOrgs || []) {
+  for (const org of ownerOrgs ?? []) {
     ownerOrgMap.set(org.id, org);
   }
 
   // 각 가상 코드의 이력 정보 처리 (DB 쿼리 없이 메모리에서 처리)
   const historyItemsWithNull = await Promise.all(
-    (virtualCodes || []).map(async (vc): Promise<AdminHistoryItem | null> => {
+    (virtualCodes ?? []).map(async (vc): Promise<AdminHistoryItem | null> => {
       const lot = vc.lot as {
         id: string;
         lot_number: string;
@@ -176,7 +176,7 @@ export async function getAdminHistory(
       };
 
       // 이력 조회 (메모리에서)
-      const histories = historiesByCodeId.get(vc.id) || [];
+      const histories = historiesByCodeId.get(vc.id) ?? [];
 
       // 회수 이력 존재 여부
       const isRecalled = histories.some((h) => h.is_recall) || false;
@@ -268,7 +268,7 @@ export async function getAdminHistory(
     (item): item is AdminHistoryItem => item !== null
   );
 
-  const total = count || 0;
+  const total = count ?? 0;
 
   return createSuccessResponse({
     items: filteredItems,

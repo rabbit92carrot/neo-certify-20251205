@@ -62,7 +62,7 @@ export function OrganizationsTableWrapper({
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchInput, setSearchInput] = useState(search || '');
+  const [searchInput, setSearchInput] = useState(search ?? '');
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {

@@ -113,7 +113,7 @@ function ProductItemRow({
   const hasCodes = item.codes && item.codes.length > 0;
 
   // 별칭이 있으면 별칭 사용, 없으면 제품명 사용
-  const displayName = aliasInfo?.alias || item.productName;
+  const displayName = aliasInfo?.alias ?? item.productName;
   const modelName = aliasInfo?.modelName;
 
   return (

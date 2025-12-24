@@ -84,8 +84,8 @@ export async function getManufacturerDashboardStats(
     data: {
       totalInventory,
       todayProduction,
-      todayShipments: todayShipmentResult.count || 0,
-      activeProducts: activeProductsResult.count || 0,
+      todayShipments: todayShipmentResult.count ?? 0,
+      activeProducts: activeProductsResult.count ?? 0,
     },
   };
 }
@@ -134,8 +134,8 @@ export async function getDistributorDashboardStats(
     success: true,
     data: {
       totalInventory,
-      todayReceived: todayReceivedResult.count || 0,
-      todayShipments: todayShipmentResult.count || 0,
+      todayReceived: todayReceivedResult.count ?? 0,
+      todayShipments: todayShipmentResult.count ?? 0,
     },
   };
 }
@@ -185,9 +185,9 @@ export async function getHospitalDashboardStats(
     success: true,
     data: {
       totalInventory,
-      todayTreatments: todayTreatmentsResult.count || 0,
-      totalPatients: uniquePatientsResult.data || 0,
-      todayShipments: todayShipmentResult.count || 0,
+      todayTreatments: todayTreatmentsResult.count ?? 0,
+      totalPatients: uniquePatientsResult.data ?? 0,
+      todayShipments: todayShipmentResult.count ?? 0,
     },
   };
 }
@@ -228,10 +228,10 @@ export async function getAdminDashboardStats(): Promise<ApiResponse<AdminDashboa
   return {
     success: true,
     data: {
-      totalOrganizations: totalOrgsResult.count || 0,
-      pendingApprovals: pendingApprovalsResult.count || 0,
-      todayRecalls: todayRecallsResult.count || 0,
-      totalVirtualCodes: totalCodesResult.count || 0,
+      totalOrganizations: totalOrgsResult.count ?? 0,
+      pendingApprovals: pendingApprovalsResult.count ?? 0,
+      todayRecalls: todayRecallsResult.count ?? 0,
+      totalVirtualCodes: totalCodesResult.count ?? 0,
     },
   };
 }
@@ -283,7 +283,7 @@ export async function getManufacturerTodayShipments(organizationId: string): Pro
     .gte('shipment_batch.shipment_date', todayStart)
     .lte('shipment_batch.shipment_date', todayEnd);
 
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -298,7 +298,7 @@ export async function getManufacturerActiveProducts(organizationId: string): Pro
     .eq('organization_id', organizationId)
     .eq('is_active', true);
 
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -319,7 +319,7 @@ export async function getDistributorTodayReceived(organizationId: string): Promi
     .gte('shipment_batch.shipment_date', todayStart)
     .lte('shipment_batch.shipment_date', todayEnd);
 
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -340,7 +340,7 @@ export async function getDistributorTodayShipments(organizationId: string): Prom
     .gte('shipment_batch.shipment_date', todayStart)
     .lte('shipment_batch.shipment_date', todayEnd);
 
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -358,7 +358,7 @@ export async function getHospitalTodayTreatments(organizationId: string): Promis
     .gte('treatment_date', todayStart)
     .lte('treatment_date', todayEnd);
 
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -367,7 +367,7 @@ export async function getHospitalTodayTreatments(organizationId: string): Promis
 export async function getHospitalTotalPatients(organizationId: string): Promise<number> {
   const supabase = await createClient();
   const { data } = await supabase.rpc('count_unique_patients', { p_hospital_id: organizationId });
-  return data || 0;
+  return data ?? 0;
 }
 
 /**
@@ -376,7 +376,7 @@ export async function getHospitalTotalPatients(organizationId: string): Promise<
 export async function getAdminTotalOrganizations(): Promise<number> {
   const supabase = await createClient();
   const { count } = await supabase.from('organizations').select('id', { count: 'exact', head: true });
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -388,7 +388,7 @@ export async function getAdminPendingApprovals(): Promise<number> {
     .from('organizations')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'PENDING_APPROVAL');
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -406,7 +406,7 @@ export async function getAdminTodayRecalls(): Promise<number> {
     .gte('recall_date', todayStart)
     .lte('recall_date', todayEnd);
 
-  return count || 0;
+  return count ?? 0;
 }
 
 /**
@@ -415,7 +415,7 @@ export async function getAdminTodayRecalls(): Promise<number> {
 export async function getAdminTotalVirtualCodes(): Promise<number> {
   const supabase = await createClient();
   const { count } = await supabase.from('virtual_codes').select('id', { count: 'exact', head: true });
-  return count || 0;
+  return count ?? 0;
 }
 
 // ============================================================================

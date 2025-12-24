@@ -155,7 +155,7 @@ export async function getAdminEventSummary(
       .select('id, name')
       .in('id', [...orgIds]);
 
-    for (const org of orgData || []) {
+    for (const org of orgData ?? []) {
       orgNameMap.set(org.id, org.name);
     }
   }
@@ -185,7 +185,7 @@ export async function getAdminEventSummary(
       : null;
 
     // lot_summaries는 Zod로 검증된 형식
-    const lotSummaries: AdminEventLotSummary[] = (row.lot_summaries || []).map((lot) => ({
+    const lotSummaries: AdminEventLotSummary[] = (row.lot_summaries ?? []).map((lot) => ({
       lotId: lot.lotId,
       lotNumber: lot.lotNumber,
       productId: lot.productId,
@@ -203,14 +203,14 @@ export async function getAdminEventSummary(
       fromOwner,
       toOwner,
       isRecall: row.is_recall ?? false,
-      recallReason: row.recall_reason || undefined,
+      recallReason: row.recall_reason ?? undefined,
       totalQuantity: Number(row.total_quantity),
       lotSummaries,
-      sampleCodeIds: row.sample_code_ids || [],
+      sampleCodeIds: row.sample_code_ids ?? [],
     };
   });
 
-  const total = Number(totalCount) || summaries.length;
+  const total = Number(totalCount) ?? summaries.length;
 
   return createSuccessResponse({
     items: summaries,
@@ -267,7 +267,7 @@ export async function getEventSampleCodes(
   }
 
   // 소유자 이름 조회 (조직만)
-  const ownerIds = (data || [])
+  const ownerIds = (data ?? [])
     .filter((vc) => vc.owner_type === 'ORGANIZATION')
     .map((vc) => vc.owner_id);
 
@@ -278,12 +278,12 @@ export async function getEventSampleCodes(
       .select('id, name')
       .in('id', [...new Set(ownerIds)]);
 
-    for (const org of orgData || []) {
+    for (const org of orgData ?? []) {
       orgNameMap.set(org.id, org.name);
     }
   }
 
-  const sampleCodes: AdminEventSampleCode[] = (data || []).map((vc) => {
+  const sampleCodes: AdminEventSampleCode[] = (data ?? []).map((vc) => {
     const lot = vc.lot as { lot_number: string; manufacture_date: string; product: { name: string } };
     return {
       id: vc.id,
@@ -355,7 +355,7 @@ export async function getEventCodesPaginated(
 
   // 조직 이름 일괄 조회
   const orgIds = new Set<string>();
-  for (const row of data || []) {
+  for (const row of data ?? []) {
     if (row.owner_type === 'ORGANIZATION' && row.owner_id) {
       orgIds.add(row.owner_id);
     }
@@ -368,13 +368,13 @@ export async function getEventCodesPaginated(
       .select('id, name')
       .in('id', [...orgIds]);
 
-    for (const org of orgData || []) {
+    for (const org of orgData ?? []) {
       orgNameMap.set(org.id, org.name);
     }
   }
 
   // 원본 순서 유지를 위한 맵 생성
-  const dataMap = new Map(data?.map((row) => [row.id, row]) || []);
+  const dataMap = new Map(data?.map((row) => [row.id, row]) ?? []);
 
   // 결과 매핑 (원본 순서 유지)
   const codes: LotCodeItem[] = pageCodeIds
@@ -476,7 +476,7 @@ export async function getAdminEventSummaryCursor(
       .select('id, name')
       .in('id', [...orgIds]);
 
-    for (const org of orgData || []) {
+    for (const org of orgData ?? []) {
       orgNameMap.set(org.id, org.name);
     }
   }
@@ -505,7 +505,7 @@ export async function getAdminEventSummaryCursor(
         }
       : null;
 
-    const lotSummaries: AdminEventLotSummary[] = (row.lot_summaries || []).map((lot) => ({
+    const lotSummaries: AdminEventLotSummary[] = (row.lot_summaries ?? []).map((lot) => ({
       lotId: lot.lotId,
       lotNumber: lot.lotNumber,
       productId: lot.productId,
@@ -523,10 +523,10 @@ export async function getAdminEventSummaryCursor(
       fromOwner,
       toOwner,
       isRecall: row.is_recall ?? false,
-      recallReason: row.recall_reason || undefined,
+      recallReason: row.recall_reason ?? undefined,
       totalQuantity: Number(row.total_quantity),
       lotSummaries,
-      sampleCodeIds: row.sample_code_ids || [],
+      sampleCodeIds: row.sample_code_ids ?? [],
     };
   });
 

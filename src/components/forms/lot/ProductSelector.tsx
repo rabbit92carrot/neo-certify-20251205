@@ -36,7 +36,7 @@ export interface ProductSelectorProps {
 function groupProductsByName(products: Product[]): Map<string, Product[]> {
   const grouped = new Map<string, Product[]>();
   products.forEach((product) => {
-    const existing = grouped.get(product.name) || [];
+    const existing = grouped.get(product.name) ?? [];
     existing.push(product);
     grouped.set(product.name, existing);
   });

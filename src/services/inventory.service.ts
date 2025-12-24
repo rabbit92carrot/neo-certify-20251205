@@ -50,8 +50,8 @@ export async function getInventorySummary(
   const summaries: InventorySummary[] = parsed.data.map((row) => ({
     productId: row.product_id,
     productName: row.product_name,
-    modelName: row.model_name || '',
-    udiDi: row.udi_di || '',
+    modelName: row.model_name ?? '',
+    udiDi: row.udi_di ?? '',
     totalQuantity: Number(row.quantity),
   }));
 
@@ -142,7 +142,7 @@ export async function getInventoryCount(
     return 0;
   }
 
-  return data || 0;
+  return data ?? 0;
 }
 
 /**
@@ -180,7 +180,7 @@ export async function getAvailableProductsForShipment(
     return createErrorResponse(summaryResult.error!.code, summaryResult.error!.message);
   }
 
-  const summaries = summaryResult.data || [];
+  const summaries = summaryResult.data ?? [];
   if (summaries.length === 0) {
     return createSuccessResponse([]);
   }
@@ -207,10 +207,10 @@ export async function getAvailableProductsForShipment(
   // 재고 수량 매핑
   const quantityMap = new Map(summaries.map((s) => [s.productId, s.totalQuantity]));
 
-  const result = (products || [])
+  const result = (products ?? [])
     .map((product) => ({
       ...product,
-      availableQuantity: quantityMap.get(product.id) || 0,
+      availableQuantity: quantityMap.get(product.id) ?? 0,
     }))
     .filter((p) => p.availableQuantity > 0);
 
@@ -306,7 +306,7 @@ export async function getProductsWithLotsForShipment(
   // 4. 제품에 Lot 정보 결합
   const productsWithLots = products.map((product) => ({
     ...product,
-    lots: lotsByProduct.get(product.id) || [],
+    lots: lotsByProduct.get(product.id) ?? [],
   }));
 
   return createSuccessResponse(productsWithLots);

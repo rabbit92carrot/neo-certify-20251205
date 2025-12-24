@@ -144,7 +144,7 @@ export async function getVerificationData(
     }
 
     // 4. 데이터 변환
-    const codes: VerificationCode[] = (details || []).map((detail) => {
+    const codes: VerificationCode[] = (details ?? []).map((detail) => {
       const vc = detail.virtual_code as {
         code: string;
         lot: { product: { name: string; model_name: string } };
@@ -159,7 +159,7 @@ export async function getVerificationData(
     // 5. 제품별 요약 생성
     const productMap = new Map<string, number>();
     for (const code of codes) {
-      productMap.set(code.productName, (productMap.get(code.productName) || 0) + 1);
+      productMap.set(code.productName, (productMap.get(code.productName) ?? 0) + 1);
     }
     const productSummary = Array.from(productMap.entries()).map(
       ([productName, quantity]) => ({ productName, quantity })

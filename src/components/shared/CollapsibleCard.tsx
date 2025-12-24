@@ -73,7 +73,7 @@ export function CollapsibleCard({
                 <div className="flex items-center gap-2 flex-wrap">
                   <CardTitle className="text-base">{title}</CardTitle>
                   {badges?.map((badge, index) => (
-                    <Badge key={index} variant={badge.variant || 'secondary'}>
+                    <Badge key={index} variant={badge.variant ?? 'secondary'}>
                       {badge.text}
                     </Badge>
                   ))}
