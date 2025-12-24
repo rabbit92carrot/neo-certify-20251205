@@ -26,6 +26,7 @@ const eslintConfig = defineConfig([
     // Auto-generated types (use ** pattern for flat config)
     "**/database.types.ts",
   ]),
+  // 기본 TypeScript/React 규칙
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
@@ -62,9 +63,10 @@ const eslintConfig = defineConfig([
 
       // No Magic Numbers - 개발 원칙 준수
       // 자주 사용되는 숫자: 페이지네이션(20,50), 시간(24,60,1000,3000), 그리드(3,4,5,10)
+      // 추가: UI(6,7,8,11,12,16,30), 문자열(-4,-6), debounce(300,500,1500)
       "no-magic-numbers": "off",
       "@typescript-eslint/no-magic-numbers": ["warn", {
-        ignore: [0, 1, -1, 2, 3, 4, 5, 10, 20, 24, 50, 60, 100, 1000, 3000],
+        ignore: [0, 1, -1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 16, 20, 24, 30, 50, 60, 100, 300, 500, 1000, 1500, 3000, -4, -6],
         ignoreArrayIndexes: true,
         ignoreDefaultValues: true,
         ignoreEnums: true,
@@ -86,8 +88,81 @@ const eslintConfig = defineConfig([
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       // React 19 Compiler - 초기 데이터 로드 패턴에서 false positive 발생
+      // 데이터 페칭 시 useEffect + setState 조합은 일반적인 패턴이며, 이 규칙은 비활성화
       // https://github.com/facebook/react/issues/34743
-      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
+  // ========================================================================
+  // 파일별 Override (flat config에서는 나중에 정의된 규칙이 우선)
+  // ========================================================================
+  // shadcn/ui 컴포넌트 - 외부 생성 코드이므로 반환 타입 경고 비활성화
+  {
+    files: ["src/components/ui/**/*.tsx"],
+    rules: {
+      "@typescript-eslint/explicit-function-return-type": "off",
+    },
+  },
+  // 개발 스크립트 - 콘솔 및 any 허용
+  {
+    files: ["scripts/**/*.ts"],
+    rules: {
+      "no-console": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+    },
+  },
+  // E2E 테스트 - 반환 타입 경고 비활성화
+  {
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "@typescript-eslint/explicit-function-return-type": "off",
+    },
+  },
+  // 상수 정의 파일 - 매직 넘버 허용
+  {
+    files: ["src/constants/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-magic-numbers": "off",
+    },
+  },
+  // 로거 파일 - console 허용 (의도적 사용)
+  {
+    files: ["src/lib/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  // Validation 스키마 - 매직 넘버 허용 (min/max 제한값)
+  {
+    files: ["src/lib/validations/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-magic-numbers": "off",
+    },
+  },
+  // 유틸리티 함수 - 매직 넘버 허용 (시간 계산 등)
+  {
+    files: ["src/lib/utils/**/*.ts", "src/lib/rate-limit.ts"],
+    rules: {
+      "@typescript-eslint/no-magic-numbers": "off",
+    },
+  },
+  // 샘플 페이지 - 매직 넘버 및 반환 타입 경고 비활성화 (프로토타입 코드)
+  {
+    files: ["src/app/sample/**/*.ts", "src/app/sample/**/*.tsx"],
+    rules: {
+      "@typescript-eslint/no-magic-numbers": "off",
+      "@typescript-eslint/explicit-function-return-type": "off",
+    },
+  },
+  // Loading 컴포넌트 - 매직 넘버 허용 (skeleton 개수)
+  {
+    files: ["**/loading.tsx"],
+    rules: {
+      "@typescript-eslint/no-magic-numbers": "off",
     },
   },
 ]);
