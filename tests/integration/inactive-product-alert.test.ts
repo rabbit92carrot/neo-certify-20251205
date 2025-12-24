@@ -29,7 +29,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
   let hospitalOrg: Awaited<ReturnType<typeof createTestOrganization>>;
 
   beforeEach(async () => {
-    // 이전 테스트에서 남은 테스트 조직 관련 알림 정리
+    // 이전 테스트에서 남은 테스트 조직 관련 알림 및 로그 정리
     // 다른 테스트에서 삭제된 ADMIN 조직을 참조하는 알림이 FK 위반을 일으킬 수 있음
     const { data: staleOrgs } = await adminClient
       .from('organizations')
@@ -38,12 +38,27 @@ describe('비활성 제품 알림 통합 테스트', () => {
 
     if (staleOrgs && staleOrgs.length > 0) {
       const staleOrgIds = staleOrgs.map((o) => o.id);
-      // 연관된 알림 먼저 삭제
+
+      // 1. 연관된 알림 먼저 삭제 (recipient_org_id 기준)
       await adminClient
         .from('organization_alerts')
         .delete()
         .in('recipient_org_id', staleOrgIds);
+
+      // 2. 비활성 제품 사용 로그 삭제 (organization_id 기준)
+      await adminClient
+        .from('inactive_product_usage_logs')
+        .delete()
+        .in('organization_id', staleOrgIds);
     }
+
+    // 고아 알림 정리 (삭제된 조직을 참조하는 알림)
+    // 테스트 패턴의 이메일을 가진 알림 제목으로 식별
+    await adminClient
+      .from('organization_alerts')
+      .delete()
+      .eq('alert_type', 'INACTIVE_PRODUCT_USAGE')
+      .not('recipient_org_id', 'in', `(SELECT id FROM organizations)`);
 
     // 테스트 조직 생성
     adminOrg = await createTestOrganization({ type: 'ADMIN', status: 'ACTIVE' });
