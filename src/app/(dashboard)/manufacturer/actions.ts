@@ -48,9 +48,7 @@ function formatValidationError(
   const fieldErrors: Record<string, string[]> = {};
   error.issues.forEach((issue) => {
     const path = issue.path.join('.');
-    if (!fieldErrors[path]) {
-      fieldErrors[path] = [];
-    }
+    fieldErrors[path] ??= [];
     fieldErrors[path].push(issue.message);
   });
 
@@ -348,6 +346,33 @@ export async function createShipmentAction(
   }
 
   return result;
+}
+
+/**
+ * 출고 대상 조직 검색 Action (Lazy Load용)
+ * 사용자가 검색할 때만 조직을 조회하여 초기 로딩 시간을 대폭 줄입니다.
+ */
+export async function searchShipmentTargetsAction(
+  query: string,
+  limit: number = 20
+): Promise<ApiResponse<Pick<import('@/types/api.types').Organization, 'id' | 'name' | 'type'>[]>> {
+  const user = await getCurrentUser();
+  if (user?.organization.type !== 'MANUFACTURER') {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return shipmentService.searchShipmentTargetOrganizations(
+    query,
+    'MANUFACTURER',
+    user.organization.id,
+    limit
+  );
 }
 
 /**

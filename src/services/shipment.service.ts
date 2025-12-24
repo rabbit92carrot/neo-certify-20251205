@@ -166,6 +166,57 @@ export const getCachedShipmentTargetOrganizations = (
   )();
 
 /**
+ * 출고 대상 조직 검색 (Lazy Load용)
+ * 검색어 기반으로 출고 가능한 조직을 검색합니다.
+ * 페이지 로드 시 전체 조직 조회 대신, 사용자가 검색할 때만 조회합니다.
+ *
+ * @param query 검색어 (조직명)
+ * @param organizationType 현재 조직 유형
+ * @param excludeOrganizationId 제외할 조직 ID (자기 자신)
+ * @param limit 최대 결과 수 (기본 20)
+ * @returns 검색된 조직 목록
+ */
+export async function searchShipmentTargetOrganizations(
+  query: string,
+  organizationType: OrganizationType,
+  excludeOrganizationId?: string,
+  limit: number = 20
+): Promise<ApiResponse<Pick<Organization, 'id' | 'name' | 'type'>[]>> {
+  const supabase = await createClient();
+
+  // 출고 가능 대상 유형 결정
+  let targetTypes: OrganizationType[] = [];
+
+  if (organizationType === 'MANUFACTURER' || organizationType === 'DISTRIBUTOR') {
+    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
+  } else {
+    return createSuccessResponse([]);
+  }
+
+  let queryBuilder = supabase
+    .from('organizations')
+    .select('id, name, type')
+    .in('type', targetTypes)
+    .eq('status', 'ACTIVE')
+    .ilike('name', `%${query}%`)
+    .order('name')
+    .limit(limit);
+
+  if (excludeOrganizationId) {
+    queryBuilder = queryBuilder.neq('id', excludeOrganizationId);
+  }
+
+  const { data, error } = await queryBuilder;
+
+  if (error) {
+    console.error('출고 대상 조직 검색 실패:', error);
+    return createErrorResponse('QUERY_ERROR', '출고 대상 조직 검색에 실패했습니다.');
+  }
+
+  return createSuccessResponse(data || []);
+}
+
+/**
  * 출고 생성 (원자적 DB 함수 사용)
  * FIFO 기반으로 가상 코드를 자동 할당하고 소유권을 즉시 이전합니다.
  * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
