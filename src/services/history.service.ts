@@ -112,11 +112,15 @@ export interface TransactionHistorySummary {
   items: {
     productId: string;
     productName: string;
+    modelName?: string; // 제품 모델명 추가
     quantity: number;
     codes: string[]; // 제품 코드 문자열 배열 (NC-XXXXXXXX 형식)
   }[];
 
   totalQuantity: number;
+
+  // 회수 기능용 배치 ID (SHIPPED 이벤트)
+  shipmentBatchId?: string;
 }
 
 // ============================================================================
@@ -279,16 +283,18 @@ export async function getTransactionHistory(
         id: row.group_key,
         actionType: row.action_type as HistoryActionType,
         actionTypeLabel: getActionTypeLabel(row.action_type),
-        createdAt: row.created_at,
+        createdAt: row.event_time,
         isRecall: row.is_recall ?? false,
         recallReason: row.recall_reason ?? undefined,
         fromOwner,
         toOwner,
         items: (productSummaries ?? []).map((item) => ({
           ...item,
+          modelName: item.modelName ?? undefined,
           codes: item.codes ?? [],
         })),
         totalQuantity: Number(row.total_quantity),
+        shipmentBatchId: row.shipment_batch_id ?? undefined,
       };
     }
   );
@@ -477,10 +483,14 @@ export async function getTransactionHistoryCursor(
       fromOwner,
       toOwner,
       items: (productSummaries ?? []).map((item) => ({
-        ...item,
+        productId: item.productId,
+        productName: item.productName,
+        modelName: item.modelName ?? undefined,
+        quantity: item.quantity,
         codes: item.codes ?? [],
       })),
       totalQuantity: Number(row.total_quantity),
+      shipmentBatchId: row.shipment_batch_id ?? undefined,
     };
   });
 

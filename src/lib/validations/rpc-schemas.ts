@@ -164,15 +164,15 @@ export const InventoryByLotsBulkRowSchema = z.object({
  * 이력 요약 스키마
  * RPC: get_history_summary
  *
- * DB 함수 반환 구조 (20251219100000_restore_codes_in_history_summary.sql):
- * - group_key, action_type, from_owner_type, from_owner_id, from_owner_name,
- *   to_owner_type, to_owner_id, to_owner_name, is_recall, recall_reason,
- *   created_at (TIMESTAMPTZ), total_quantity, product_summaries (JSONB)
- * - product_summaries 각 항목: productId, productName, quantity, codes[]
+ * DB 함수 반환 구조 (20251226000005_update_legacy_functions_ssot.sql):
+ * - SSOT 기반 그룹핑 (shipment_batch_id, lot_id, treatment_id 우선)
+ * - product_summaries에 modelName 추가
+ * - shipment_batch_id 반환 (회수 기능용)
  */
 export const HistorySummaryRowSchema = z.object({
   group_key: z.string(),
   action_type: z.string(),
+  event_time: z.string(), // 이벤트 시간 (최신 이력 기준)
   from_owner_type: z.string().nullable(),
   from_owner_id: z.string().nullable(),
   from_owner_name: z.string().nullable(),
@@ -181,15 +181,16 @@ export const HistorySummaryRowSchema = z.object({
   to_owner_name: z.string().nullable(),
   is_recall: z.boolean(),
   recall_reason: z.string().nullable(),
-  created_at: z.string(),
   total_quantity: z.number(),
   // product_summaries는 JSONB로 반환 (camelCase - DB에서 직접 빌드)
   product_summaries: z.array(z.object({
     productId: z.string().uuid(),
     productName: z.string(),
+    modelName: z.string().nullable(), // 제품 모델명 추가
     quantity: z.number(),
     codes: z.array(z.string()).optional(), // NC-XXXXXXXX 형식의 가상 코드 목록
   })).nullable(),
+  shipment_batch_id: z.string().uuid().nullable(), // 회수 기능용 배치 ID
 });
 
 // ============================================================================
@@ -218,10 +219,9 @@ export const OrgCodeCountRowSchema = z.object({
  * 관리자 이벤트 요약 스키마
  * RPC: get_admin_event_summary
  *
- * DB 함수 반환 구조 (20251219000000_optimize_get_admin_event_summary.sql):
- * - group_key, event_time, action_type, from_owner_type, from_owner_id,
- *   to_owner_type, to_owner_id, is_recall, recall_reason, total_quantity,
- *   lot_summaries (JSONB), sample_code_ids (UUID[])
+ * DB 함수 반환 구조 (20251226000005_update_legacy_functions_ssot.sql):
+ * - SSOT 기반 그룹핑 (shipment_batch_id, lot_id, treatment_id 우선)
+ * - lot_summaries에 modelName 추가
  */
 export const AdminEventSummaryRowSchema = z.object({
   group_key: z.string(),
@@ -234,13 +234,15 @@ export const AdminEventSummaryRowSchema = z.object({
   is_recall: z.boolean(),
   recall_reason: z.string().nullable(),
   total_quantity: z.number(),
-  // lot_summaries는 JSONB로 반환 (camelCase 아님 - DB에서 직접 빌드)
+  // lot_summaries는 JSONB로 반환 (camelCase - DB에서 직접 빌드)
   lot_summaries: z.array(z.object({
     lotId: z.string().uuid(),
     lotNumber: z.string(),
     productId: z.string().uuid(),
     productName: z.string(),
+    modelName: z.string().nullable(), // 제품 모델명 추가
     quantity: z.number(),
+    codeIds: z.array(z.string().uuid()).optional(), // Lot별 코드 ID 배열
   })).nullable(),
   // sample_code_ids는 UUID[] 배열 (최대 10개)
   sample_code_ids: z.array(z.string().uuid()).nullable(),
@@ -366,8 +368,10 @@ export type ShipmentBatchSummaryRow = z.infer<typeof ShipmentBatchSummaryRowSche
  * 관리자 이벤트 요약 커서 기반 스키마
  * RPC: get_admin_event_summary_cursor
  *
- * DB 함수 반환 구조 (20251219000003_add_cursor_pagination_support.sql):
- * - AdminEventSummaryRowSchema 필드 + has_more (BOOLEAN)
+ * DB 함수 반환 구조 (20251226000004_update_admin_event_summary_cursor.sql):
+ * - SSOT 기반 그룹핑 (shipment_batch_id, lot_id, treatment_id 우선)
+ * - lot_summaries에 modelName 추가
+ * - batch_id 필드 추가 (디버깅/추적용)
  */
 export const AdminEventSummaryCursorRowSchema = z.object({
   group_key: z.string(),
@@ -385,10 +389,12 @@ export const AdminEventSummaryCursorRowSchema = z.object({
     lotNumber: z.string(),
     productId: z.string().uuid(),
     productName: z.string(),
+    modelName: z.string().nullable(), // 제품 모델명 추가
     quantity: z.number(),
     codeIds: z.array(z.string().uuid()).optional(), // Lot별 코드 ID 배열
   })).nullable(),
   sample_code_ids: z.array(z.string().uuid()).nullable(),
+  batch_id: z.string().uuid().nullable(), // 통합 배치 ID (SSOT 추적용)
   has_more: z.boolean(),
 });
 
@@ -398,8 +404,8 @@ export type AdminEventSummaryCursorRow = z.infer<typeof AdminEventSummaryCursorR
  * 이력 요약 커서 기반 스키마
  * RPC: get_history_summary_cursor
  *
- * DB 함수 반환 구조 (20251219000003_add_cursor_pagination_support.sql):
- * - HistorySummaryRowSchema 필드 + has_more (BOOLEAN)
+ * DB 함수 반환 구조 (20251226000003_update_history_summary_cursor.sql):
+ * - HistorySummaryRowSchema 필드 + modelName + shipment_batch_id + has_more (BOOLEAN)
  */
 export const HistorySummaryCursorRowSchema = z.object({
   group_key: z.string(),
@@ -417,9 +423,11 @@ export const HistorySummaryCursorRowSchema = z.object({
   product_summaries: z.array(z.object({
     productId: z.string().uuid(),
     productName: z.string(),
+    modelName: z.string().nullable(), // 제품 모델명 추가
     quantity: z.number(),
     codes: z.array(z.string()).optional(), // 제품별 가상 코드 (NC-XXXXXXXX 형식)
   })).nullable(),
+  shipment_batch_id: z.string().uuid().nullable(), // 회수 기능용 배치 ID
   has_more: z.boolean(),
 });
 
