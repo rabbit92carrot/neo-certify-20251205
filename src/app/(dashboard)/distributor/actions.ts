@@ -147,7 +147,7 @@ export async function recallShipmentAction(
   );
 
   if (result.success) {
-    revalidatePath('/distributor/shipment-history');
+    revalidatePath('/distributor/history');
     revalidatePath('/distributor/inventory');
     revalidatePath('/distributor/dashboard');
   }

@@ -8,9 +8,10 @@
  * - 제품 행 클릭 시 확장하여 고유식별코드(NC-XXXXXXXX) 목록 표시
  * - 코드 클릭 시 클립보드 복사
  * - 반응형 그리드 및 페이지네이션
+ * - 출고 회수 기능 (24시간 이내, SHIPPED 이벤트만)
  */
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
@@ -26,14 +27,27 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { CodeListDisplay } from '@/components/shared/CodeListDisplay';
 import { cn } from '@/lib/utils';
 import type { TransactionHistorySummary } from '@/services/history.service';
 import type { HistoryActionType } from '@/types/api.types';
 import type { ProductAliasMap } from '@/components/shared/HistoryPageWrapper';
+import type { ApiResponse } from '@/types/api.types';
 
 interface TransactionHistoryTableProps {
   /** 거래이력 목록 */
@@ -42,6 +56,10 @@ interface TransactionHistoryTableProps {
   currentOrgId: string;
   /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
   productAliasMap?: ProductAliasMap;
+  /** 회수 액션 (출고 이력에서만 사용) */
+  onRecall?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
+  /** 회수 버튼 표시 여부 */
+  showRecallButton?: boolean;
 }
 
 /**
@@ -104,6 +122,7 @@ function ProductItemRow({
   item: {
     productId: string;
     productName: string;
+    modelName?: string;
     quantity: number;
     codes: string[];
   };
@@ -114,7 +133,8 @@ function ProductItemRow({
 
   // 별칭이 있으면 별칭 사용, 없으면 제품명 사용
   const displayName = aliasInfo?.alias ?? item.productName;
-  const modelName = aliasInfo?.modelName;
+  // aliasInfo의 modelName 우선, 없으면 item의 modelName 사용
+  const modelName = aliasInfo?.modelName ?? item.modelName;
 
   return (
     <div className="border rounded-lg bg-white overflow-hidden">
@@ -173,16 +193,61 @@ function TransactionHistoryCard({
   history,
   currentOrgId,
   productAliasMap,
+  onRecall,
+  showRecallButton,
 }: {
   history: TransactionHistorySummary;
   currentOrgId: string;
   productAliasMap?: ProductAliasMap;
+  onRecall?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
+  showRecallButton?: boolean;
 }): React.ReactElement {
+  const [showRecallDialog, setShowRecallDialog] = useState(false);
+  const [recallReason, setRecallReason] = useState('');
+  const [isPending, startTransition] = useTransition();
+
   // 내가 보낸 것인지, 받은 것인지
   const isOutgoing = history.fromOwner?.id === currentOrgId;
 
   // 코드가 있는 아이템이 있는지 확인
   const hasAnyCodes = history.items.some((item) => item.codes && item.codes.length > 0);
+
+  // 회수 가능 여부 확인 (24시간 이내, SHIPPED 이벤트, 미회수, 내가 보낸 것)
+  const canRecall = (): boolean => {
+    if (!showRecallButton || !onRecall) return false;
+    if (history.isRecall) return false; // 이미 회수됨
+    if (history.actionType !== 'SHIPPED') return false; // SHIPPED 이벤트만
+    if (!isOutgoing) return false; // 내가 보낸 것만
+    if (!history.shipmentBatchId) return false; // 배치 ID 필요
+
+    const historyDate = new Date(history.createdAt);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - historyDate.getTime()) / (1000 * 60 * 60);
+    return hoursDiff <= 24;
+  };
+
+  const handleRecall = (): void => {
+    if (!recallReason.trim()) {
+      toast.error('회수 사유를 입력해주세요.');
+      return;
+    }
+
+    if (!history.shipmentBatchId) {
+      toast.error('회수할 수 없는 출고 건입니다.');
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await onRecall!(history.shipmentBatchId!, recallReason);
+      if (result.success) {
+        toast.success('출고가 회수되었습니다.');
+        setShowRecallDialog(false);
+        setRecallReason('');
+      } else {
+        toast.error(result.error?.message ?? '회수에 실패했습니다.');
+      }
+    });
+  };
 
   // 방향 라벨
   const getDirectionLabel = (): string => {
@@ -247,10 +312,23 @@ function TransactionHistoryCard({
             </div>
           </div>
 
-          {/* 수량 */}
-          <div className="text-right">
-            <p className="font-semibold text-lg">{history.totalQuantity}개</p>
-            <p className="text-xs text-muted-foreground">{history.items.length}종</p>
+          {/* 수량 및 회수 버튼 */}
+          <div className="flex items-center gap-3">
+            {canRecall() && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => setShowRecallDialog(true)}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                회수
+              </Button>
+            )}
+            <div className="text-right">
+              <p className="font-semibold text-lg">{history.totalQuantity}개</p>
+              <p className="text-xs text-muted-foreground">{history.items.length}종</p>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -326,6 +404,59 @@ function TransactionHistoryCard({
           </div>
         )}
       </CardContent>
+
+      {/* 회수 다이얼로그 */}
+      <Dialog open={showRecallDialog} onOpenChange={setShowRecallDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>출고 회수</DialogTitle>
+            <DialogDescription>
+              이 출고를 회수하시겠습니까? 회수 사유를 입력해주세요.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-yellow-50 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>대상:</strong> {history.toOwner?.name ?? '알 수 없음'}
+              </p>
+              <p className="text-sm text-yellow-800">
+                <strong>수량:</strong> {history.totalQuantity}개 ({history.items.length}종)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="recall-reason">회수 사유 (필수)</Label>
+              <Textarea
+                id="recall-reason"
+                value={recallReason}
+                onChange={(e) => setRecallReason(e.target.value)}
+                placeholder="회수 사유를 입력해주세요..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRecallDialog(false);
+                setRecallReason('');
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRecall}
+              disabled={isPending || !recallReason.trim()}
+            >
+              {isPending ? '처리 중...' : '회수하기'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -337,6 +468,8 @@ export function TransactionHistoryTable({
   histories,
   currentOrgId,
   productAliasMap,
+  onRecall,
+  showRecallButton,
 }: TransactionHistoryTableProps): React.ReactElement {
   if (histories.length === 0) {
     return (
@@ -356,6 +489,8 @@ export function TransactionHistoryTable({
           history={history}
           currentOrgId={currentOrgId}
           productAliasMap={productAliasMap}
+          onRecall={onRecall}
+          showRecallButton={showRecallButton}
         />
       ))}
     </div>

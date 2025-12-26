@@ -404,7 +404,7 @@ export async function recallShipmentAction(
   );
 
   if (result.success) {
-    revalidatePath('/manufacturer/shipment-history');
+    revalidatePath('/manufacturer/history');
     revalidatePath('/manufacturer/inventory');
     revalidatePath('/manufacturer/dashboard');
   }
