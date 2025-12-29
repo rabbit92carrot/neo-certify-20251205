@@ -20,13 +20,13 @@ import { Pagination } from '@/components/shared/Pagination';
 import type { OrganizationAlert, PaginatedResponse } from '@/types/api.types';
 import { ALERT_TYPE_LABELS } from '@/types/api.types';
 import {
-  Mail,
   MailOpen,
   AlertTriangle,
   Bell,
   MessageSquare,
   Eye,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface OrganizationAlertTableProps {
   data: PaginatedResponse<OrganizationAlert> | null;
@@ -58,7 +58,7 @@ export function OrganizationAlertTable({
       case 'CUSTOM_MESSAGE':
         return <MessageSquare className="h-4 w-4 text-purple-500" />;
       default:
-        return <Mail className="h-4 w-4" />;
+        return <Bell className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -186,7 +186,10 @@ export function OrganizationAlertTable({
               data.items.map((alert) => (
                 <TableRow
                   key={alert.id}
-                  className={alert.isRead ? 'opacity-60' : 'font-medium'}
+                  className={cn(
+                    'transition-colors',
+                    !alert.isRead && 'bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/30'
+                  )}
                 >
                   <TableCell>
                     {!alert.isRead && (
@@ -197,10 +200,10 @@ export function OrganizationAlertTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    {alert.isRead ? (
-                      <MailOpen className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Mail className="h-4 w-4 text-primary" />
+                    {!alert.isRead && (
+                      <Badge className="bg-blue-500 hover:bg-blue-500 text-white text-[10px] px-1.5 py-0">
+                        NEW
+                      </Badge>
                     )}
                   </TableCell>
                   <TableCell>
@@ -213,7 +216,10 @@ export function OrganizationAlertTable({
                   </TableCell>
                   <TableCell>
                     <button
-                      className="text-left hover:underline cursor-pointer"
+                      className={cn(
+                        'text-left hover:underline cursor-pointer',
+                        !alert.isRead && 'font-semibold'
+                      )}
                       onClick={() => onViewDetail?.(alert)}
                     >
                       {alert.title}
@@ -230,6 +236,7 @@ export function OrganizationAlertTable({
                         size="sm"
                         variant="ghost"
                         onClick={() => onViewDetail?.(alert)}
+                        title="상세 보기"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -239,8 +246,14 @@ export function OrganizationAlertTable({
                           variant="ghost"
                           onClick={() => handleMarkAsRead(alert.id)}
                           disabled={processingId === alert.id}
+                          title="읽음으로 표시"
+                          className="text-muted-foreground hover:text-foreground"
                         >
-                          {processingId === alert.id ? '...' : '읽음'}
+                          {processingId === alert.id ? (
+                            <LoadingSpinner className="h-4 w-4" />
+                          ) : (
+                            <MailOpen className="h-4 w-4" />
+                          )}
                         </Button>
                       )}
                     </div>

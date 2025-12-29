@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { OrganizationAlertTable } from '@/components/tables/OrganizationAlertTable';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,6 +55,59 @@ export function InboxTableWrapper({
   // 상세 보기 모달
   const [selectedAlert, setSelectedAlert] = useState<OrganizationAlert | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // Optimistic UI를 위한 로컬 상태 업데이트 헬퍼
+  const optimisticMarkAsRead = useCallback(
+    (alertId: string) => {
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map((item) =>
+                item.id === alertId
+                  ? { ...item, isRead: true, readAt: new Date().toISOString() }
+                  : item
+              ),
+            }
+          : null
+      );
+    },
+    []
+  );
+
+  const optimisticMarkMultipleAsRead = useCallback(
+    (alertIds: string[]) => {
+      const idSet = new Set(alertIds);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map((item) =>
+                idSet.has(item.id)
+                  ? { ...item, isRead: true, readAt: new Date().toISOString() }
+                  : item
+              ),
+            }
+          : null
+      );
+    },
+    []
+  );
+
+  const optimisticMarkAllAsRead = useCallback(() => {
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((item) => ({
+              ...item,
+              isRead: true,
+              readAt: item.readAt || new Date().toISOString(),
+            })),
+          }
+        : null
+    );
+  }, []);
 
   // 데이터 로드
   const loadData = async (page: number, isRead?: boolean, alertType?: string) => {
@@ -138,55 +192,91 @@ export function InboxTableWrapper({
     });
   };
 
-  // 읽음 처리
+  // 읽음 처리 (Optimistic UI)
   const handleMarkAsRead = async (alertId: string) => {
+    // 1. 즉시 로컬 상태 업데이트
+    optimisticMarkAsRead(alertId);
+
+    // 2. 서버에 저장
     const result = await markAlertAsReadAction(alertId);
-    if (result.success) {
+
+    // 3. 실패 시 롤백 + 에러 토스트
+    if (!result.success) {
       loadData(
         data?.meta.page || 1,
         readFilter === 'all' ? undefined : readFilter === 'read',
         typeFilter === 'all' ? undefined : typeFilter
       );
+      toast.error('읽음 처리에 실패했습니다.');
     }
   };
 
-  // 선택 항목 읽음 처리
+  // 선택 항목 읽음 처리 (Optimistic UI)
   const handleMarkSelectedAsRead = async (alertIds: string[]) => {
+    // 1. 즉시 로컬 상태 업데이트
+    optimisticMarkMultipleAsRead(alertIds);
+
+    // 2. 서버에 저장
     const result = await markAlertsAsReadAction(alertIds);
-    if (result.success) {
+
+    // 3. 실패 시 롤백 + 에러 토스트
+    if (!result.success) {
       loadData(
         data?.meta.page || 1,
         readFilter === 'all' ? undefined : readFilter === 'read',
         typeFilter === 'all' ? undefined : typeFilter
       );
+      toast.error('선택 항목 읽음 처리에 실패했습니다.');
     }
   };
 
-  // 전체 읽음 처리
+  // 전체 읽음 처리 (Optimistic UI)
   const handleMarkAllAsRead = async () => {
+    // 1. 즉시 로컬 상태 업데이트
+    optimisticMarkAllAsRead();
+
+    // 2. 서버에 저장
     const result = await markAllAlertsAsReadAction();
-    if (result.success) {
+
+    // 3. 실패 시 롤백 + 에러 토스트
+    if (!result.success) {
       loadData(
         data?.meta.page || 1,
         readFilter === 'all' ? undefined : readFilter === 'read',
         typeFilter === 'all' ? undefined : typeFilter
       );
+      toast.error('전체 읽음 처리에 실패했습니다.');
     }
   };
 
-  // 상세 보기
+  // 상세 보기 (Optimistic UI)
   const handleViewDetail = async (alert: OrganizationAlert) => {
-    setSelectedAlert(alert);
+    // 모달에 표시할 알림 설정 (읽음 상태로 표시)
+    setSelectedAlert({
+      ...alert,
+      isRead: true,
+      readAt: alert.readAt || new Date().toISOString(),
+    });
     setIsDetailOpen(true);
 
     // 읽지 않은 알림이면 읽음 처리
     if (!alert.isRead) {
-      await markAlertAsReadAction(alert.id);
-      loadData(
-        data?.meta.page || 1,
-        readFilter === 'all' ? undefined : readFilter === 'read',
-        typeFilter === 'all' ? undefined : typeFilter
-      );
+      // 1. 즉시 로컬 상태 업데이트
+      optimisticMarkAsRead(alert.id);
+
+      // 2. 서버에 저장
+      const result = await markAlertAsReadAction(alert.id);
+
+      // 3. 실패 시 롤백 + 에러 토스트
+      if (!result.success) {
+        setSelectedAlert(alert); // 모달 상태도 복구
+        loadData(
+          data?.meta.page || 1,
+          readFilter === 'all' ? undefined : readFilter === 'read',
+          typeFilter === 'all' ? undefined : typeFilter
+        );
+        toast.error('읽음 처리에 실패했습니다.');
+      }
     }
   };
 
