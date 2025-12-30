@@ -201,9 +201,15 @@ export async function updateProduct(
 
   // 수정할 필드만 추출
   const updateData: Record<string, unknown> = {};
-  if (data.name !== undefined) {updateData.name = data.name;}
-  if (data.udiDi !== undefined) {updateData.udi_di = data.udiDi;}
-  if (data.modelName !== undefined) {updateData.model_name = data.modelName;}
+  if (data.name !== undefined) {
+    updateData.name = data.name;
+  }
+  if (data.udiDi !== undefined) {
+    updateData.udi_di = data.udiDi;
+  }
+  if (data.modelName !== undefined) {
+    updateData.model_name = data.modelName;
+  }
 
   // UDI-DI 변경 시 중복 확인
   if (data.udiDi) {
