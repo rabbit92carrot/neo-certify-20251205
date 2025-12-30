@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
 import type {
   ApiResponse,
   InventorySummary,
@@ -17,6 +18,8 @@ import {
   InventoryByLotRowSchema,
   InventoryByLotsBulkRowSchema,
 } from '@/lib/validations/rpc-schemas';
+
+const logger = createLogger('inventory.service');
 
 /**
  * 제품별 재고 요약 조회
@@ -36,14 +39,14 @@ export async function getInventorySummary(
   });
 
   if (error) {
-    console.error('재고 요약 조회 실패:', error);
+    logger.error('재고 요약 조회 실패', error);
     return createErrorResponse('QUERY_ERROR', '재고 조회에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(InventorySummaryRowSchema, data, 'get_inventory_summary');
   if (!parsed.success) {
-    console.error('get_inventory_summary 검증 실패:', parsed.error);
+    logger.error('get_inventory_summary 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
@@ -91,14 +94,14 @@ export async function getProductInventoryDetail(
   }
 
   if (lotError) {
-    console.error('Lot별 재고 조회 실패:', lotError);
+    logger.error('Lot별 재고 조회 실패', lotError);
     return createErrorResponse('QUERY_ERROR', '재고 상세 조회에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(InventoryByLotRowSchema, lotData, 'get_inventory_by_lot');
   if (!parsed.success) {
-    console.error('get_inventory_by_lot 검증 실패:', parsed.error);
+    logger.error('get_inventory_by_lot 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
@@ -138,7 +141,7 @@ export async function getInventoryCount(
   });
 
   if (error) {
-    console.error('재고 수량 조회 실패:', error);
+    logger.error('재고 수량 조회 실패', error);
     return 0;
   }
 
@@ -195,7 +198,7 @@ export async function getAvailableProductsForShipment(
     .eq('is_active', true);
 
   if (error) {
-    console.error('제품 조회 실패:', {
+    logger.error('제품 조회 실패', {
       message: error.message,
       code: error.code,
       details: error.details,
@@ -254,7 +257,7 @@ export async function getProductsWithLotsForShipment(
 
   if (lotsError) {
     // DB 함수가 없으면 기존 방식으로 fallback (Promise.all)
-    console.warn('Bulk lots 조회 실패, fallback 사용:', lotsError.message);
+    logger.warn('Bulk lots 조회 실패, fallback 사용', { message: lotsError.message });
 
     const productsWithLots = await Promise.all(
       products.map(async (product) => {
@@ -272,7 +275,7 @@ export async function getProductsWithLotsForShipment(
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(InventoryByLotsBulkRowSchema, allLotsData, 'get_inventory_by_lots_bulk');
   if (!parsed.success) {
-    console.error('get_inventory_by_lots_bulk 검증 실패:', parsed.error);
+    logger.error('get_inventory_by_lots_bulk 검증 실패', { error: parsed.error });
     // 검증 실패 시 fallback
     const productsWithLots = await Promise.all(
       products.map(async (product) => {

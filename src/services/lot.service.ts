@@ -7,6 +7,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
 import type { ApiResponse, Lot, LotWithProduct, PaginatedResponse } from '@/types/api.types';
 import type { LotCreateData, LotListQueryData } from '@/lib/validations/product';
 import { CONFIG } from '@/constants';
@@ -18,6 +19,8 @@ import {
   parseRpcArray,
 } from './common.service';
 import { LotNumberResultSchema, UpsertLotResultSchema } from '@/lib/validations/rpc-schemas';
+
+const logger = createLogger('lot.service');
 
 /**
  * Lot 생산 등록
@@ -58,14 +61,14 @@ export async function createLot(
   );
 
   if (lotNumberError) {
-    console.error('Lot 번호 생성 실패:', lotNumberError);
+    logger.error('Lot 번호 생성 실패', lotNumberError);
     return createErrorResponse('LOT_NUMBER_GENERATION_FAILED', 'Lot 번호 생성에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const lotNumberParsed = LotNumberResultSchema.safeParse(lotNumberResult);
   if (!lotNumberParsed.success) {
-    console.error('generate_lot_number 검증 실패:', lotNumberParsed.error);
+    logger.error('generate_lot_number 검증 실패', { error: lotNumberParsed.error });
     return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, 'Lot 번호 형식이 올바르지 않습니다.');
   }
 
@@ -89,14 +92,14 @@ export async function createLot(
       return createErrorResponse('QUANTITY_LIMIT_EXCEEDED', '총 수량이 최대 한도(100,000개)를 초과합니다.');
     }
 
-    console.error('Lot 생성/업데이트 실패:', upsertError);
+    logger.error('Lot 생성/업데이트 실패', upsertError);
     return createErrorResponse('CREATE_FAILED', 'Lot 생성에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱 (upsert_lot은 배열 반환)
   const upsertParsed = parseRpcArray(UpsertLotResultSchema, upsertResult, 'upsert_lot');
   if (!upsertParsed.success) {
-    console.error('upsert_lot 검증 실패:', upsertParsed.error);
+    logger.error('upsert_lot 검증 실패', { error: upsertParsed.error });
     return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, upsertParsed.error);
   }
 
@@ -252,7 +255,9 @@ export async function getTodayProduction(organizationId: string): Promise<number
     .gte('created_at', `${today}T00:00:00`)
     .lte('created_at', `${today}T23:59:59`);
 
-  if (!data) {return 0;}
+  if (!data) {
+    return 0;
+  }
 
   return data.reduce((sum, lot) => sum + lot.quantity, 0);
 }

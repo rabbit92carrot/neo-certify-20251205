@@ -10,6 +10,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
 import { getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/utils';
 import { getTotalInventoryCount } from './inventory.service';
 import { parseRpcSingle } from './common.service';
@@ -26,7 +27,8 @@ import type {
   HospitalDashboardStats,
   AdminDashboardStats,
 } from '@/types/api.types';
-// Zod 스키마로 대체되어 Database 타입 제거됨
+
+const logger = createLogger('dashboard.service');
 
 /**
  * 제조사 대시보드 통계 조회
@@ -437,7 +439,7 @@ export async function getManufacturerDashboardStatsOptimized(
   });
 
   if (error) {
-    console.error('제조사 대시보드 통계 조회 실패:', error);
+    logger.error('제조사 대시보드 통계 조회 실패', error);
     // 폴백: 기존 함수 사용
     return getManufacturerDashboardStats(organizationId);
   }
@@ -445,7 +447,7 @@ export async function getManufacturerDashboardStatsOptimized(
   // Zod 검증
   const parsed = parseRpcSingle(ManufacturerStatsRowSchema, data, 'get_dashboard_stats_manufacturer');
   if (!parsed.success) {
-    console.error('제조사 대시보드 통계 검증 실패:', parsed.error);
+    logger.error('제조사 대시보드 통계 검증 실패', { error: parsed.error });
     return getManufacturerDashboardStats(organizationId);
   }
 
@@ -476,7 +478,7 @@ export async function getDistributorDashboardStatsOptimized(
   });
 
   if (error) {
-    console.error('유통사 대시보드 통계 조회 실패:', error);
+    logger.error('유통사 대시보드 통계 조회 실패', error);
     // 폴백: 기존 함수 사용
     return getDistributorDashboardStats(organizationId);
   }
@@ -484,7 +486,7 @@ export async function getDistributorDashboardStatsOptimized(
   // Zod 검증
   const parsed = parseRpcSingle(DistributorStatsRowSchema, data, 'get_dashboard_stats_distributor');
   if (!parsed.success) {
-    console.error('유통사 대시보드 통계 검증 실패:', parsed.error);
+    logger.error('유통사 대시보드 통계 검증 실패', { error: parsed.error });
     return getDistributorDashboardStats(organizationId);
   }
 
@@ -514,7 +516,7 @@ export async function getHospitalDashboardStatsOptimized(
   });
 
   if (error) {
-    console.error('병원 대시보드 통계 조회 실패:', error);
+    logger.error('병원 대시보드 통계 조회 실패', error);
     // 폴백: 기존 함수 사용
     return getHospitalDashboardStats(organizationId);
   }
@@ -522,7 +524,7 @@ export async function getHospitalDashboardStatsOptimized(
   // Zod 검증
   const parsed = parseRpcSingle(HospitalStatsRowSchema, data, 'get_dashboard_stats_hospital');
   if (!parsed.success) {
-    console.error('병원 대시보드 통계 검증 실패:', parsed.error);
+    logger.error('병원 대시보드 통계 검증 실패', { error: parsed.error });
     return getHospitalDashboardStats(organizationId);
   }
 
@@ -551,7 +553,7 @@ export async function getAdminDashboardStatsOptimized(): Promise<
   const { data, error } = await supabase.rpc('get_dashboard_stats_admin');
 
   if (error) {
-    console.error('Admin 대시보드 통계 조회 실패:', error);
+    logger.error('Admin 대시보드 통계 조회 실패', error);
     // 폴백: 개별 쿼리 사용
     const [totalOrgs, pending, recalls, codes] = await Promise.all([
       getAdminTotalOrganizations(),
@@ -573,7 +575,7 @@ export async function getAdminDashboardStatsOptimized(): Promise<
   // Zod 검증
   const parsed = parseRpcSingle(AdminStatsRowSchema, data, 'get_dashboard_stats_admin');
   if (!parsed.success) {
-    console.error('Admin 대시보드 통계 검증 실패:', parsed.error);
+    logger.error('Admin 대시보드 통계 검증 실패', { error: parsed.error });
     // 폴백: 개별 쿼리 사용
     const [totalOrgs, pending, recalls, codes] = await Promise.all([
       getAdminTotalOrganizations(),

@@ -16,9 +16,9 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
 import {
   getOrganizationName,
-  getOrganizationNames,
   maskPhoneNumber,
   createOrganizationNameCache,
   getActionTypeLabel,
@@ -35,11 +35,10 @@ import type { TransactionHistoryQueryData } from '@/lib/validations/history';
 import { HistorySummaryRowSchema, HistorySummaryCursorRowSchema } from '@/lib/validations/rpc-schemas';
 import { CONFIG } from '@/constants/config';
 
+const logger = createLogger('history.service');
+
 // ProductSummaryItem 타입은 HistorySummaryRowSchema에서 추론됨
 // codes 필드는 20251219100000_restore_codes_in_history_summary.sql에서 복원됨
-
-// 조직명 포함 여부 확인 (마이그레이션 적용 후 true)
-const HAS_ORG_NAMES_IN_RPC = true;
 
 // ============================================================================
 // 타입 정의
@@ -216,68 +215,50 @@ export async function getTransactionHistory(
   const { data: totalCount, error: countError } = countResult;
 
   if (historyError) {
-    console.error('거래이력 조회 실패:', historyError.message);
+    logger.error('거래이력 조회 실패', { message: historyError.message });
     return createErrorResponse('QUERY_ERROR', historyError.message ?? '거래이력 조회에 실패했습니다.');
   }
 
   if (countError) {
-    console.error('거래이력 카운트 실패:', countError.message);
+    logger.error('거래이력 카운트 실패', { message: countError.message });
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(HistorySummaryRowSchema, historyData, 'get_history_summary');
   if (!parsed.success) {
-    console.error('get_history_summary 검증 실패:', parsed.error);
+    logger.error('get_history_summary 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
   const validatedData = parsed.data;
 
-  // 3. 조직 이름 조회 (RPC에 포함되지 않은 경우에만 별도 조회)
-  let orgNameMap: Map<string, string> = new Map();
-  if (!HAS_ORG_NAMES_IN_RPC) {
-    const orgIds = new Set<string>();
-    for (const row of validatedData) {
-      if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
-        orgIds.add(row.from_owner_id);
-      }
-      if (row.to_owner_id && row.to_owner_type === 'ORGANIZATION') {
-        orgIds.add(row.to_owner_id);
-      }
-    }
-    orgNameMap = await getOrganizationNames([...orgIds]);
-  }
-
-  // 4. 결과 매핑 (Zod 검증된 데이터 사용)
+  // 3. 결과 매핑 (Zod 검증된 데이터 사용, RPC에서 조직명 반환됨)
   const summaries: TransactionHistorySummary[] = validatedData.map((row) => {
     // product_summaries는 Zod로 검증된 형식 (타입 추론 자동)
     const productSummaries = row.product_summaries;
-      // 소유자 정보 포맷팅 (RPC에서 조직명 반환 시 직접 사용)
-      const fromOwner = row.from_owner_id
-        ? {
-            type: row.from_owner_type as 'ORGANIZATION' | 'PATIENT',
-            id: row.from_owner_id,
-            name:
-              row.from_owner_type === 'PATIENT'
-                ? maskPhoneNumber(row.from_owner_id)
-                : (HAS_ORG_NAMES_IN_RPC
-                    ? row.from_owner_name ?? '알 수 없음'
-                    : orgNameMap.get(row.from_owner_id) ?? '알 수 없음'),
-          }
-        : undefined;
 
-      const toOwner = row.to_owner_id
-        ? {
-            type: row.to_owner_type as 'ORGANIZATION' | 'PATIENT',
-            id: row.to_owner_id,
-            name:
-              row.to_owner_type === 'PATIENT'
-                ? maskPhoneNumber(row.to_owner_id)
-                : (HAS_ORG_NAMES_IN_RPC
-                    ? row.to_owner_name ?? '알 수 없음'
-                    : orgNameMap.get(row.to_owner_id) ?? '알 수 없음'),
-          }
-        : undefined;
+    // 소유자 정보 포맷팅 (RPC에서 조직명 반환됨)
+    const fromOwner = row.from_owner_id
+      ? {
+          type: row.from_owner_type as 'ORGANIZATION' | 'PATIENT',
+          id: row.from_owner_id,
+          name:
+            row.from_owner_type === 'PATIENT'
+              ? maskPhoneNumber(row.from_owner_id)
+              : row.from_owner_name ?? '알 수 없음',
+        }
+      : undefined;
+
+    const toOwner = row.to_owner_id
+      ? {
+          type: row.to_owner_type as 'ORGANIZATION' | 'PATIENT',
+          id: row.to_owner_id,
+          name:
+            row.to_owner_type === 'PATIENT'
+              ? maskPhoneNumber(row.to_owner_id)
+              : row.to_owner_name ?? '알 수 없음',
+        }
+      : undefined;
 
       return {
         id: row.group_key,
@@ -431,14 +412,14 @@ export async function getTransactionHistoryCursor(
   const { data, error } = await supabase.rpc('get_history_summary_cursor', rpcParams);
 
   if (error) {
-    console.error('거래이력 커서 조회 실패:', error.message);
+    logger.error('거래이력 커서 조회 실패', { message: error.message });
     return createErrorResponse('QUERY_ERROR', error.message ?? '거래이력 조회에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(HistorySummaryCursorRowSchema, data, 'get_history_summary_cursor');
   if (!parsed.success) {
-    console.error('get_history_summary_cursor 검증 실패:', parsed.error);
+    logger.error('get_history_summary_cursor 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 

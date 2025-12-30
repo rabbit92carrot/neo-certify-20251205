@@ -10,6 +10,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
 import { getHoursDifference } from '@/lib/utils';
 import { normalizePhoneNumber } from '@/lib/validations/common';
 import type {
@@ -32,6 +33,8 @@ import {
   TreatmentSummaryRowSchema,
   HospitalPatientRowSchema,
 } from '@/lib/validations/rpc-schemas';
+
+const logger = createLogger('treatment.service');
 
 // ============================================================================
 // 타입 정의
@@ -149,14 +152,14 @@ export async function createTreatment(
   });
 
   if (error) {
-    console.error('원자적 시술 생성 실패:', error);
+    logger.error('원자적 시술 생성 실패', error);
     return createErrorResponse('TREATMENT_CREATE_FAILED', '시술 생성에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcSingle(TreatmentAtomicResultSchema, result, 'create_treatment_atomic');
   if (!parsed.success) {
-    console.error('create_treatment_atomic 검증 실패:', parsed.error);
+    logger.error('create_treatment_atomic 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
@@ -221,7 +224,7 @@ export async function createTreatment(
       is_sent: false,
     });
   } catch (notificationError) {
-    console.error('알림 메시지 기록 실패:', notificationError);
+    logger.error('알림 메시지 기록 실패', notificationError);
     // 알림 기록 실패는 치명적이지 않으므로 계속 진행
   }
 
@@ -279,7 +282,7 @@ export async function getTreatmentHistory(
   const { data: treatments, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
 
   if (error) {
-    console.error('시술 이력 조회 실패:', error);
+    logger.error('시술 이력 조회 실패', error);
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
@@ -335,7 +338,7 @@ async function getTreatmentSummariesBulk(
   });
 
   if (error || !data) {
-    console.error('시술 요약 bulk 조회 실패:', error);
+    logger.error('시술 요약 bulk 조회 실패', error);
     // 에러 시 빈 결과 반환
     return result;
   }
@@ -343,7 +346,7 @@ async function getTreatmentSummariesBulk(
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(TreatmentSummaryRowSchema, data, 'get_treatment_summaries');
   if (!parsed.success) {
-    console.error('get_treatment_summaries 검증 실패:', parsed.error);
+    logger.error('get_treatment_summaries 검증 실패', { error: parsed.error });
     return result;
   }
 
@@ -434,14 +437,14 @@ export async function recallTreatment(
   });
 
   if (error) {
-    console.error('원자적 시술 회수 실패:', error);
+    logger.error('원자적 시술 회수 실패', error);
     return createErrorResponse('RECALL_FAILED', '시술 회수에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcSingle(RecallTreatmentResultSchema, result, 'recall_treatment_atomic');
   if (!parsed.success) {
-    console.error('recall_treatment_atomic 검증 실패:', parsed.error);
+    logger.error('recall_treatment_atomic 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
@@ -480,7 +483,7 @@ export async function recallTreatment(
       is_sent: false,
     });
   } catch (notificationError) {
-    console.error('회수 알림 기록 실패:', notificationError);
+    logger.error('회수 알림 기록 실패', notificationError);
     // 알림 기록 실패는 치명적이지 않으므로 계속 진행
   }
 
@@ -593,14 +596,14 @@ export async function getHospitalPatients(
   });
 
   if (error) {
-    console.error('병원 환자 검색 실패:', error);
+    logger.error('병원 환자 검색 실패', error);
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(HospitalPatientRowSchema, data, 'get_hospital_patients');
   if (!parsed.success) {
-    console.error('get_hospital_patients 검증 실패:', parsed.error);
+    logger.error('get_hospital_patients 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
