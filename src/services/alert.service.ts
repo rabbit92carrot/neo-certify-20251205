@@ -58,10 +58,10 @@ export async function getOrganizationAlerts(
     return createErrorResponse('QUERY_ERROR', '알림 조회에 실패했습니다.');
   }
 
-  const total = count || 0;
+  const total = count ?? 0;
 
   // DB 데이터를 API 타입으로 변환
-  const alerts: OrganizationAlert[] = (data || []).map((row) => ({
+  const alerts: OrganizationAlert[] = (data ?? []).map((row) => ({
     id: row.id,
     alertType: row.alert_type as OrganizationAlertType,
     recipientOrgId: row.recipient_org_id,
@@ -191,7 +191,7 @@ export async function getUnreadAlertCount(
     return createErrorResponse('QUERY_ERROR', '알림 카운트 조회에 실패했습니다.');
   }
 
-  return createSuccessResponse(count || 0);
+  return createSuccessResponse(count ?? 0);
 }
 
 /**

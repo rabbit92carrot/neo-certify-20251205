@@ -102,7 +102,7 @@ export function RecallTableWrapper({
 
       try {
         // 페이지 1은 커서 없이, 그 외는 해당 페이지의 커서 사용
-        const cursor = page === 1 ? {} : pageCursorsRef.current.get(page) || {};
+        const cursor = page === 1 ? {} : pageCursorsRef.current.get(page) ?? {};
 
         const result = await getRecallHistoryCursorAction({
           startDate: appliedFilters.startDate,
@@ -127,7 +127,7 @@ export function RecallTableWrapper({
             });
           }
         } else {
-          setError(result.error?.message || '데이터를 불러오는데 실패했습니다.');
+          setError(result.error?.message ?? '데이터를 불러오는데 실패했습니다.');
         }
       } catch {
         setError('데이터를 불러오는데 실패했습니다.');

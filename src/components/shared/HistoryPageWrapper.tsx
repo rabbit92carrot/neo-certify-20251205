@@ -68,6 +68,12 @@ interface HistoryPageWrapperProps {
   actionTypeOptions: ActionTypeOption[];
   /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
   productAliasMap?: ProductAliasMap;
+  /** 회수 액션 (출고 이력에서만 사용) */
+  onRecall?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
+  /** 회수 버튼 표시 여부 */
+  showRecallButton?: boolean;
+  /** 기본 액션 타입 필터 */
+  defaultActionType?: string;
 }
 
 // 페이지별 커서 캐시 타입
@@ -85,17 +91,20 @@ export function HistoryPageWrapper({
   initialData = [],
   actionTypeOptions,
   productAliasMap,
+  onRecall,
+  showRecallButton,
+  defaultActionType = 'all',
 }: HistoryPageWrapperProps): React.ReactElement {
   // 필터 상태 (기본값: 3일 전~오늘)
   const [startDate, setStartDate] = useState<Date | undefined>(subDays(new Date(), 3));
   const [endDate, setEndDate] = useState<Date | undefined>(new Date());
-  const [actionType, setActionType] = useState<string>('all');
+  const [actionType, setActionType] = useState<string>(defaultActionType);
 
   // 필터 변경 여부 추적 (조회 버튼 클릭 후 데이터 로드)
   const [appliedFilters, setAppliedFilters] = useState({
     startDate: format(subDays(new Date(), 3), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
-    actionType: 'all',
+    actionType: defaultActionType,
   });
 
   // 이벤트 데이터 상태
@@ -127,7 +136,7 @@ export function HistoryPageWrapper({
 
       try {
         // 페이지 1은 커서 없이, 그 외는 해당 페이지의 커서 사용
-        const cursor = page === 1 ? {} : pageCursorsRef.current.get(page) || {};
+        const cursor = page === 1 ? {} : pageCursorsRef.current.get(page) ?? {};
 
         // 액션 타입 배열 구성
         const actionTypes =
@@ -211,11 +220,11 @@ export function HistoryPageWrapper({
     const defaultEndDate = new Date();
     setStartDate(defaultStartDate);
     setEndDate(defaultEndDate);
-    setActionType('all');
+    setActionType(defaultActionType);
     setAppliedFilters({
       startDate: format(defaultStartDate, 'yyyy-MM-dd'),
       endDate: format(defaultEndDate, 'yyyy-MM-dd'),
-      actionType: 'all',
+      actionType: defaultActionType,
     });
   };
 
@@ -319,6 +328,8 @@ export function HistoryPageWrapper({
           histories={histories}
           currentOrgId={currentOrgId}
           productAliasMap={productAliasMap}
+          onRecall={onRecall}
+          showRecallButton={showRecallButton}
         />
       )}
 

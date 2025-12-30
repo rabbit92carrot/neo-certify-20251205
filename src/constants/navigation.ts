@@ -49,7 +49,6 @@ export const MANUFACTURER_NAV_ITEMS: NavigationItem[] = [
   { label: '제품 관리', mobileLabel: '제품관리', href: '/manufacturer/products', icon: 'Package' },
   { label: '생산 등록', mobileLabel: '생산등록', href: '/manufacturer/production', icon: 'Factory' },
   { label: '출고', href: '/manufacturer/shipment', icon: 'Truck' },
-  { label: '이관 이력', mobileLabel: '이관이력', href: '/manufacturer/shipment-history', icon: 'History' },
   { label: '재고 조회', mobileLabel: '재고조회', href: '/manufacturer/inventory', icon: 'Warehouse' },
   { label: '거래 이력', mobileLabel: '거래이력', href: '/manufacturer/history', icon: 'FileText' },
   { label: '알림 보관함', mobileLabel: '알림', href: '/manufacturer/inbox', icon: 'Mail' },
@@ -62,7 +61,6 @@ export const MANUFACTURER_NAV_ITEMS: NavigationItem[] = [
 export const DISTRIBUTOR_NAV_ITEMS: NavigationItem[] = [
   { label: '대시보드', href: '/distributor/dashboard', icon: 'LayoutDashboard' },
   { label: '출고', href: '/distributor/shipment', icon: 'Truck' },
-  { label: '이관 이력', mobileLabel: '이관이력', href: '/distributor/shipment-history', icon: 'History' },
   { label: '재고 조회', mobileLabel: '재고조회', href: '/distributor/inventory', icon: 'Warehouse' },
   { label: '거래 이력', mobileLabel: '거래이력', href: '/distributor/history', icon: 'FileText' },
 ];

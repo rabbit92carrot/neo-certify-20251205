@@ -57,10 +57,10 @@ export function AdminHistoryFilter({
       const end = searchParams.get('endDate');
       setStartDate(start ? new Date(start) : undefined);
       setEndDate(end ? new Date(end) : undefined);
-      setCurrentStatus(searchParams.get('currentStatus') || '');
-      setCurrentOwnerId(searchParams.get('currentOwnerId') || '');
-      setOriginalProducerId(searchParams.get('originalProducerId') || '');
-      setProductId(searchParams.get('productId') || '');
+      setCurrentStatus(searchParams.get('currentStatus') ?? '');
+      setCurrentOwnerId(searchParams.get('currentOwnerId') ?? '');
+      setOriginalProducerId(searchParams.get('originalProducerId') ?? '');
+      setProductId(searchParams.get('productId') ?? '');
       setIncludeRecalled(searchParams.get('includeRecalled') !== 'false');
     };
 

@@ -7,9 +7,10 @@
 
 import { useState, useTransition, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Package, Send, Building2, Hospital } from 'lucide-react';
+import { Package, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { SearchableCombobox, type SearchableComboboxOption } from '@/components/ui/searchable-combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +18,7 @@ import { ProductCard } from '@/components/shared/ProductCard';
 import { CartDisplay } from '@/components/shared/CartDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useCart } from '@/hooks/useCart';
-import type { Product, Organization, OrganizationType, InventoryByLot } from '@/types/api.types';
+import type { Product, OrganizationType, InventoryByLot } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
 
 interface ProductWithInventory extends Product {
@@ -30,8 +31,8 @@ interface ShipmentFormProps {
   organizationType: OrganizationType;
   /** 출고 가능한 제품 목록 (재고 포함) */
   products: ProductWithInventory[];
-  /** 출고 대상 조직 목록 */
-  targetOrganizations: Pick<Organization, 'id' | 'name' | 'type'>[];
+  /** 출고 대상 조직 검색 함수 (Lazy Load) */
+  onSearchOrganizations: (query: string) => Promise<SearchableComboboxOption[]>;
   /** 출고 액션 */
   onSubmit: (
     toOrganizationId: string,
@@ -47,7 +48,7 @@ interface ShipmentFormProps {
 export function ShipmentForm({
   organizationType: _organizationType,
   products,
-  targetOrganizations,
+  onSearchOrganizations,
   onSubmit,
   canSelectLot = false,
 }: ShipmentFormProps): React.ReactElement {
@@ -160,16 +161,6 @@ export function ShipmentForm({
     });
   };
 
-  // 조직 옵션 생성
-  const organizationOptions: ComboboxOption[] = useMemo(() => {
-    return targetOrganizations.map((org) => ({
-      value: org.id,
-      label: org.name,
-      icon: org.type === 'HOSPITAL' ? <Hospital className="h-4 w-4" /> : <Building2 className="h-4 w-4" />,
-      description: org.type === 'HOSPITAL' ? '병원' : '유통사',
-    }));
-  }, [targetOrganizations]);
-
   // Lot 옵션 생성
   const lotOptions: ComboboxOption[] = useMemo(() => {
     if (!selectedProduct?.lots) {return [];}
@@ -205,13 +196,16 @@ export function ShipmentForm({
             <CardTitle className="text-lg">출고 대상</CardTitle>
           </CardHeader>
           <CardContent>
-            <Combobox
-              options={organizationOptions}
+            <SearchableCombobox
               value={selectedOrganizationId}
               onValueChange={setSelectedOrganizationId}
-              placeholder="출고할 대상을 선택하세요"
-              searchPlaceholder="조직명 검색..."
+              onSearch={onSearchOrganizations}
+              placeholder="출고 대상을 검색하세요"
+              searchPlaceholder="조직명 검색 (2자 이상)..."
               emptyMessage="검색 결과가 없습니다."
+              minCharsMessage="2글자 이상 입력하세요."
+              debounceMs={300}
+              minSearchLength={2}
             />
           </CardContent>
         </Card>

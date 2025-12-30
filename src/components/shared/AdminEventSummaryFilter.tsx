@@ -84,9 +84,9 @@ export function AdminEventSummaryFilter({
       const types = searchParams.get('actionTypes');
       setActionTypes(types ? types.split(',').filter(Boolean) : []);
 
-      setLotNumber(searchParams.get('lotNumber') || '');
-      setOrganizationId(searchParams.get('organizationId') || '');
-      setProductId(searchParams.get('productId') || '');
+      setLotNumber(searchParams.get('lotNumber') ?? '');
+      setOrganizationId(searchParams.get('organizationId') ?? '');
+      setProductId(searchParams.get('productId') ?? '');
       setIncludeRecalled(searchParams.get('includeRecalled') !== 'false');
     };
 

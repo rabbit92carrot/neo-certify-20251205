@@ -139,7 +139,7 @@ async function calculateExpiryDate(
     .eq('organization_id', organizationId)
     .single();
 
-  const expiryMonths = settings?.expiry_months || CONFIG.DEFAULT_EXPIRY_MONTHS;
+  const expiryMonths = settings?.expiry_months ?? CONFIG.DEFAULT_EXPIRY_MONTHS;
 
   const date = new Date(manufactureDate);
   date.setMonth(date.getMonth() + expiryMonths);
@@ -147,7 +147,7 @@ async function calculateExpiryDate(
   date.setDate(date.getDate() - 1);
 
   const isoDate = date.toISOString().split('T')[0];
-  return isoDate ?? manufactureDate;
+  return isoDate || manufactureDate;
 }
 
 /**

@@ -55,10 +55,10 @@ export async function getProducts(
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
-  const total = count || 0;
+  const total = count ?? 0;
 
   return createSuccessResponse({
-    items: data || [],
+    items: data ?? [],
     meta: {
       page,
       pageSize,
@@ -92,7 +92,7 @@ export async function getActiveProducts(
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
-  return createSuccessResponse(data || []);
+  return createSuccessResponse(data ?? []);
 }
 
 /**
@@ -258,7 +258,7 @@ export async function deactivateProduct(
     .update({
       is_active: false,
       deactivation_reason: reason,
-      deactivation_note: note || null,
+      deactivation_note: note ?? null,
       deactivated_at: new Date().toISOString(),
     })
     .eq('id', productId)

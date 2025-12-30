@@ -7,10 +7,18 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import * as authService from '@/services/auth.service';
 import { organizationRegisterSchema, loginSchema } from '@/lib/validations';
 import { DEFAULT_REDIRECT, LOGIN_PATH } from '@/constants/routes';
 import { createErrorResponse, createSuccessResponse, ERROR_CODES } from '@/services/common.service';
+import {
+  checkRateLimit,
+  getClientIP,
+  createRateLimitKey,
+  formatRetryAfter,
+  RATE_LIMIT_CONFIGS,
+} from '@/lib/rate-limit';
 import type { ApiResponse } from '@/types/api.types';
 import type { OrganizationType } from '@/constants';
 
@@ -37,6 +45,20 @@ interface LoginActionResult {
 export async function registerAction(
   formData: FormData
 ): Promise<ApiResponse<RegisterActionResult>> {
+  // Rate Limit 체크
+  const headersList = await headers();
+  const clientIP = getClientIP(headersList);
+  const rateLimitKey = createRateLimitKey(clientIP, 'register');
+  const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.register);
+
+  if (!rateLimitResult.success) {
+    const retryAfter = formatRetryAfter(rateLimitResult.resetAt);
+    return createErrorResponse(
+      ERROR_CODES.RATE_LIMIT_EXCEEDED,
+      `너무 많은 회원가입 시도입니다. ${retryAfter} 후에 다시 시도해주세요.`
+    );
+  }
+
   // FormData에서 데이터 추출
   const rawData = {
     email: formData.get('email') as string,
@@ -58,9 +80,7 @@ export async function registerAction(
     const fieldErrors: Record<string, string[]> = {};
     validationResult.error.issues.forEach((issue) => {
       const path = issue.path.join('.');
-      if (!fieldErrors[path]) {
-        fieldErrors[path] = [];
-      }
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     });
 
@@ -91,6 +111,20 @@ export async function registerAction(
 export async function loginAction(
   formData: FormData
 ): Promise<ApiResponse<LoginActionResult>> {
+  // Rate Limit 체크
+  const headersList = await headers();
+  const clientIP = getClientIP(headersList);
+  const rateLimitKey = createRateLimitKey(clientIP, 'login');
+  const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.auth);
+
+  if (!rateLimitResult.success) {
+    const retryAfter = formatRetryAfter(rateLimitResult.resetAt);
+    return createErrorResponse(
+      ERROR_CODES.RATE_LIMIT_EXCEEDED,
+      `너무 많은 로그인 시도입니다. ${retryAfter} 후에 다시 시도해주세요.`
+    );
+  }
+
   const rawData = {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
@@ -102,9 +136,7 @@ export async function loginAction(
     const fieldErrors: Record<string, string[]> = {};
     validationResult.error.issues.forEach((issue) => {
       const path = issue.path.join('.');
-      if (!fieldErrors[path]) {
-        fieldErrors[path] = [];
-      }
+      fieldErrors[path] ??= [];
       fieldErrors[path].push(issue.message);
     });
 

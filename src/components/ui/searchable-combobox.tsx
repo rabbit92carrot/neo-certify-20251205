@@ -61,12 +61,15 @@ export interface SearchableComboboxProps {
   minSearchLength?: number;
 }
 
+// 안정적인 빈 배열 참조 (리렌더링 시에도 동일 참조 유지)
+const EMPTY_OPTIONS: SearchableComboboxOption[] = [];
+
 function SearchableCombobox({
   value,
   onValueChange,
   onSearch,
   defaultOption,
-  initialOptions = [],
+  initialOptions,
   placeholder = '선택하세요...',
   searchPlaceholder = '2글자 이상 입력...',
   emptyMessage = '검색 결과가 없습니다.',
@@ -76,9 +79,12 @@ function SearchableCombobox({
   debounceMs = 300,
   minSearchLength = 2,
 }: SearchableComboboxProps) {
+  // initialOptions가 undefined이면 안정적인 빈 배열 사용
+  const stableInitialOptions = initialOptions ?? EMPTY_OPTIONS;
+
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [options, setOptions] = React.useState<SearchableComboboxOption[]>(initialOptions);
+  const [options, setOptions] = React.useState<SearchableComboboxOption[]>(stableInitialOptions);
   const [isLoading, setIsLoading] = React.useState(false);
 
   const debouncedQuery = useDebounce(searchQuery, debounceMs);
@@ -86,7 +92,7 @@ function SearchableCombobox({
   // 검색 실행
   React.useEffect(() => {
     if (debouncedQuery.length < minSearchLength) {
-      setOptions(initialOptions);
+      setOptions(stableInitialOptions);
       return;
     }
 
@@ -113,12 +119,12 @@ function SearchableCombobox({
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, minSearchLength, onSearch, initialOptions]);
+  }, [debouncedQuery, minSearchLength, onSearch, stableInitialOptions]);
 
   // 선택된 옵션 찾기
   const allOptions = defaultOption ? [defaultOption, ...options] : options;
-  const selectedOption = allOptions.find((option) => option.value === value) ||
-    initialOptions.find((option) => option.value === value);
+  const selectedOption = allOptions.find((option) => option.value === value) ??
+    stableInitialOptions.find((option) => option.value === value);
 
   // 표시할 옵션 목록
   const displayOptions = defaultOption ? [defaultOption, ...options] : options;

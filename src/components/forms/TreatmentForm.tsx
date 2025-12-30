@@ -3,9 +3,11 @@
 /**
  * 시술 폼 컴포넌트
  * 병원에서 시술한 제품을 선택하고 환자 정보를 입력하여 시술을 등록합니다.
+ *
+ * SSOT: 환자 검색 로직은 usePatientSearch 훅으로 분리됨
  */
 
-import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Package, Stethoscope, Phone, Calendar, Loader2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +25,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useCart } from '@/hooks/useCart';
+import { useCart, usePatientSearch } from '@/hooks';
 import { formatPhoneNumber, normalizePhoneNumber } from '@/lib/validations/common';
 import { searchHospitalPatientsAction } from '@/app/(dashboard)/hospital/actions';
 import type { ProductForTreatment } from '@/types/api.types';
@@ -50,18 +52,25 @@ export function TreatmentForm({
   const [isPending, startTransition] = useTransition();
   const [selectedProduct, setSelectedProduct] = useState<ProductForTreatment | null>(null);
   const [quantity, setQuantity] = useState<string>('1');
-  const [patientPhone, setPatientPhone] = useState<string>('');
   const [treatmentDate, setTreatmentDate] = useState<string>(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return today ?? '';
+    const today = new Date().toISOString().split('T')[0] ?? '';
+    return today;
   });
 
-  // 환자 검색 관련 상태
-  const [phoneInputValue, setPhoneInputValue] = useState<string>('');
-  const [patientSuggestions, setPatientSuggestions] = useState<string[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  // 환자 검색 훅 (SSOT: 검색 로직 통합)
+  const {
+    phoneInputValue,
+    patientPhone,
+    patientSuggestions,
+    isSearching,
+    isPopoverOpen,
+    setIsPopoverOpen,
+    handlePhoneInputChange,
+    handlePatientSelect,
+    reset: resetPatientSearch,
+  } = usePatientSearch({
+    searchFn: searchHospitalPatientsAction,
+  });
 
   const {
     items,
@@ -84,68 +93,6 @@ export function TreatmentForm({
   const getDisplayName = (product: ProductForTreatment): string => {
     return product.alias || product.productName;
   };
-
-  // 환자 검색 핸들러 (debounce 300ms)
-  const handlePatientSearch = useCallback((value: string) => {
-    // 기존 타이머 취소
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    const normalized = normalizePhoneNumber(value);
-
-    // 3자리 미만이면 검색하지 않음
-    if (normalized.length < 3) {
-      setPatientSuggestions([]);
-      return;
-    }
-
-    // 300ms 후 검색 실행
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      const result = await searchHospitalPatientsAction(normalized);
-      if (result.success && result.data) {
-        setPatientSuggestions(result.data);
-      } else {
-        setPatientSuggestions([]);
-      }
-      setIsSearching(false);
-    }, 300);
-  }, []);
-
-  // 환자 선택 핸들러
-  const handlePatientSelect = useCallback((phone: string) => {
-    const formatted = formatPhoneNumber(phone);
-    setPatientPhone(formatted);
-    setPhoneInputValue(formatted);
-    setIsPopoverOpen(false);
-    setPatientSuggestions([]);
-  }, []);
-
-  // 전화번호 입력 핸들러 (자동 포맷팅 + 검색)
-  const handlePhoneInputChange = useCallback((value: string) => {
-    const digitsOnly = value.replace(/[^0-9]/g, '');
-    if (digitsOnly.length <= 11) {
-      const formatted = formatPhoneNumber(digitsOnly);
-      setPhoneInputValue(formatted);
-      setPatientPhone(formatted);
-      handlePatientSearch(digitsOnly);
-
-      // 입력값이 있으면 팝오버 열기
-      if (digitsOnly.length >= 3) {
-        setIsPopoverOpen(true);
-      }
-    }
-  }, [handlePatientSearch]);
-
-  // 컴포넌트 언마운트 시 타이머 정리
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, []);
 
   const handleAddToCart = () => {
     if (!selectedProduct) {
@@ -204,9 +151,7 @@ export function TreatmentForm({
       if (result.success) {
         toast.success(`${totalItems}개 제품 시술이 등록되었습니다.`);
         clearCart();
-        setPatientPhone('');
-        setPhoneInputValue('');
-        setPatientSuggestions([]);
+        resetPatientSearch();
         setSelectedProduct(null);
         const today = new Date().toISOString().split('T')[0];
         setTreatmentDate(today ?? '');

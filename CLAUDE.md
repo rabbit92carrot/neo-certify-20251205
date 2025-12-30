@@ -140,6 +140,7 @@ Database Types (generated) → API Types (api.types.ts) → Service Output
 | `useInfiniteScroll()` | Intersection Observer for triggering pagination loads |
 | `useCursorPagination()` | High-performance cursor-based pagination for large datasets (10K+ rows) |
 | `useDebounce()` | Delays value updates (e.g., search input to reduce API calls) |
+| `usePatientSearch()` | Patient autocomplete with debounced search from hospital cache |
 
 ### Common Service Utilities
 
@@ -165,6 +166,9 @@ Use these helpers from `common.service.ts` for consistency:
 
 **Privacy:**
 - `maskPhoneNumber()`, `maskEmail()` - PII masking for display
+
+**Logging:**
+- `createLogger(context)` from `@/lib/logger` - Environment-aware logging with auto-sanitization in production
 
 ### Supabase Clients
 

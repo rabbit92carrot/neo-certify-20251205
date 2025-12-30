@@ -163,11 +163,11 @@ export async function createTreatment(
   const row = parsed.data;
 
   if (row?.error_code) {
-    return createErrorResponse(row.error_code, row.error_message || '시술 생성에 실패했습니다.');
+    return createErrorResponse(row.error_code, row.error_message ?? '시술 생성에 실패했습니다.');
   }
 
-  const treatmentId = row?.treatment_id || '';
-  const totalQuantity = row?.total_quantity || 0;
+  const treatmentId = row?.treatment_id ?? '';
+  const totalQuantity = row?.total_quantity ?? 0;
 
   // 3. 정품 인증 알림 메시지 기록 (트랜잭션 외부, 실패해도 시술은 유지)
   try {
@@ -178,7 +178,7 @@ export async function createTreatment(
       .eq('id', treatmentId)
       .single();
 
-    const hospitalName = (treatmentRecord?.hospital as { name: string } | null)?.name || '병원';
+    const hospitalName = (treatmentRecord?.hospital as { name: string } | null)?.name ?? '병원';
 
     // 제품 정보 조회 (알림 메시지용) - 벌크 쿼리로 N+1 최적화
     const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
@@ -284,11 +284,11 @@ export async function getTreatmentHistory(
   }
 
   // 모든 시술의 요약 정보를 한 번에 조회 (N+1 최적화)
-  const treatmentIds = (treatments || []).map((t) => t.id);
+  const treatmentIds = (treatments ?? []).map((t) => t.id);
   const summariesMap = await getTreatmentSummariesBulk(treatmentIds);
 
-  const treatmentSummaries: TreatmentRecordSummary[] = (treatments || []).map((treatment) => {
-    const summary = summariesMap.get(treatment.id) || { itemSummary: [], totalQuantity: 0 };
+  const treatmentSummaries: TreatmentRecordSummary[] = (treatments ?? []).map((treatment) => {
+    const summary = summariesMap.get(treatment.id) ?? { itemSummary: [], totalQuantity: 0 };
     const hoursDiff = getHoursDifference(treatment.created_at);
 
     return {
@@ -300,7 +300,7 @@ export async function getTreatmentHistory(
     };
   });
 
-  const total = count || 0;
+  const total = count ?? 0;
 
   return createSuccessResponse({
     items: treatmentSummaries,
@@ -423,7 +423,7 @@ export async function recallTreatment(
     .select('virtual_code_id')
     .eq('treatment_id', treatmentId);
 
-  const codeIds = details?.map((d) => d.virtual_code_id) || [];
+  const codeIds = details?.map((d) => d.virtual_code_id) ?? [];
   const summary = codeIds.length > 0 ? await getTreatmentSummaryFromCodes(codeIds) : [];
 
   // 3. 원자적 회수 DB 함수 호출
@@ -449,15 +449,15 @@ export async function recallTreatment(
 
   if (!row?.success) {
     return createErrorResponse(
-      row?.error_code || 'RECALL_FAILED',
-      row?.error_message || '시술 회수에 실패했습니다.'
+      row?.error_code ?? 'RECALL_FAILED',
+      row?.error_message ?? '시술 회수에 실패했습니다.'
     );
   }
 
   // 4. 환자에게 회수 알림 메시지 기록 (트랜잭션 외부)
   try {
     const hospitalInfo = treatment.hospital as { name: string; representative_contact: string };
-    const hospitalContact = hospitalInfo.representative_contact || '연락처 정보 없음';
+    const hospitalContact = hospitalInfo.representative_contact ?? '연락처 정보 없음';
 
     const recallMessage = generateRecallMessage({
       hospitalName: hospitalInfo.name,
@@ -514,7 +514,7 @@ async function getTreatmentSummaryFromCodes(
 
   for (const code of data) {
     const productName = (code.lot as { product: { name: string } }).product.name;
-    productMap.set(productName, (productMap.get(productName) || 0) + 1);
+    productMap.set(productName, (productMap.get(productName) ?? 0) + 1);
   }
 
   return Array.from(productMap.entries()).map(([productName, quantity]) => ({
