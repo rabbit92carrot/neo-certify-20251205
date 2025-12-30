@@ -6,9 +6,12 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
 import type { ApiResponse } from '@/types/api.types';
 import { createErrorResponse, createSuccessResponse } from './common.service';
 import { ERROR_CODES } from '@/constants/errors';
+
+const logger = createLogger('verification.service');
 
 // ============================================================================
 // 타입 정의
@@ -139,7 +142,7 @@ export async function getVerificationData(
       .eq('treatment_id', treatmentId);
 
     if (detailsError) {
-      console.error('[Verification Service] Details query error:', detailsError);
+      logger.error('인증 상세 정보 조회 실패', detailsError);
       return createErrorResponse(ERROR_CODES.SERVER_ERROR, '인증 정보 조회 중 오류가 발생했습니다.');
     }
 
@@ -194,7 +197,7 @@ export async function getVerificationData(
       isRecalled: false,
     });
   } catch (error) {
-    console.error('[Verification Service] Unexpected error:', error);
+    logger.error('인증 데이터 조회 예외 발생', error);
     return createErrorResponse(ERROR_CODES.SERVER_ERROR, '서버 오류가 발생했습니다.');
   }
 }

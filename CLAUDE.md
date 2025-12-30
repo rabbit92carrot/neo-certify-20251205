@@ -12,7 +12,7 @@ Neo-Certify (네오인증서) is a product authentication system for tracking PD
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router) with React 19
+- **Framework**: Next.js 16 (App Router) with React 19
 - **Language**: TypeScript (strict mode)
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
 - **Styling**: Tailwind CSS 4 with shadcn/ui components
@@ -158,7 +158,8 @@ Use these helpers from `common.service.ts` for consistency:
 **RPC Validation:**
 - `parseRpcResult<T>(schema, data, context)` - Zod validation for RPC results
 - `parseRpcArray<T>()`, `parseRpcSingle<T>()` - Convenience wrappers
-- Schemas in `src/lib/validations/rpc-schemas.ts`
+- All RPC response schemas centralized in `src/lib/validations/rpc-schemas.ts`
+- Domain-specific validation schemas in `src/lib/validations/*.ts` (auth, shipment, treatment, etc.)
 
 **Organization Helpers:**
 - `getOrganizationName(id, cache?)`, `getOrganizationNames(ids)` - With caching for batch queries
@@ -169,6 +170,9 @@ Use these helpers from `common.service.ts` for consistency:
 
 **Logging:**
 - `createLogger(context)` from `@/lib/logger` - Environment-aware logging with auto-sanitization in production
+- Auto-masks emails, phone numbers, UUIDs in production logs
+- Redacts sensitive keys (password, token, secret, apiKey)
+- Use `logger.debug()` for detailed debugging (only in development)
 
 ### Supabase Clients
 
@@ -189,7 +193,7 @@ Use these helpers from `common.service.ts` for consistency:
 
 ### Database Functions (PostgreSQL)
 
-Key functions across migrations (81+ functions total):
+Key functions across 24 migration files:
 
 **Atomic Operations:**
 - `create_shipment_atomic()`: Atomic shipment with FIFO selection

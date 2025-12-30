@@ -8,11 +8,14 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
 import type { ApiResponse, PaginatedResponse } from '@/types/api.types';
 import type { Enums } from '@/types/database.types';
 import { ERROR_CODES } from '@/constants/errors';
 import { CONFIG } from '@/constants/config';
 import { createErrorResponse, createSuccessResponse } from './common.service';
+
+const logger = createLogger('notification.service');
 
 // ============================================================================
 // 타입 정의
@@ -124,7 +127,7 @@ export async function getNotificationMessages(
     const { data: messages, error, count } = await query;
 
     if (error) {
-      console.error('[Notification Service] Query error:', error);
+      logger.error('알림 메시지 조회 실패', error);
       return createErrorResponse(ERROR_CODES.SERVER_ERROR, '알림 메시지 조회 중 오류가 발생했습니다.');
     }
 
@@ -155,7 +158,7 @@ export async function getNotificationMessages(
       },
     });
   } catch (error) {
-    console.error('[Notification Service] Unexpected error:', error);
+    logger.error('알림 메시지 조회 예외 발생', error);
     return createErrorResponse(ERROR_CODES.SERVER_ERROR, '서버 오류가 발생했습니다.');
   }
 }
@@ -236,7 +239,7 @@ export async function getNotificationStats(): Promise<
       pendingCount: (totalCount ?? 0) - (sentCount ?? 0),
     });
   } catch (error) {
-    console.error('[Notification Service] Stats error:', error);
+    logger.error('알림 통계 조회 예외 발생', error);
     return createErrorResponse(ERROR_CODES.SERVER_ERROR, '서버 오류가 발생했습니다.');
   }
 }

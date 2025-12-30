@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
 import type { ApiResponse, HospitalKnownProduct, ProductForTreatment } from '@/types/api.types';
 import {
   createSuccessResponse,
@@ -21,6 +22,8 @@ import {
   UpdateHospitalProductSettingsResultSchema,
   ActiveProductForTreatmentRowSchema,
 } from '@/lib/validations/rpc-schemas';
+
+const logger = createLogger('hospital-product.service');
 
 // ============================================================================
 // 타입 정의
@@ -68,7 +71,7 @@ export async function getHospitalKnownProducts(
   });
 
   if (error) {
-    console.error('[hospital-product.service] getHospitalKnownProducts error:', error);
+    logger.error('getHospitalKnownProducts 실패', error);
     return handlePostgrestError(error, '제품 목록 조회에 실패했습니다.');
   }
 
@@ -80,7 +83,7 @@ export async function getHospitalKnownProducts(
   );
 
   if (!parsed.success) {
-    console.error('[hospital-product.service] RPC validation failed:', parsed.error);
+    logger.error('get_hospital_known_products 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
@@ -132,7 +135,7 @@ export async function updateHospitalProductSettings(
   });
 
   if (error) {
-    console.error('[hospital-product.service] updateHospitalProductSettings error:', error);
+    logger.error('updateHospitalProductSettings 실패', error);
     return handlePostgrestError(error, '설정 저장에 실패했습니다.');
   }
 
@@ -144,7 +147,7 @@ export async function updateHospitalProductSettings(
   );
 
   if (!parsed.success) {
-    console.error('[hospital-product.service] RPC validation failed:', parsed.error);
+    logger.error('update_hospital_product_settings 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
@@ -189,7 +192,7 @@ export async function checkAliasExists(
   });
 
   if (error) {
-    console.error('[hospital-product.service] checkAliasExists error:', error);
+    logger.error('checkAliasExists 실패', error);
     return false; // 에러 시 중복 아님으로 처리 (저장 시 DB 제약조건에서 잡힘)
   }
 
@@ -218,7 +221,7 @@ export async function getActiveProductsForTreatment(
   });
 
   if (error) {
-    console.error('[hospital-product.service] getActiveProductsForTreatment error:', error);
+    logger.error('getActiveProductsForTreatment 실패', error);
     return handlePostgrestError(error, '제품 목록 조회에 실패했습니다.');
   }
 
@@ -230,7 +233,7 @@ export async function getActiveProductsForTreatment(
   );
 
   if (!parsed.success) {
-    console.error('[hospital-product.service] RPC validation failed:', parsed.error);
+    logger.error('get_active_products_for_treatment 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 

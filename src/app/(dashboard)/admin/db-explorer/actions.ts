@@ -1,8 +1,11 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
 import { createSuccessResponse, createErrorResponse } from '@/services/common.service';
 import type { ApiResponse } from '@/types/api.types';
+
+const logger = createLogger('admin.db-explorer.actions');
 
 /**
  * DB 구조 정보 타입
@@ -282,15 +285,19 @@ export async function getSampleHistoriesAction(): Promise<ApiResponse<SampleHist
       .limit(20);
 
     if (error) {
-      console.error('Failed to fetch sample histories:', error);
+      logger.error('Failed to fetch sample histories:', error);
       return createErrorResponse('INTERNAL_ERROR', '샘플 이력 조회 실패');
     }
 
     // 조직명 조회를 위한 ID 수집
     const orgIds = new Set<string>();
     data?.forEach((h) => {
-      if (h.from_owner_id && h.from_owner_type === 'ORGANIZATION') orgIds.add(h.from_owner_id);
-      if (h.to_owner_id && h.to_owner_type === 'ORGANIZATION') orgIds.add(h.to_owner_id);
+      if (h.from_owner_id && h.from_owner_type === 'ORGANIZATION') {
+        orgIds.add(h.from_owner_id);
+      }
+      if (h.to_owner_id && h.to_owner_type === 'ORGANIZATION') {
+        orgIds.add(h.to_owner_id);
+      }
     });
 
     // 조직명 조회

@@ -12,6 +12,7 @@ import * as authService from '@/services/auth.service';
 import { organizationRegisterSchema, loginSchema } from '@/lib/validations';
 import { DEFAULT_REDIRECT, LOGIN_PATH } from '@/constants/routes';
 import { createErrorResponse, createSuccessResponse, ERROR_CODES } from '@/services/common.service';
+import { formatZodErrors } from '@/lib/utils';
 import {
   checkRateLimit,
   getClientIP,
@@ -77,14 +78,7 @@ export async function registerAction(
   // Zod 검증
   const validationResult = organizationRegisterSchema.safeParse(rawData);
   if (!validationResult.success) {
-    const fieldErrors: Record<string, string[]> = {};
-    validationResult.error.issues.forEach((issue) => {
-      const path = issue.path.join('.');
-      fieldErrors[path] ??= [];
-      fieldErrors[path].push(issue.message);
-    });
-
-    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', fieldErrors);
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', formatZodErrors(validationResult.error));
   }
 
   // 파일 검증
@@ -133,14 +127,7 @@ export async function loginAction(
   // Zod 검증
   const validationResult = loginSchema.safeParse(rawData);
   if (!validationResult.success) {
-    const fieldErrors: Record<string, string[]> = {};
-    validationResult.error.issues.forEach((issue) => {
-      const path = issue.path.join('.');
-      fieldErrors[path] ??= [];
-      fieldErrors[path].push(issue.message);
-    });
-
-    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', fieldErrors);
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', formatZodErrors(validationResult.error));
   }
 
   // 서비스 호출

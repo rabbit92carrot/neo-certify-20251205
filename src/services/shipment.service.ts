@@ -12,6 +12,7 @@
 import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
 import type {
   ApiResponse,
   PaginatedResponse,
@@ -32,8 +33,25 @@ import {
   ShipmentBatchSummaryRowSchema,
 } from '@/lib/validations/rpc-schemas';
 
+const logger = createLogger('shipment.service');
+
 // 캐시 TTL 상수 (초)
 const TARGET_ORGS_CACHE_TTL = 600; // 10분 (조직 목록은 자주 변경되지 않음)
+
+/**
+ * 조직 유형에 따른 출고 대상 유형 결정
+ * 제조사/유통사: 유통사, 병원에게 출고 가능
+ * 병원: 출고 불가 (시술만 가능)
+ *
+ * @param organizationType 현재 조직 유형
+ * @returns 출고 가능한 조직 유형 배열 (빈 배열이면 출고 불가)
+ */
+function getTargetOrganizationTypes(organizationType: OrganizationType): OrganizationType[] {
+  if (organizationType === 'MANUFACTURER' || organizationType === 'DISTRIBUTOR') {
+    return ['DISTRIBUTOR', 'HOSPITAL'];
+  }
+  return [];
+}
 
 /**
  * 출고 뭉치 + 요약 정보 타입
@@ -62,17 +80,8 @@ export async function getShipmentTargetOrganizations(
 ): Promise<ApiResponse<Pick<Organization, 'id' | 'name' | 'type'>[]>> {
   const supabase = await createClient();
 
-  // 출고 가능 대상 유형 결정
-  // 제조사: 유통사, 병원
-  // 유통사: 유통사, 병원
-  // 병원: 없음 (시술만 가능)
-  let targetTypes: OrganizationType[] = [];
-
-  if (organizationType === 'MANUFACTURER') {
-    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
-  } else if (organizationType === 'DISTRIBUTOR') {
-    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
-  } else {
+  const targetTypes = getTargetOrganizationTypes(organizationType);
+  if (targetTypes.length === 0) {
     return createSuccessResponse([]);
   }
 
@@ -90,7 +99,7 @@ export async function getShipmentTargetOrganizations(
   const { data, error } = await query.order('name');
 
   if (error) {
-    console.error('출고 대상 조직 조회 실패:', error);
+    logger.error('출고 대상 조직 조회 실패', error);
     return createErrorResponse('QUERY_ERROR', '출고 대상 조직 조회에 실패했습니다.');
   }
 
@@ -107,14 +116,8 @@ async function getShipmentTargetOrganizationsWithAdmin(
 ): Promise<ApiResponse<Pick<Organization, 'id' | 'name' | 'type'>[]>> {
   const supabase = createAdminClient();
 
-  // 출고 가능 대상 유형 결정
-  let targetTypes: OrganizationType[] = [];
-
-  if (organizationType === 'MANUFACTURER') {
-    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
-  } else if (organizationType === 'DISTRIBUTOR') {
-    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
-  } else {
+  const targetTypes = getTargetOrganizationTypes(organizationType);
+  if (targetTypes.length === 0) {
     return createSuccessResponse([]);
   }
 
@@ -131,7 +134,7 @@ async function getShipmentTargetOrganizationsWithAdmin(
   const { data, error } = await query.order('name');
 
   if (error) {
-    console.error('출고 대상 조직 조회 실패:', error);
+    logger.error('출고 대상 조직 조회 실패 (Admin)', error);
     return createErrorResponse('QUERY_ERROR', '출고 대상 조직 조회에 실패했습니다.');
   }
 
@@ -184,12 +187,8 @@ export async function searchShipmentTargetOrganizations(
 ): Promise<ApiResponse<Pick<Organization, 'id' | 'name' | 'type'>[]>> {
   const supabase = await createClient();
 
-  // 출고 가능 대상 유형 결정
-  let targetTypes: OrganizationType[] = [];
-
-  if (organizationType === 'MANUFACTURER' || organizationType === 'DISTRIBUTOR') {
-    targetTypes = ['DISTRIBUTOR', 'HOSPITAL'];
-  } else {
+  const targetTypes = getTargetOrganizationTypes(organizationType);
+  if (targetTypes.length === 0) {
     return createSuccessResponse([]);
   }
 
@@ -209,7 +208,7 @@ export async function searchShipmentTargetOrganizations(
   const { data, error } = await queryBuilder;
 
   if (error) {
-    console.error('출고 대상 조직 검색 실패:', error);
+    logger.error('출고 대상 조직 검색 실패', error);
     return createErrorResponse('QUERY_ERROR', '출고 대상 조직 검색에 실패했습니다.');
   }
 
@@ -257,14 +256,14 @@ export async function createShipment(
   });
 
   if (error) {
-    console.error('원자적 출고 생성 실패:', error);
+    logger.error('원자적 출고 생성 실패', error);
     return createErrorResponse('SHIPMENT_CREATE_FAILED', '출고 생성에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcSingle(ShipmentAtomicResultSchema, result, 'create_shipment_atomic');
   if (!parsed.success) {
-    console.error('create_shipment_atomic 검증 실패:', parsed.error);
+    logger.error('create_shipment_atomic 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 
@@ -326,7 +325,7 @@ export async function getShipmentHistory(
   const { data: batches, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
 
   if (error) {
-    console.error('출고 이력 조회 실패:', error);
+    logger.error('출고 이력 조회 실패', error);
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
@@ -401,7 +400,7 @@ export async function getReceivedShipmentHistory(
   const { data: batches, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
 
   if (error) {
-    console.error('수신 출고 이력 조회 실패:', error);
+    logger.error('수신 출고 이력 조회 실패', error);
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
@@ -455,7 +454,7 @@ async function getShipmentBatchSummariesBulk(
   });
 
   if (error || !data) {
-    console.error('출고 뭉치 요약 bulk 조회 실패:', error);
+    logger.error('출고 뭉치 요약 bulk 조회 실패', error);
     // 에러 시 빈 결과 반환 (각 뭉치는 빈 요약을 갖게 됨)
     return result;
   }
@@ -463,7 +462,7 @@ async function getShipmentBatchSummariesBulk(
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcArray(ShipmentBatchSummaryRowSchema, data, 'get_shipment_batch_summaries');
   if (!parsed.success) {
-    console.error('get_shipment_batch_summaries 검증 실패:', parsed.error);
+    logger.error('get_shipment_batch_summaries 검증 실패', { error: parsed.error });
     return result;
   }
 
@@ -530,14 +529,14 @@ export async function recallShipment(
   });
 
   if (error) {
-    console.error('원자적 출고 회수 실패:', error);
+    logger.error('원자적 출고 회수 실패', error);
     return createErrorResponse('RECALL_FAILED', '출고 회수에 실패했습니다.');
   }
 
   // Zod 검증으로 결과 파싱
   const parsed = parseRpcSingle(RecallShipmentResultSchema, result, 'recall_shipment_atomic');
   if (!parsed.success) {
-    console.error('recall_shipment_atomic 검증 실패:', parsed.error);
+    logger.error('recall_shipment_atomic 검증 실패', { error: parsed.error });
     return createErrorResponse('VALIDATION_ERROR', parsed.error);
   }
 

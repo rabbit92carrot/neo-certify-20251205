@@ -12,6 +12,7 @@ export const ERROR_CODES = {
   FORBIDDEN: 'FORBIDDEN',
   SESSION_EXPIRED: 'SESSION_EXPIRED',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
 
   // 조직 관련
   ORGANIZATION_NOT_FOUND: 'ORGANIZATION_NOT_FOUND',
@@ -37,7 +38,12 @@ export const ERROR_CODES = {
   SHIPMENT_NOT_FOUND: 'SHIPMENT_NOT_FOUND',
   INVALID_RECIPIENT: 'INVALID_RECIPIENT',
 
+  // 데이터 관련
+  QUERY_ERROR: 'QUERY_ERROR',
+  DUPLICATE_ENTRY: 'DUPLICATE_ENTRY',
+
   // 일반
+  UNKNOWN: 'UNKNOWN_ERROR',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   SERVER_ERROR: 'SERVER_ERROR',
   NOT_FOUND: 'NOT_FOUND',
@@ -57,6 +63,7 @@ export const ERROR_CODE_MESSAGES: Record<ErrorCode, string> = {
   [ERROR_CODES.FORBIDDEN]: '해당 기능에 대한 접근 권한이 없습니다.',
   [ERROR_CODES.SESSION_EXPIRED]: '세션이 만료되었습니다. 다시 로그인해주세요.',
   [ERROR_CODES.INVALID_CREDENTIALS]: '이메일 또는 비밀번호가 올바르지 않습니다.',
+  [ERROR_CODES.RATE_LIMIT_EXCEEDED]: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
 
   [ERROR_CODES.ORGANIZATION_NOT_FOUND]: '조직을 찾을 수 없습니다.',
   [ERROR_CODES.ORGANIZATION_INACTIVE]: '비활성화된 조직입니다.',
@@ -78,6 +85,10 @@ export const ERROR_CODE_MESSAGES: Record<ErrorCode, string> = {
   [ERROR_CODES.SHIPMENT_NOT_FOUND]: '출고 내역을 찾을 수 없습니다.',
   [ERROR_CODES.INVALID_RECIPIENT]: '유효하지 않은 수신자입니다.',
 
+  [ERROR_CODES.QUERY_ERROR]: '데이터 조회 중 오류가 발생했습니다.',
+  [ERROR_CODES.DUPLICATE_ENTRY]: '중복된 데이터가 존재합니다.',
+
+  [ERROR_CODES.UNKNOWN]: '알 수 없는 오류가 발생했습니다.',
   [ERROR_CODES.VALIDATION_ERROR]: '입력값이 올바르지 않습니다.',
   [ERROR_CODES.SERVER_ERROR]: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
   [ERROR_CODES.NOT_FOUND]: '요청한 리소스를 찾을 수 없습니다.',
