@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createLogger } from '@/lib/logger';
 import type { ApiResponse } from '@/types/api.types';
 import type { PostgrestError } from '@supabase/supabase-js';
+import { ERROR_CODES, type ErrorCode } from '@/constants/errors';
 
 // Logger 인스턴스 생성
 const logger = createLogger('common.service');
@@ -27,26 +28,9 @@ const DEFAULT_MASKED_PHONE = '****';
 
 /**
  * 표준 에러 코드
+ * SSOT: @/constants/errors에서 중앙 관리
  */
-export const ERROR_CODES = {
-  // 일반 에러
-  UNKNOWN: 'UNKNOWN_ERROR',
-  QUERY_ERROR: 'QUERY_ERROR',
-  NOT_FOUND: 'NOT_FOUND',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-
-  // 인증/권한 에러
-  UNAUTHORIZED: 'UNAUTHORIZED',
-  FORBIDDEN: 'FORBIDDEN',
-  RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
-
-  // 비즈니스 로직 에러
-  INSUFFICIENT_STOCK: 'INSUFFICIENT_STOCK',
-  RECALL_WINDOW_EXPIRED: 'RECALL_WINDOW_EXPIRED',
-  DUPLICATE_ENTRY: 'DUPLICATE_ENTRY',
-} as const;
-
-export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
+export { ERROR_CODES, type ErrorCode };
 
 /**
  * 성공 응답 생성
