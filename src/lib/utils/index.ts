@@ -15,7 +15,7 @@
 export { cn } from './ui';
 
 // Validation
-export { isValidPhoneNumber, isValidBusinessNumber } from './validation';
+export { isValidPhoneNumber, isValidBusinessNumber, formatZodErrors } from './validation';
 
 // Format
 export {

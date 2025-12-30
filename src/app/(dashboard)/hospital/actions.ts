@@ -16,6 +16,8 @@ import type { ApiResponse, HistoryActionType, HospitalKnownProduct, ProductForTr
 import type { TreatmentItemData } from '@/lib/validations/treatment';
 import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
 import type { GetKnownProductsQuery } from '@/services/hospital-product.service';
+import { formatZodErrors } from '@/lib/utils';
+import { createErrorResponse } from '@/services/common.service';
 
 // ============================================================================
 // 헬퍼 함수
@@ -38,21 +40,7 @@ async function getHospitalOrganizationId(): Promise<string | null> {
 function formatValidationError(
   error: import('zod').ZodError
 ): ApiResponse<never> {
-  const fieldErrors: Record<string, string[]> = {};
-  error.issues.forEach((issue) => {
-    const path = issue.path.join('.');
-    fieldErrors[path] ??= [];
-    fieldErrors[path].push(issue.message);
-  });
-
-  return {
-    success: false,
-    error: {
-      code: 'VALIDATION_ERROR',
-      message: '입력값을 확인해주세요.',
-      details: fieldErrors,
-    },
-  };
+  return createErrorResponse('VALIDATION_ERROR', '입력값을 확인해주세요.', formatZodErrors(error));
 }
 
 // ============================================================================
