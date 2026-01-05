@@ -12,6 +12,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createLogger } from '@/lib/logger';
 import { getHoursDifference } from '@/lib/utils';
+import { toEndOfDayKST } from '@/lib/utils/date';
 import { normalizePhoneNumber } from '@/lib/validations/common';
 import type {
   ApiResponse,
@@ -267,12 +268,12 @@ export async function getTreatmentHistory(
     .order('treatment_date', { ascending: false })
     .order('created_at', { ascending: false });
 
-  // 필터 적용
+  // 필터 적용 (KST 기준으로 날짜 범위 변환하여 종료일 포함)
   if (startDate) {
     queryBuilder = queryBuilder.gte('treatment_date', startDate);
   }
   if (endDate) {
-    queryBuilder = queryBuilder.lte('treatment_date', endDate);
+    queryBuilder = queryBuilder.lte('treatment_date', toEndOfDayKST(endDate));
   }
   if (patientPhone) {
     const normalizedPhone = normalizePhoneNumber(patientPhone);

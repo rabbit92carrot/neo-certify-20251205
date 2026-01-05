@@ -5,6 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createLogger } from '@/lib/logger';
+import { toEndOfDayKST } from '@/lib/utils/date';
 import {
   getOrganizationName,
   maskPhoneNumber,
@@ -110,12 +111,12 @@ export async function getAdminHistory(
     queryBuilder = queryBuilder.eq('lot.product.id', productId);
   }
 
-  // 기간 필터
+  // 기간 필터 (KST 기준으로 날짜 범위 변환하여 종료일 포함)
   if (startDate) {
     queryBuilder = queryBuilder.gte('created_at', startDate);
   }
   if (endDate) {
-    queryBuilder = queryBuilder.lte('created_at', endDate);
+    queryBuilder = queryBuilder.lte('created_at', toEndOfDayKST(endDate));
   }
 
   const { data: virtualCodes, count, error } = await queryBuilder.range(

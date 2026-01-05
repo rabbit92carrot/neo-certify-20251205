@@ -17,6 +17,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createLogger } from '@/lib/logger';
+import { toEndOfDayKST, toStartOfDayKST } from '@/lib/utils/date';
 import {
   getOrganizationName,
   maskPhoneNumber,
@@ -191,11 +192,12 @@ export async function getTransactionHistory(
   const offset = (page - DEFAULT_PAGE) * pageSize;
 
   // 공통 파라미터 (RPC는 null이 아닌 undefined 사용)
+  // KST 기준으로 날짜 범위 변환하여 종료일 포함 (해당 날짜의 23:59:59.999까지)
   const rpcParams = {
     p_organization_id: organizationId,
     p_action_types: actionTypes && actionTypes.length > 0 ? actionTypes : undefined,
-    p_start_date: startDate || undefined,
-    p_end_date: endDate || undefined,
+    p_start_date: startDate ? toStartOfDayKST(startDate) : undefined,
+    p_end_date: endDate ? toEndOfDayKST(endDate) : undefined,
     p_is_recall: isRecall ?? undefined,
   };
 
@@ -397,11 +399,12 @@ export async function getTransactionHistoryCursor(
   } = query;
 
   // RPC 파라미터 구성
+  // KST 기준으로 날짜 범위 변환하여 종료일 포함 (해당 날짜의 23:59:59.999까지)
   const rpcParams = {
     p_organization_id: organizationId,
     p_action_types: actionTypes?.length ? actionTypes : undefined,
-    p_start_date: startDate || undefined,
-    p_end_date: endDate || undefined,
+    p_start_date: startDate ? toStartOfDayKST(startDate) : undefined,
+    p_end_date: endDate ? toEndOfDayKST(endDate) : undefined,
     p_is_recall: isRecall ?? undefined,
     p_limit: limit,
     p_cursor_time: cursorTime || undefined,
