@@ -86,6 +86,9 @@ function SearchableCombobox({
   const [searchQuery, setSearchQuery] = React.useState('');
   const [options, setOptions] = React.useState<SearchableComboboxOption[]>(stableInitialOptions);
   const [isLoading, setIsLoading] = React.useState(false);
+  // 선택된 옵션을 별도로 저장하여 옵션 목록이 초기화되어도 표시 가능하게 함
+  const [selectedOptionState, setSelectedOptionState] =
+    React.useState<SearchableComboboxOption | null>(null);
 
   const debouncedQuery = useDebounce(searchQuery, debounceMs);
 
@@ -121,10 +124,19 @@ function SearchableCombobox({
     };
   }, [debouncedQuery, minSearchLength, onSearch, stableInitialOptions]);
 
-  // 선택된 옵션 찾기
+  // 외부에서 value가 초기화되면 저장된 상태도 초기화
+  React.useEffect(() => {
+    if (!value) {
+      setSelectedOptionState(null);
+    }
+  }, [value]);
+
+  // 선택된 옵션 찾기 (저장된 상태도 fallback으로 사용)
   const allOptions = defaultOption ? [defaultOption, ...options] : options;
-  const selectedOption = allOptions.find((option) => option.value === value) ??
-    stableInitialOptions.find((option) => option.value === value);
+  const selectedOption =
+    allOptions.find((option) => option.value === value) ??
+    stableInitialOptions.find((option) => option.value === value) ??
+    (selectedOptionState?.value === value ? selectedOptionState : null);
 
   // 표시할 옵션 목록
   const displayOptions = defaultOption ? [defaultOption, ...options] : options;
@@ -184,7 +196,10 @@ function SearchableCombobox({
                     key={option.value}
                     value={option.value}
                     onSelect={() => {
-                      onValueChange(option.value === value ? '' : option.value);
+                      const isDeselecting = option.value === value;
+                      // 선택 시 옵션 정보 저장 (선택 해제 시 null)
+                      setSelectedOptionState(isDeselecting ? null : option);
+                      onValueChange(isDeselecting ? '' : option.value);
                       setOpen(false);
                       setSearchQuery('');
                     }}
