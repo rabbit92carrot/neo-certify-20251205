@@ -5,6 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createLogger } from '@/lib/logger';
+import { toEndOfDayKST, toStartOfDayKST } from '@/lib/utils/date';
 import {
   maskPhoneNumber,
   parseRpcArray,
@@ -94,10 +95,10 @@ export async function getAdminEventSummary(
   } = query;
   const offset = (page - DEFAULT_PAGE) * pageSize;
 
-  // 공통 RPC 파라미터
+  // 공통 RPC 파라미터 (KST 기준으로 날짜 범위 변환하여 종료일 포함)
   const rpcParams = {
-    p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
-    p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+    p_start_date: startDate ? toStartOfDayKST(startDate) : undefined,
+    p_end_date: endDate ? toEndOfDayKST(endDate) : undefined,
     p_action_types: actionTypes?.length ? actionTypes : undefined,
     p_lot_number: lotNumber || undefined,
     p_product_id: productId || undefined,
@@ -423,10 +424,10 @@ export async function getAdminEventSummaryCursor(
     cursorKey,
   } = query;
 
-  // RPC 파라미터 구성 (undefined는 Supabase RPC에서 생략됨)
+  // RPC 파라미터 구성 (KST 기준으로 날짜 범위 변환하여 종료일 포함)
   const rpcParams = {
-    p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
-    p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+    p_start_date: startDate ? toStartOfDayKST(startDate) : undefined,
+    p_end_date: endDate ? toEndOfDayKST(endDate) : undefined,
     p_action_types: actionTypes?.length ? actionTypes : undefined,
     p_lot_number: lotNumber || undefined,
     p_product_id: productId || undefined,

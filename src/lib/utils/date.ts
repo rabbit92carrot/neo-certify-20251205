@@ -47,3 +47,31 @@ export function formatDateTimeKorea(date: Date | string): string {
     hour12: false,
   });
 }
+
+/**
+ * 종료일을 해당 일자 끝까지 포함하도록 변환 (한국 시간 KST 기준)
+ * DB 쿼리에서 날짜 범위의 종료 시점을 정의할 때 사용
+ * PostgreSQL이 +09:00 오프셋을 인식하여 UTC로 자동 변환
+ *
+ * @param dateString yyyy-MM-dd 형식의 날짜 문자열
+ * @returns ISO 8601 형식의 해당 일자 KST 23:59:59.999
+ * @example
+ * toEndOfDayKST('2025-01-05') // '2025-01-05T23:59:59.999+09:00'
+ */
+export function toEndOfDayKST(dateString: string): string {
+  return `${dateString}T23:59:59.999+09:00`;
+}
+
+/**
+ * 시작일을 해당 일자 시작부터 포함하도록 변환 (한국 시간 KST 기준)
+ * DB 쿼리에서 날짜 범위의 시작 시점을 정의할 때 사용
+ * PostgreSQL이 +09:00 오프셋을 인식하여 UTC로 자동 변환
+ *
+ * @param dateString yyyy-MM-dd 형식의 날짜 문자열
+ * @returns ISO 8601 형식의 해당 일자 KST 00:00:00.000
+ * @example
+ * toStartOfDayKST('2025-01-05') // '2025-01-05T00:00:00.000+09:00'
+ */
+export function toStartOfDayKST(dateString: string): string {
+  return `${dateString}T00:00:00.000+09:00`;
+}

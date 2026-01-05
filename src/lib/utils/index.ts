@@ -28,7 +28,14 @@ export {
 } from './format';
 
 // Date
-export { toISODateString, formatDateKorean, formatDate, formatDateTimeKorea } from './date';
+export {
+  toISODateString,
+  formatDateKorean,
+  formatDate,
+  formatDateTimeKorea,
+  toEndOfDayKST,
+  toStartOfDayKST,
+} from './date';
 
 // Time
 export {

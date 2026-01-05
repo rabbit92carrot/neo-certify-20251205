@@ -5,6 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createLogger } from '@/lib/logger';
+import { toEndOfDayKST, toStartOfDayKST } from '@/lib/utils/date';
 import {
   maskPhoneNumber,
   parseRpcArray,
@@ -70,11 +71,12 @@ export async function getRecallHistory(
       .eq('is_recalled', true)
       .order('recall_date', { ascending: false });
 
+    // KST 기준으로 날짜 범위 변환하여 종료일 포함
     if (startDate) {
       shipmentQuery = shipmentQuery.gte('recall_date', startDate);
     }
     if (endDate) {
-      shipmentQuery = shipmentQuery.lte('recall_date', endDate);
+      shipmentQuery = shipmentQuery.lte('recall_date', toEndOfDayKST(endDate));
     }
 
     const { data: shipments } = await shipmentQuery;
@@ -170,11 +172,12 @@ export async function getRecallHistory(
       .eq('from_owner_type', 'PATIENT')
       .order('created_at', { ascending: false });
 
+    // KST 기준으로 날짜 범위 변환하여 종료일 포함
     if (startDate) {
       treatmentRecallQuery = treatmentRecallQuery.gte('created_at', startDate);
     }
     if (endDate) {
-      treatmentRecallQuery = treatmentRecallQuery.lte('created_at', endDate);
+      treatmentRecallQuery = treatmentRecallQuery.lte('created_at', toEndOfDayKST(endDate));
     }
 
     const { data: treatmentRecalls } = await treatmentRecallQuery;
@@ -301,10 +304,10 @@ export async function getRecallHistoryOptimized(
     query;
   const offset = (page - DEFAULT_PAGE) * pageSize;
 
-  // RPC 파라미터
+  // RPC 파라미터 (KST 기준으로 날짜 범위 변환하여 종료일 포함)
   const rpcParams = {
-    p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
-    p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+    p_start_date: startDate ? toStartOfDayKST(startDate) : undefined,
+    p_end_date: endDate ? toEndOfDayKST(endDate) : undefined,
     p_type: type,
   };
 
@@ -389,9 +392,10 @@ export async function getRecallHistoryCursor(query: {
   const supabase = await createClient();
   const { startDate, endDate, type = 'all', limit = 20, cursorTime, cursorKey } = query;
 
+  // KST 기준으로 날짜 범위 변환하여 종료일 포함
   const { data, error } = await supabase.rpc('get_all_recalls_cursor', {
-    p_start_date: startDate ? `${startDate}T00:00:00Z` : undefined,
-    p_end_date: endDate ? `${endDate}T23:59:59Z` : undefined,
+    p_start_date: startDate ? toStartOfDayKST(startDate) : undefined,
+    p_end_date: endDate ? toEndOfDayKST(endDate) : undefined,
     p_type: type,
     p_limit: limit,
     p_cursor_time: cursorTime ?? undefined,
