@@ -8,6 +8,7 @@ export const HISTORY_ACTION_TYPES = {
   RECEIVED: 'RECEIVED',
   TREATED: 'TREATED',
   RECALLED: 'RECALLED',
+  RETURNED: 'RETURNED',
   DISPOSED: 'DISPOSED',
 } as const;
 
@@ -17,6 +18,7 @@ export const HISTORY_ACTION_TYPE_LABELS: Record<HistoryActionType, string> = {
   RECEIVED: '입고',
   TREATED: '시술',
   RECALLED: '회수',
+  RETURNED: '반품',
   DISPOSED: '폐기',
 };
 

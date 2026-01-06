@@ -35,11 +35,19 @@ export const ERROR_MESSAGES = {
     NOT_FOUND: '조직을 찾을 수 없습니다.',
   },
 
-  // 회수
+  // 회수 (시술 회수용 - 병원 주도, 24시간 제한)
   RECALL: {
     TIME_EXCEEDED: '24시간 경과하여 처리할 수 없습니다. 관리자에게 연락해주세요.',
     REASON_REQUIRED: '회수 사유를 입력해주세요.',
     ALREADY_RECALLED: '이미 회수된 이관입니다.',
+  },
+
+  // 반품 (출고 반품용 - 수신자 주도, 시간 제한 없음)
+  RETURN: {
+    REASON_REQUIRED: '반품 사유를 입력해주세요.',
+    ALREADY_RETURNED: '이미 반품된 출고입니다.',
+    NOT_RECEIVER: '수신 조직만 반품을 요청할 수 있습니다.',
+    CODES_NOT_OWNED: '일부 제품이 더 이상 현재 조직 소유가 아닙니다.',
   },
 
   // 파일
@@ -82,6 +90,7 @@ export const SUCCESS_MESSAGES = {
   SHIPMENT: {
     CREATED: '출고가 완료되었습니다.',
     RECALLED: '회수가 완료되었습니다.',
+    RETURNED: '반품이 완료되었습니다.',
   },
   TREATMENT: {
     CREATED: '시술이 등록되었습니다.',
