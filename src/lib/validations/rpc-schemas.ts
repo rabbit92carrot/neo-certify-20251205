@@ -91,6 +91,17 @@ export const RecallShipmentResultSchema = z.object({
 });
 
 /**
+ * 출고 반품 결과 스키마
+ * RPC: return_shipment_atomic
+ */
+export const ReturnShipmentResultSchema = z.object({
+  success: z.boolean(),
+  returned_count: z.number(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+});
+
+/**
  * 시술 생성 결과 스키마
  * RPC: create_treatment_atomic
  */
@@ -108,6 +119,17 @@ export const TreatmentAtomicResultSchema = z.object({
 export const RecallTreatmentResultSchema = z.object({
   success: z.boolean(),
   recalled_count: z.number(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+});
+
+/**
+ * 폐기 생성 결과 스키마
+ * RPC: create_disposal_atomic
+ */
+export const DisposalAtomicResultSchema = z.object({
+  disposal_id: z.string().uuid().nullable(),
+  total_quantity: z.number(),
   error_code: z.string().nullable(),
   error_message: z.string().nullable(),
 });
@@ -348,6 +370,7 @@ export type ShipmentAtomicResult = z.infer<typeof ShipmentAtomicResultSchema>;
 export type RecallShipmentResult = z.infer<typeof RecallShipmentResultSchema>;
 export type TreatmentAtomicResult = z.infer<typeof TreatmentAtomicResultSchema>;
 export type RecallTreatmentResult = z.infer<typeof RecallTreatmentResultSchema>;
+export type DisposalAtomicResult = z.infer<typeof DisposalAtomicResultSchema>;
 export type InventorySummaryRow = z.infer<typeof InventorySummaryRowSchema>;
 export type InventoryByLotRow = z.infer<typeof InventoryByLotRowSchema>;
 export type HistorySummaryRow = z.infer<typeof HistorySummaryRowSchema>;
