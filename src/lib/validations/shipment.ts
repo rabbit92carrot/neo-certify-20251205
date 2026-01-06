@@ -39,7 +39,7 @@ export const shipmentItemSchema = z.object({
  */
 export const shipmentItemsSchema = z
   .array(shipmentItemSchema)
-  .min(1, '최소 1개 이상의 제품을 선택해야 합니다.');
+  .min(1, ERROR_MESSAGES.DISPOSAL.ITEMS_MIN);
 
 // ============================================================================
 // 출고 스키마
@@ -72,7 +72,7 @@ export const shipmentCreateFormSchema = z.object({
         lotId: optionalLotIdSchema,
       })
     )
-    .min(1, '최소 1개 이상의 제품을 선택해야 합니다.'),
+    .min(1, ERROR_MESSAGES.DISPOSAL.ITEMS_MIN),
 });
 
 // ============================================================================
@@ -87,7 +87,7 @@ export const recallSchema = z.object({
   reason: z
     .string()
     .min(1, ERROR_MESSAGES.RECALL.REASON_REQUIRED)
-    .max(500, '회수 사유는 500자를 초과할 수 없습니다.'),
+    .max(500, ERROR_MESSAGES.RECALL.REASON_MAX_LENGTH),
 });
 
 /**
@@ -108,8 +108,8 @@ export const returnSchema = z.object({
   shipmentBatchId: uuidSchema,
   reason: z
     .string()
-    .min(1, '반품 사유를 입력해주세요.')
-    .max(500, '반품 사유는 500자를 초과할 수 없습니다.'),
+    .min(1, ERROR_MESSAGES.RETURN.REASON_REQUIRED)
+    .max(500, ERROR_MESSAGES.RETURN.REASON_MAX_LENGTH),
 });
 
 /**

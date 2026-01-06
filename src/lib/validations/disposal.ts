@@ -4,7 +4,7 @@
 
 import { z } from 'zod';
 import { uuidSchema, quantitySchema, dateInputSchema } from './common';
-import { DISPOSAL_REASON_TYPES } from '@/constants';
+import { DISPOSAL_REASON_TYPES, ERROR_MESSAGES } from '@/constants';
 
 // ============================================================================
 // 폐기 사유 스키마
@@ -37,7 +37,7 @@ export const disposalItemSchema = z.object({
  */
 export const disposalItemsSchema = z
   .array(disposalItemSchema)
-  .min(1, '최소 1개 이상의 제품을 선택해야 합니다.');
+  .min(1, ERROR_MESSAGES.DISPOSAL.ITEMS_MIN);
 
 // ============================================================================
 // 폐기 스키마
@@ -50,7 +50,7 @@ export const disposalCreateSchema = z
   .object({
     disposalDate: dateInputSchema,
     disposalReasonType: disposalReasonTypeSchema,
-    disposalReasonCustom: z.string().max(500, '기타 사유는 500자를 초과할 수 없습니다.').nullable().optional(),
+    disposalReasonCustom: z.string().max(500, ERROR_MESSAGES.DISPOSAL.REASON_MAX_LENGTH).nullable().optional(),
     items: disposalItemsSchema,
   })
   .refine(
@@ -61,7 +61,7 @@ export const disposalCreateSchema = z
       return true;
     },
     {
-      message: '기타 사유를 입력해주세요.',
+      message: ERROR_MESSAGES.DISPOSAL.REASON_REQUIRED,
       path: ['disposalReasonCustom'],
     }
   );
@@ -80,14 +80,14 @@ export const disposalCreateFormSchema = z
           productId: uuidSchema,
           quantity: z
             .string()
-            .min(1, '수량을 입력해주세요.')
+            .min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('수량'))
             .transform((val) => parseInt(val, 10))
             .refine((val) => !isNaN(val) && val >= 1, {
-              message: '수량은 1 이상이어야 합니다.',
+              message: ERROR_MESSAGES.QUANTITY.MIN,
             }),
         })
       )
-      .min(1, '최소 1개 이상의 제품을 선택해야 합니다.'),
+      .min(1, ERROR_MESSAGES.DISPOSAL.ITEMS_MIN),
   })
   .refine(
     (data) => {
@@ -97,7 +97,7 @@ export const disposalCreateFormSchema = z
       return true;
     },
     {
-      message: '기타 사유를 입력해주세요.',
+      message: ERROR_MESSAGES.DISPOSAL.REASON_REQUIRED,
       path: ['disposalReasonCustom'],
     }
   );

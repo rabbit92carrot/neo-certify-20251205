@@ -39,15 +39,24 @@ export const ERROR_MESSAGES = {
   RECALL: {
     TIME_EXCEEDED: '24시간 경과하여 처리할 수 없습니다. 관리자에게 연락해주세요.',
     REASON_REQUIRED: '회수 사유를 입력해주세요.',
+    REASON_MAX_LENGTH: '회수 사유는 500자를 초과할 수 없습니다.',
     ALREADY_RECALLED: '이미 회수된 이관입니다.',
   },
 
   // 반품 (출고 반품용 - 수신자 주도, 시간 제한 없음)
   RETURN: {
     REASON_REQUIRED: '반품 사유를 입력해주세요.',
+    REASON_MAX_LENGTH: '반품 사유는 500자를 초과할 수 없습니다.',
     ALREADY_RETURNED: '이미 반품된 출고입니다.',
     NOT_RECEIVER: '수신 조직만 반품을 요청할 수 있습니다.',
     CODES_NOT_OWNED: '일부 제품이 더 이상 현재 조직 소유가 아닙니다.',
+  },
+
+  // 폐기 (병원 자발적 폐기)
+  DISPOSAL: {
+    ITEMS_MIN: '최소 1개 이상의 제품을 선택해야 합니다.',
+    REASON_MAX_LENGTH: '기타 사유는 500자를 초과할 수 없습니다.',
+    REASON_REQUIRED: '기타 사유를 입력해주세요.',
   },
 
   // 파일
