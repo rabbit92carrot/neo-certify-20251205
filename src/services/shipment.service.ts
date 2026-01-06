@@ -1,12 +1,13 @@
 /**
  * 출고 서비스
- * 출고 생성, 조회, 회수 관련 비즈니스 로직
+ * 출고 생성, 조회, 반품/회수 관련 비즈니스 로직
  *
  * 핵심 기능:
  * - FIFO 기반 가상 코드 자동 할당
  * - 제조사 전용 Lot 선택 옵션
  * - 즉시 소유권 이전
- * - 24시간 내 회수 가능
+ * - 수신자 주도 반품 (시간 제한 없음)
+ * - 시술 회수만 24시간 제한 (별도 treatment.service.ts)
  */
 
 import { unstable_cache } from 'next/cache';
@@ -30,6 +31,7 @@ import {
 import {
   ShipmentAtomicResultSchema,
   RecallShipmentResultSchema,
+  ReturnShipmentResultSchema,
   ShipmentBatchSummaryRowSchema,
 } from '@/lib/validations/rpc-schemas';
 
@@ -595,5 +597,94 @@ export async function checkRecallAllowed(
     return createSuccessResponse({ allowed: false, reason: '24시간 경과하여 처리할 수 없습니다.' });
   }
 
+  return createSuccessResponse({ allowed: true });
+}
+
+// ============================================================================
+// 출고 반품 (수신자 주도, 시간 제한 없음)
+// ============================================================================
+
+/**
+ * 출고 반품 (원자적 DB 함수 사용)
+ * 수신자만 반품 가능, 시간 제한 없음
+ * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
+ * 수신자 검증은 DB 함수 내에서 auth.uid()로부터 수행됩니다.
+ *
+ * @param shipmentBatchId 출고 뭉치 ID
+ * @param reason 반품 사유
+ * @returns 반품 결과
+ */
+export async function returnShipment(
+  shipmentBatchId: string,
+  reason: string
+): Promise<ApiResponse<void>> {
+  const supabase = await createClient();
+
+  // 원자적 반품 DB 함수 호출
+  // 수신자 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
+  const { data: result, error } = await supabase.rpc('return_shipment_atomic', {
+    p_shipment_batch_id: shipmentBatchId,
+    p_reason: reason,
+  });
+
+  if (error) {
+    logger.error('원자적 출고 반품 실패', error);
+    return createErrorResponse('RETURN_FAILED', '출고 반품에 실패했습니다.');
+  }
+
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(ReturnShipmentResultSchema, result, 'return_shipment_atomic');
+  if (!parsed.success) {
+    logger.error('return_shipment_atomic 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const row = parsed.data;
+
+  if (!row?.success) {
+    return createErrorResponse(
+      row?.error_code || 'RETURN_FAILED',
+      row?.error_message || '출고 반품에 실패했습니다.'
+    );
+  }
+
+  return createSuccessResponse(undefined);
+}
+
+/**
+ * 반품 가능 여부 확인
+ * 수신자만 반품 가능, 시간 제한 없음
+ *
+ * @param organizationId 현재 조직 ID (반품 요청자 = 수신자)
+ * @param shipmentBatchId 출고 뭉치 ID
+ * @returns 반품 가능 여부
+ */
+export async function checkReturnAllowed(
+  organizationId: string,
+  shipmentBatchId: string
+): Promise<ApiResponse<{ allowed: boolean; reason?: string }>> {
+  const supabase = await createClient();
+
+  const { data: batch, error: batchError } = await supabase
+    .from('shipment_batches')
+    .select('to_organization_id, is_recalled')
+    .eq('id', shipmentBatchId)
+    .single();
+
+  if (batchError || !batch) {
+    return createErrorResponse('BATCH_NOT_FOUND', '출고 뭉치를 찾을 수 없습니다.');
+  }
+
+  // 수신자만 반품 가능
+  if (batch.to_organization_id !== organizationId) {
+    return createSuccessResponse({ allowed: false, reason: '수신 조직만 반품할 수 있습니다.' });
+  }
+
+  // 이미 반품된 건인지 확인
+  if (batch.is_recalled) {
+    return createSuccessResponse({ allowed: false, reason: '이미 반품된 출고 뭉치입니다.' });
+  }
+
+  // 24시간 제한 없음 - 항상 반품 가능
   return createSuccessResponse({ allowed: true });
 }
