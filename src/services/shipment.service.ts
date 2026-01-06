@@ -513,6 +513,10 @@ async function getShipmentBatchSummariesBulk(
  * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
  * 발송자 검증은 DB 함수 내에서 auth.uid()로부터 수행됩니다.
  *
+ * @deprecated 출고 반품은 returnShipment()를 사용하세요.
+ * 이 함수는 호환성을 위해 유지되지만, 새로운 코드에서는 사용하지 마세요.
+ * 시술 회수는 treatment.service.ts의 recallTreatment()를 사용하세요.
+ *
  * @param shipmentBatchId 출고 뭉치 ID
  * @param reason 회수 사유
  * @returns 회수 결과

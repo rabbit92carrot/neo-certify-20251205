@@ -368,6 +368,7 @@ export type HospitalStatsRow = z.infer<typeof HospitalStatsRowSchema>;
 export type AdminStatsRow = z.infer<typeof AdminStatsRowSchema>;
 export type ShipmentAtomicResult = z.infer<typeof ShipmentAtomicResultSchema>;
 export type RecallShipmentResult = z.infer<typeof RecallShipmentResultSchema>;
+export type ReturnShipmentResult = z.infer<typeof ReturnShipmentResultSchema>;
 export type TreatmentAtomicResult = z.infer<typeof TreatmentAtomicResultSchema>;
 export type RecallTreatmentResult = z.infer<typeof RecallTreatmentResultSchema>;
 export type DisposalAtomicResult = z.infer<typeof DisposalAtomicResultSchema>;
