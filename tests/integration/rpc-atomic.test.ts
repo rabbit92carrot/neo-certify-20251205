@@ -763,6 +763,49 @@ describe('원자적 RPC 함수 직접 테스트', () => {
       expect(newBatch!.is_return_batch).toBe(true);
       expect(newBatch!.parent_batch_id).toBe(originalBatchId);
     });
+
+    it('빈 배열 전달 시 전량 반품으로 처리해야 한다', async () => {
+      // 테스트 격리: 고유 제품 생성
+      const emptyArrayProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '빈배열반품테스트_' + Date.now(),
+      });
+
+      // Lot 생성 (5개)
+      const emptyArrayLot = await createTestLot({
+        productId: emptyArrayProduct.id,
+        quantity: 5,
+      });
+
+      // 제조사 → 유통사 출고 (3개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: emptyArrayProduct.id, quantity: 3 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 빈 배열로 반품 요청 - 전량 반품으로 처리되어야 함
+      const { data: returnResult, error } = await distributorClient.rpc('return_shipment_atomic', {
+        p_shipment_batch_id: batchId,
+        p_reason: '빈 배열 테스트',
+        p_product_quantities: '[]', // 빈 배열 (JSON 문자열)
+      });
+
+      expect(error).toBeNull();
+      expect(returnResult![0].success).toBe(true);
+      expect(returnResult![0].returned_count).toBe(3); // 전량 반품
+      expect(returnResult![0].new_batch_id).not.toBeNull();
+
+      // 제조사가 모든 5개를 다시 소유하는지 확인 (원래 2개 + 반품 3개)
+      const { count: manufacturerCount } = await adminClient
+        .from('virtual_codes')
+        .select('*', { count: 'exact', head: true })
+        .eq('lot_id', emptyArrayLot.id)
+        .eq('owner_id', TEST_ACCOUNTS.manufacturer.orgId);
+
+      expect(manufacturerCount).toBe(5); // 전량 복귀
+    });
   });
 
   // ============================================================================

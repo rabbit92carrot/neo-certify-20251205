@@ -644,10 +644,14 @@ export async function returnShipment(
 
   // 원자적 반품 DB 함수 호출
   // 소유권 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
+  // 빈 배열은 null로 처리 (전량 반품)
+  // 빈 배열이 DB로 전달되면 jsonb_to_recordset 에러 발생
+  const hasPartialQuantities = productQuantities && productQuantities.length > 0;
+
   const { data: result, error } = await supabase.rpc('return_shipment_atomic', {
     p_shipment_batch_id: shipmentBatchId,
     p_reason: reason,
-    p_product_quantities: productQuantities
+    p_product_quantities: hasPartialQuantities
       ? JSON.stringify(productQuantities)
       : null,
   });
