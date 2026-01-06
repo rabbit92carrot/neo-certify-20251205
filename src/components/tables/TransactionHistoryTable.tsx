@@ -216,11 +216,11 @@ function TransactionHistoryCard({
 
   // 반품 가능 여부 확인 (RECEIVED 이벤트, 미반품, 내가 받은 것, 시간 제한 없음)
   const canReturn = (): boolean => {
-    if (!showReturnButton || !onReturn) return false;
-    if (history.isRecall) return false; // 이미 반품됨
-    if (history.actionType !== 'RECEIVED') return false; // RECEIVED 이벤트만
-    if (!isIncoming) return false; // 내가 받은 것만
-    if (!history.shipmentBatchId) return false; // 배치 ID 필요
+    if (!showReturnButton || !onReturn) {return false;}
+    if (history.isRecall) {return false;} // 이미 반품됨
+    if (history.actionType !== 'RECEIVED') {return false;} // RECEIVED 이벤트만
+    if (!isIncoming) {return false;} // 내가 받은 것만
+    if (!history.shipmentBatchId) {return false;} // 배치 ID 필요
     // 24시간 제한 제거 - 수신자는 언제든 반품 가능
     return true;
   };
