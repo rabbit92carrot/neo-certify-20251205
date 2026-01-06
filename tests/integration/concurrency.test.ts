@@ -425,14 +425,6 @@ describe('동시성 테스트 (Concurrency Tests)', () => {
         }
       );
 
-      // 디버그용
-      if (shipmentError) {
-        console.error('Shipment creation error:', shipmentError);
-      }
-      if (shipmentResult?.[0]?.error_code) {
-        console.error('Shipment atomic error:', shipmentResult[0]);
-      }
-
       expect(shipmentResult).toBeTruthy();
       expect(shipmentResult[0]?.error_code).toBeNull();
       const shipmentBatchId = shipmentResult[0]?.shipment_batch_id;

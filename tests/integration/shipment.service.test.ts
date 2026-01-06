@@ -1011,12 +1011,8 @@ describe('Shipment Service Integration Tests', () => {
       }));
       const { error: insertError } = await adminClient.from('histories').insert(historyInserts);
 
-      // RETURNED enum이 DB에 추가되지 않았다면 insert 실패할 수 있음
-      if (insertError) {
-        console.warn('RETURNED 이력 삽입 실패 (마이그레이션 필요):', insertError.message);
-        // 마이그레이션이 적용되지 않은 환경에서는 스킵
-        return;
-      }
+      // RETURNED enum은 마이그레이션으로 추가됨 (20260106000002_change_shipment_recall_to_return.sql)
+      expect(insertError).toBeNull();
 
       // 이력 확인
       const { data: histories } = await adminClient
