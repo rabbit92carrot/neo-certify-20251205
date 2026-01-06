@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/services/auth.service';
 import * as shipmentService from '@/services/shipment.service';
 import * as historyService from '@/services/history.service';
-import { shipmentCreateSchema, recallSchema } from '@/lib/validations/shipment';
+import { shipmentCreateSchema, returnSchema } from '@/lib/validations/shipment';
 import type { ApiResponse, HistoryActionType } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
 import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
@@ -107,9 +107,12 @@ export async function searchShipmentTargetsAction(
 }
 
 /**
- * 출고 회수 Action
+ * 출고 반품 Action
+ * 수신 조직이 발송 조직에게 제품을 반품합니다.
+ * 유통사는 제조사로부터 입고받은 제품을 반품할 수 있습니다.
+ * (24시간 제한 없음, 수신자만 반품 가능)
  */
-export async function recallShipmentAction(
+export async function returnShipmentAction(
   shipmentBatchId: string,
   reason: string
 ): Promise<ApiResponse<void>> {
@@ -124,12 +127,12 @@ export async function recallShipmentAction(
     };
   }
 
-  const validation = recallSchema.safeParse({ shipmentBatchId, reason });
+  const validation = returnSchema.safeParse({ shipmentBatchId, reason });
   if (!validation.success) {
     return formatValidationError(validation.error);
   }
 
-  const result = await shipmentService.recallShipment(
+  const result = await shipmentService.returnShipment(
     validation.data.shipmentBatchId,
     validation.data.reason
   );
