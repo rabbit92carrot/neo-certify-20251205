@@ -102,7 +102,16 @@ export const recallCheckSchema = z.object({
 // ============================================================================
 
 /**
+ * 부분 반품 시 제품별 수량 스키마
+ */
+export const returnProductQuantitySchema = z.object({
+  productId: uuidSchema,
+  quantity: z.number().int().positive('수량은 1 이상이어야 합니다.'),
+});
+
+/**
  * 반품 스키마 (출고 반품용)
+ * - productQuantities: 부분 반품 시 제품별 수량 지정 (생략 시 전량 반품)
  */
 export const returnSchema = z.object({
   shipmentBatchId: uuidSchema,
@@ -110,6 +119,7 @@ export const returnSchema = z.object({
     .string()
     .min(1, ERROR_MESSAGES.RETURN.REASON_REQUIRED)
     .max(500, ERROR_MESSAGES.RETURN.REASON_MAX_LENGTH),
+  productQuantities: z.array(returnProductQuantitySchema).optional(),
 });
 
 /**

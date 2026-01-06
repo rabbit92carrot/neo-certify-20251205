@@ -304,7 +304,7 @@ export async function getManufacturerHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
-  const manufacturerActionTypes: HistoryActionType[] = ['PRODUCED', 'SHIPPED', 'RECALLED'];
+  const manufacturerActionTypes: HistoryActionType[] = ['PRODUCED', 'SHIPPED', 'RECALLED', 'RETURNED'];
 
   // 필터가 없으면 제조사 기본 액션 타입 적용
   const filteredQuery = {
@@ -322,13 +322,13 @@ export async function getManufacturerHistory(
 
 /**
  * 유통사 거래이력 조회
- * - 입고(RECEIVED), 출고(SHIPPED), 회수(RECALLED)
+ * - 입고(RECEIVED), 출고(SHIPPED), 회수(RECALLED), 반품(RETURNED)
  */
 export async function getDistributorHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
-  const distributorActionTypes: HistoryActionType[] = ['RECEIVED', 'SHIPPED', 'RECALLED'];
+  const distributorActionTypes: HistoryActionType[] = ['RECEIVED', 'SHIPPED', 'RECALLED', 'RETURNED'];
 
   const filteredQuery = {
     ...query,
@@ -345,13 +345,13 @@ export async function getDistributorHistory(
 
 /**
  * 병원 거래이력 조회
- * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED)
+ * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED), 반품(RETURNED)
  */
 export async function getHospitalHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
-  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED'];
+  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURNED'];
 
   const filteredQuery = {
     ...query,
@@ -495,7 +495,7 @@ export async function getManufacturerHistoryCursor(
   organizationId: string,
   query: HistoryCursorQuery
 ): Promise<ApiResponse<CursorPaginatedHistory>> {
-  const manufacturerActionTypes: HistoryActionType[] = ['PRODUCED', 'SHIPPED', 'RECALLED'];
+  const manufacturerActionTypes: HistoryActionType[] = ['PRODUCED', 'SHIPPED', 'RECALLED', 'RETURNED'];
 
   const filteredQuery = {
     ...query,
@@ -512,13 +512,13 @@ export async function getManufacturerHistoryCursor(
 
 /**
  * 유통사 거래이력 조회 (커서 기반)
- * - 입고(RECEIVED), 출고(SHIPPED), 회수(RECALLED)
+ * - 입고(RECEIVED), 출고(SHIPPED), 회수(RECALLED), 반품(RETURNED)
  */
 export async function getDistributorHistoryCursor(
   organizationId: string,
   query: HistoryCursorQuery
 ): Promise<ApiResponse<CursorPaginatedHistory>> {
-  const distributorActionTypes: HistoryActionType[] = ['RECEIVED', 'SHIPPED', 'RECALLED'];
+  const distributorActionTypes: HistoryActionType[] = ['RECEIVED', 'SHIPPED', 'RECALLED', 'RETURNED'];
 
   const filteredQuery = {
     ...query,
@@ -535,13 +535,13 @@ export async function getDistributorHistoryCursor(
 
 /**
  * 병원 거래이력 조회 (커서 기반)
- * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED)
+ * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED), 반품(RETURNED)
  */
 export async function getHospitalHistoryCursor(
   organizationId: string,
   query: HistoryCursorQuery
 ): Promise<ApiResponse<CursorPaginatedHistory>> {
-  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED'];
+  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURNED'];
 
   const filteredQuery = {
     ...query,

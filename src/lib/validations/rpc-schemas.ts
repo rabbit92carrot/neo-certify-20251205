@@ -93,10 +93,15 @@ export const RecallShipmentResultSchema = z.object({
 /**
  * 출고 반품 결과 스키마
  * RPC: return_shipment_atomic
+ *
+ * 반품 시 새로운 반품 배치가 생성됩니다:
+ * - new_batch_id: 생성된 반품 배치 ID (후속 반품에 사용)
+ * - p_product_quantities 파라미터로 부분 반품 지원
  */
 export const ReturnShipmentResultSchema = z.object({
   success: z.boolean(),
   returned_count: z.number(),
+  new_batch_id: z.string().uuid().nullable(), // 새로 생성된 반품 배치 ID
   error_code: z.string().nullable(),
   error_message: z.string().nullable(),
 });

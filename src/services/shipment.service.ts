@@ -609,26 +609,47 @@ export async function checkRecallAllowed(
 // ============================================================================
 
 /**
+ * 부분 반품 시 제품별 수량 지정
+ */
+export interface ReturnProductQuantity {
+  productId: string;
+  quantity: number;
+}
+
+/**
+ * 반품 결과
+ */
+export interface ReturnShipmentResponse {
+  newBatchId: string | null; // 새로 생성된 반품 배치 ID (후속 반품에 사용)
+  returnedCount: number;
+}
+
+/**
  * 출고 반품 (원자적 DB 함수 사용)
- * 수신자만 반품 가능, 시간 제한 없음
+ * 소유권 기반 검증, 시간 제한 없음, 반품 체인 및 부분 반품 지원
  * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
- * 수신자 검증은 DB 함수 내에서 auth.uid()로부터 수행됩니다.
+ * 소유권 검증은 DB 함수 내에서 수행됩니다.
  *
- * @param shipmentBatchId 출고 뭉치 ID
+ * @param shipmentBatchId 출고/반품 뭉치 ID
  * @param reason 반품 사유
- * @returns 반품 결과
+ * @param productQuantities 부분 반품 시 제품별 수량 (생략 시 전량 반품)
+ * @returns 반품 결과 (새 배치 ID 포함)
  */
 export async function returnShipment(
   shipmentBatchId: string,
-  reason: string
-): Promise<ApiResponse<void>> {
+  reason: string,
+  productQuantities?: ReturnProductQuantity[]
+): Promise<ApiResponse<ReturnShipmentResponse>> {
   const supabase = await createClient();
 
   // 원자적 반품 DB 함수 호출
-  // 수신자 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
+  // 소유권 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
   const { data: result, error } = await supabase.rpc('return_shipment_atomic', {
     p_shipment_batch_id: shipmentBatchId,
     p_reason: reason,
+    p_product_quantities: productQuantities
+      ? JSON.stringify(productQuantities)
+      : null,
   });
 
   if (error) {
@@ -652,7 +673,10 @@ export async function returnShipment(
     );
   }
 
-  return createSuccessResponse(undefined);
+  return createSuccessResponse({
+    newBatchId: row.new_batch_id,
+    returnedCount: row.returned_count,
+  });
 }
 
 /**

@@ -172,12 +172,13 @@ export async function recallTreatmentAction(
  * 출고 반품 Action
  * 수신 조직이 발송 조직에게 제품을 반품합니다.
  * 병원은 유통사로부터 입고받은 제품을 반품할 수 있습니다.
- * (24시간 제한 없음, 수신자만 반품 가능)
+ * (24시간 제한 없음, 소유권 기반 검증, 부분 반품 지원)
  */
 export async function returnShipmentAction(
   shipmentBatchId: string,
-  reason: string
-): Promise<ApiResponse<void>> {
+  reason: string,
+  productQuantities?: Array<{ productId: string; quantity: number }>
+): Promise<ApiResponse<{ newBatchId: string | null; returnedCount: number }>> {
   const organizationId = await getHospitalOrganizationId();
   if (!organizationId) {
     return {
@@ -189,14 +190,15 @@ export async function returnShipmentAction(
     };
   }
 
-  const validation = returnSchema.safeParse({ shipmentBatchId, reason });
+  const validation = returnSchema.safeParse({ shipmentBatchId, reason, productQuantities });
   if (!validation.success) {
     return formatValidationError(validation.error);
   }
 
   const result = await shipmentService.returnShipment(
     validation.data.shipmentBatchId,
-    validation.data.reason
+    validation.data.reason,
+    validation.data.productQuantities
   );
 
   if (result.success) {
