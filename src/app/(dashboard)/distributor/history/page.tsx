@@ -1,17 +1,17 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { PageHeader, HistoryPageWrapper } from '@/components/shared';
-import { getDistributorHistoryCursorAction, recallShipmentAction } from '../actions';
+import { getDistributorHistoryCursorAction, returnShipmentAction } from '../actions';
 
 export const metadata = {
   title: '거래 이력 | 유통사',
-  description: '입고, 출고, 회수 이력 조회',
+  description: '입고, 출고, 반품 이력 조회',
 };
 
 /**
  * 유통사 거래이력 페이지
  * 커서 기반 무한 스크롤로 성능 최적화
- * 출고 회수 기능 포함 (24시간 이내)
+ * 반품 기능 포함 (입고 건을 제조사에게 반품 가능, 시간 제한 없음)
  */
 export default async function DistributorHistoryPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
@@ -24,7 +24,7 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
     <div className="space-y-6">
       <PageHeader
         title="거래 이력"
-        description="입고, 출고, 회수 이력을 확인할 수 있습니다. 출고 건은 24시간 이내에 회수할 수 있습니다."
+        description="입고, 출고, 반품 이력을 확인할 수 있습니다. 입고 건은 발송 조직에 반품할 수 있습니다."
       />
 
       <HistoryPageWrapper
@@ -33,11 +33,11 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
         actionTypeOptions={[
           { value: 'RECEIVED', label: '입고' },
           { value: 'SHIPPED', label: '출고' },
-          { value: 'RECALLED', label: '회수' },
+          { value: 'RETURNED', label: '반품' },
         ]}
-        onRecall={recallShipmentAction}
-        showRecallButton={true}
-        defaultActionType="SHIPPED"
+        onReturn={returnShipmentAction}
+        showReturnButton={true}
+        defaultActionType="RECEIVED"
       />
     </div>
   );
