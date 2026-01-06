@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Bell,
   Mail,
+  Trash2,
   MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ export const iconMap: Record<IconName | 'MoreHorizontal', LucideIcon> = {
   AlertCircle,
   Bell,
   Mail,
+  Trash2,
   MoreHorizontal,
 };
 

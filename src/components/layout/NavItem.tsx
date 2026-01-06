@@ -22,6 +22,7 @@ import {
   AlertCircle,
   Bell,
   Mail,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,7 @@ const iconMap: Record<IconName, LucideIcon> = {
   AlertCircle,
   Bell,
   Mail,
+  Trash2,
 };
 
 interface NavItemProps {
