@@ -83,7 +83,7 @@ src/
 ├── lib/
 │   ├── supabase/           # Supabase client setup (client, server, admin)
 │   ├── validations/        # Zod validation schemas
-│   └── utils/              # Domain-split utilities (ui, date, time, format, csv, validation)
+│   └── utils/              # Domain-split utilities (ui, date, time, timezone, format, csv, validation)
 ├── types/
 │   ├── api.types.ts                # API response types
 │   ├── forms.types.ts              # Form data types (inferred from Zod)
