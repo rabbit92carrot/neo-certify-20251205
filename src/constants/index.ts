@@ -69,3 +69,11 @@ export {
   getErrorMessage,
   type ErrorCode,
 } from './errors';
+
+// 폐기 관련
+export {
+  DISPOSAL_REASON_TYPES,
+  DISPOSAL_REASON_LABELS,
+  DISPOSAL_REASON_OPTIONS,
+  type DisposalReasonType,
+} from './disposal';

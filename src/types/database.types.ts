@@ -25,6 +25,26 @@ export type { Json } from './database-generated.types';
  */
 type CustomFunctions = {
   /**
+   * Atomic disposal creation with FIFO code selection
+   * RPC: create_disposal_atomic
+   * Migration: 20260106000001_add_disposal_feature.sql
+   */
+  create_disposal_atomic: {
+    Args: {
+      p_disposal_date: string;
+      p_disposal_reason_type: string;
+      p_disposal_reason_custom?: string | null;
+      p_items: { productId: string; quantity: number }[];
+    };
+    Returns: {
+      disposal_id: string | null;
+      total_quantity: number;
+      error_code: string | null;
+      error_message: string | null;
+    }[];
+  };
+
+  /**
    * Cursor-based pagination for admin event summary
    * RPC: get_admin_event_summary_cursor
    * Migration: 20251219000003_add_cursor_pagination_support.sql
