@@ -68,10 +68,10 @@ interface HistoryPageWrapperProps {
   actionTypeOptions: ActionTypeOption[];
   /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
   productAliasMap?: ProductAliasMap;
-  /** 회수 액션 (출고 이력에서만 사용) */
-  onRecall?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
-  /** 회수 버튼 표시 여부 */
-  showRecallButton?: boolean;
+  /** 반품 액션 (입고 이력에서만 사용 - 수신자가 발송자에게 반품) */
+  onReturn?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
+  /** 반품 버튼 표시 여부 */
+  showReturnButton?: boolean;
   /** 기본 액션 타입 필터 */
   defaultActionType?: string;
 }
@@ -91,8 +91,8 @@ export function HistoryPageWrapper({
   initialData = [],
   actionTypeOptions,
   productAliasMap,
-  onRecall,
-  showRecallButton,
+  onReturn,
+  showReturnButton,
   defaultActionType = 'all',
 }: HistoryPageWrapperProps): React.ReactElement {
   // 필터 상태 (기본값: 3일 전~오늘)
@@ -328,8 +328,8 @@ export function HistoryPageWrapper({
           histories={histories}
           currentOrgId={currentOrgId}
           productAliasMap={productAliasMap}
-          onRecall={onRecall}
-          showRecallButton={showRecallButton}
+          onReturn={onReturn}
+          showReturnButton={showReturnButton}
         />
       )}
 
