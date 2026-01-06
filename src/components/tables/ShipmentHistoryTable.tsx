@@ -29,8 +29,16 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils';
+import { RETURN_REASONS, RETURN_REASON_OPTIONS, type ReturnReasonType } from '@/constants/messages';
 import type { ShipmentBatchSummary } from '@/services/shipment.service';
 
 interface ShipmentHistoryTableProps {
@@ -56,7 +64,8 @@ function ShipmentBatchCard({
 }): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
-  const [returnReason, setReturnReason] = useState('');
+  const [returnReasonType, setReturnReasonType] = useState<ReturnReasonType | ''>('');
+  const [returnReasonText, setReturnReasonText] = useState('');
   const [isPending, startTransition] = useTransition();
 
   // 반품 가능 여부 확인 (수신자만, 미반품)
@@ -67,17 +76,29 @@ function ShipmentBatchCard({
   };
 
   const handleReturn = () => {
-    if (!returnReason.trim()) {
-      toast.error('반품 사유를 입력해주세요.');
+    if (!returnReasonType) {
+      toast.error('반품 사유를 선택해주세요.');
       return;
     }
 
+    // "기타" 선택 시 텍스트 입력 필수
+    if (returnReasonType === 'OTHER' && !returnReasonText.trim()) {
+      toast.error('기타 사유를 입력해주세요.');
+      return;
+    }
+
+    // 최종 사유 생성: 드롭다운 선택값 또는 기타 입력값
+    const finalReason = returnReasonType === 'OTHER'
+      ? returnReasonText.trim()
+      : RETURN_REASONS[returnReasonType];
+
     startTransition(async () => {
-      const result = await onReturn!(batch.id, returnReason);
+      const result = await onReturn!(batch.id, finalReason);
       if (result.success) {
         toast.success('반품이 완료되었습니다.');
         setShowReturnDialog(false);
-        setReturnReason('');
+        setReturnReasonType('');
+        setReturnReasonText('');
       } else {
         toast.error(result.error?.message || '반품에 실패했습니다.');
       }
@@ -189,9 +210,9 @@ function ShipmentBatchCard({
       <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>출고 반품</DialogTitle>
+            <DialogTitle>반품 요청</DialogTitle>
             <DialogDescription>
-              이 출고를 반품하시겠습니까? 반품 사유를 입력해주세요.
+              이 출고를 발송 조직에게 반품하시겠습니까? 반품 사유를 선택해주세요.
             </DialogDescription>
           </DialogHeader>
 
@@ -206,15 +227,37 @@ function ShipmentBatchCard({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="return-reason">반품 사유 (필수)</Label>
-              <Textarea
-                id="return-reason"
-                value={returnReason}
-                onChange={(e) => setReturnReason(e.target.value)}
-                placeholder="반품 사유를 입력해주세요..."
-                rows={3}
-              />
+              <Label htmlFor="return-reason-type">반품 사유 (필수)</Label>
+              <Select
+                value={returnReasonType}
+                onValueChange={(value) => setReturnReasonType(value as ReturnReasonType)}
+              >
+                <SelectTrigger id="return-reason-type">
+                  <SelectValue placeholder="반품 사유를 선택해주세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETURN_REASON_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* "기타" 선택 시 텍스트 입력 */}
+            {returnReasonType === 'OTHER' && (
+              <div className="space-y-2">
+                <Label htmlFor="return-reason-text">기타 사유 (필수)</Label>
+                <Textarea
+                  id="return-reason-text"
+                  value={returnReasonText}
+                  onChange={(e) => setReturnReasonText(e.target.value)}
+                  placeholder="기타 사유를 입력해주세요..."
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -222,7 +265,8 @@ function ShipmentBatchCard({
               variant="outline"
               onClick={() => {
                 setShowReturnDialog(false);
-                setReturnReason('');
+                setReturnReasonType('');
+                setReturnReasonText('');
               }}
             >
               취소
@@ -230,7 +274,11 @@ function ShipmentBatchCard({
             <Button
               variant="destructive"
               onClick={handleReturn}
-              disabled={isPending || !returnReason.trim()}
+              disabled={
+                isPending ||
+                !returnReasonType ||
+                (returnReasonType === 'OTHER' && !returnReasonText.trim())
+              }
             >
               {isPending ? '처리 중...' : '반품하기'}
             </Button>

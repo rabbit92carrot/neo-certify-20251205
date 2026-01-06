@@ -39,15 +39,41 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { CodeListDisplay } from '@/components/shared/CodeListDisplay';
 import { cn } from '@/lib/utils';
+import { RETURN_REASONS, RETURN_REASON_OPTIONS, type ReturnReasonType } from '@/constants/messages';
 import type { TransactionHistorySummary } from '@/services/history.service';
 import type { HistoryActionType } from '@/types/api.types';
 import type { ProductAliasMap } from '@/components/shared/HistoryPageWrapper';
 import type { ApiResponse } from '@/types/api.types';
+
+/**
+ * 부분 반품 시 제품별 수량 지정
+ */
+export interface ReturnProductQuantity {
+  productId: string;
+  quantity: number;
+}
+
+/**
+ * 반품 결과 타입
+ */
+export interface ReturnResult {
+  newBatchId: string | null;
+  returnedCount: number;
+}
 
 interface TransactionHistoryTableProps {
   /** 거래이력 목록 */
@@ -56,8 +82,12 @@ interface TransactionHistoryTableProps {
   currentOrgId: string;
   /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
   productAliasMap?: ProductAliasMap;
-  /** 반품 액션 (입고 이력에서만 사용 - 수신자가 발송자에게 반품) */
-  onReturn?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
+  /** 반품 액션 (입고/반품 이력에서 사용 - 소유권 기반 검증, 부분 반품 지원) */
+  onReturn?: (
+    shipmentBatchId: string,
+    reason: string,
+    productQuantities?: ReturnProductQuantity[]
+  ) => Promise<ApiResponse<ReturnResult>>;
   /** 반품 버튼 표시 여부 */
   showReturnButton?: boolean;
 }
@@ -199,11 +229,18 @@ function TransactionHistoryCard({
   history: TransactionHistorySummary;
   currentOrgId: string;
   productAliasMap?: ProductAliasMap;
-  onReturn?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
+  onReturn?: (
+    shipmentBatchId: string,
+    reason: string,
+    productQuantities?: ReturnProductQuantity[]
+  ) => Promise<ApiResponse<ReturnResult>>;
   showReturnButton?: boolean;
 }): React.ReactElement {
   const [showReturnDialog, setShowReturnDialog] = useState(false);
-  const [returnReason, setReturnReason] = useState('');
+  const [returnReasonType, setReturnReasonType] = useState<ReturnReasonType | ''>('');
+  const [returnReasonText, setReturnReasonText] = useState('');
+  const [isPartialReturn, setIsPartialReturn] = useState(false);
+  const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
   const [isPending, startTransition] = useTransition();
 
   // 내가 보낸 것인지, 받은 것인지
@@ -214,34 +251,89 @@ function TransactionHistoryCard({
   // 코드가 있는 아이템이 있는지 확인
   const hasAnyCodes = history.items.some((item) => item.codes && item.codes.length > 0);
 
-  // 반품 가능 여부 확인 (RECEIVED 이벤트, 미반품, 내가 받은 것, 시간 제한 없음)
+  // 반품 가능 여부 확인
+  // - RECEIVED 이벤트 (내가 입고받은 건): 발송자에게 반품 가능
+  // - RETURNED 이벤트 (내가 반품받은 건): 상위 조직에게 다시 반품 가능
   const canReturn = (): boolean => {
     if (!showReturnButton || !onReturn) {return false;}
-    if (history.isRecall) {return false;} // 이미 반품됨
-    if (history.actionType !== 'RECEIVED') {return false;} // RECEIVED 이벤트만
-    if (!isIncoming) {return false;} // 내가 받은 것만
     if (!history.shipmentBatchId) {return false;} // 배치 ID 필요
-    // 24시간 제한 제거 - 수신자는 언제든 반품 가능
-    return true;
+    if (history.isRecall) {return false;} // 이미 반품/회수된 건은 제외
+
+    // RECEIVED 이벤트 (내가 입고받은 건): 발송자에게 반품 가능
+    if (history.actionType === 'RECEIVED' && isIncoming) {
+      return true;
+    }
+
+    // RETURNED 이벤트 (내가 반품받은 건): 상위 조직에게 다시 반품 가능
+    // 예: 병원이 유통사에게 반품 → 유통사가 제조사에게 다시 반품
+    if (history.actionType === 'RETURNED' && isIncoming) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // 부분 반품 시 총 선택 수량 계산
+  const getTotalSelectedQuantity = (): number => {
+    return Object.values(productQuantities).reduce((sum, qty) => sum + qty, 0);
+  };
+
+  // 부분 반품 수량 업데이트
+  const updateQuantity = (productId: string, value: string): void => {
+    const numValue = parseInt(value) || 0;
+    const maxQty = history.items.find((item) => item.productId === productId)?.quantity ?? 0;
+    const clampedValue = Math.max(0, Math.min(numValue, maxQty));
+    setProductQuantities((prev) => ({
+      ...prev,
+      [productId]: clampedValue,
+    }));
   };
 
   const handleReturn = (): void => {
-    if (!returnReason.trim()) {
-      toast.error('반품 사유를 입력해주세요.');
+    if (!returnReasonType) {
+      toast.error('반품 사유를 선택해주세요.');
+      return;
+    }
+
+    // "기타" 선택 시 텍스트 입력 필수
+    if (returnReasonType === 'OTHER' && !returnReasonText.trim()) {
+      toast.error('기타 사유를 입력해주세요.');
       return;
     }
 
     if (!history.shipmentBatchId) {
-      toast.error('반품할 수 없는 입고 건입니다.');
+      toast.error('반품할 수 없는 건입니다.');
       return;
     }
 
+    // 부분 반품 시 수량 검증
+    if (isPartialReturn && getTotalSelectedQuantity() === 0) {
+      toast.error('반품할 수량을 선택해주세요.');
+      return;
+    }
+
+    // 최종 사유 생성: 드롭다운 선택값 또는 기타 입력값
+    const finalReason = returnReasonType === 'OTHER'
+      ? returnReasonText.trim()
+      : RETURN_REASONS[returnReasonType];
+
+    // 부분 반품 시 productQuantities 배열 생성
+    const returnQuantities: ReturnProductQuantity[] | undefined = isPartialReturn
+      ? Object.entries(productQuantities)
+          .filter(([, qty]) => qty > 0)
+          .map(([productId, quantity]) => ({ productId, quantity }))
+      : undefined;
+
     startTransition(async () => {
-      const result = await onReturn!(history.shipmentBatchId!, returnReason);
+      const result = await onReturn!(history.shipmentBatchId!, finalReason, returnQuantities);
       if (result.success) {
-        toast.success('반품이 완료되었습니다.');
+        const count = result.data?.returnedCount ?? history.totalQuantity;
+        toast.success(`반품이 완료되었습니다. (${count}개)`);
         setShowReturnDialog(false);
-        setReturnReason('');
+        setReturnReasonType('');
+        setReturnReasonText('');
+        setIsPartialReturn(false);
+        setProductQuantities({});
       } else {
         toast.error(result.error?.message ?? '반품에 실패했습니다.');
       }
@@ -410,9 +502,9 @@ function TransactionHistoryCard({
       <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>입고 반품</DialogTitle>
+            <DialogTitle>반품 요청</DialogTitle>
             <DialogDescription>
-              이 입고를 반품하시겠습니까? 반품 사유를 입력해주세요.
+              이 건을 발송 조직에게 반품하시겠습니까? 반품 사유를 선택해주세요.
             </DialogDescription>
           </DialogHeader>
 
@@ -426,16 +518,102 @@ function TransactionHistoryCard({
               </p>
             </div>
 
+            {/* 반품 유형 선택 (전량/부분) */}
             <div className="space-y-2">
-              <Label htmlFor="return-reason">반품 사유 (필수)</Label>
-              <Textarea
-                id="return-reason"
-                value={returnReason}
-                onChange={(e) => setReturnReason(e.target.value)}
-                placeholder="반품 사유를 입력해주세요..."
-                rows={3}
-              />
+              <Label>반품 수량</Label>
+              <RadioGroup
+                value={isPartialReturn ? 'partial' : 'full'}
+                onValueChange={(v: string) => {
+                  setIsPartialReturn(v === 'partial');
+                  if (v === 'full') {
+                    setProductQuantities({});
+                  }
+                }}
+                className="flex flex-col space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="full" id="return-full" />
+                  <Label htmlFor="return-full" className="font-normal cursor-pointer">
+                    전량 반품 ({history.totalQuantity}개)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="partial" id="return-partial" />
+                  <Label htmlFor="return-partial" className="font-normal cursor-pointer">
+                    수량 선택 (부분 반품)
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
+
+            {/* 부분 반품: 제품별 수량 입력 */}
+            {isPartialReturn && (
+              <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                <Label className="text-sm text-gray-600">제품별 반품 수량</Label>
+                {history.items.map((item) => {
+                  const aliasInfo = productAliasMap?.[item.productId];
+                  const displayName = aliasInfo?.alias || item.productName;
+                  const currentQty = productQuantities[item.productId] ?? 0;
+
+                  return (
+                    <div key={item.productId} className="flex items-center gap-3">
+                      <span className="flex-1 text-sm truncate" title={displayName}>
+                        {displayName}
+                      </span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={item.quantity}
+                        className="w-20 text-center"
+                        value={currentQty}
+                        onChange={(e) => updateQuantity(item.productId, e.target.value)}
+                      />
+                      <span className="text-sm text-muted-foreground w-12">
+                        / {item.quantity}
+                      </span>
+                    </div>
+                  );
+                })}
+                {getTotalSelectedQuantity() > 0 && (
+                  <p className="text-sm text-blue-600 mt-2">
+                    총 {getTotalSelectedQuantity()}개 선택됨
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="return-reason-type">반품 사유 (필수)</Label>
+              <Select
+                value={returnReasonType}
+                onValueChange={(value) => setReturnReasonType(value as ReturnReasonType)}
+              >
+                <SelectTrigger id="return-reason-type">
+                  <SelectValue placeholder="반품 사유를 선택해주세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETURN_REASON_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* "기타" 선택 시 텍스트 입력 */}
+            {returnReasonType === 'OTHER' && (
+              <div className="space-y-2">
+                <Label htmlFor="return-reason-text">기타 사유 (필수)</Label>
+                <Textarea
+                  id="return-reason-text"
+                  value={returnReasonText}
+                  onChange={(e) => setReturnReasonText(e.target.value)}
+                  placeholder="기타 사유를 입력해주세요..."
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -443,7 +621,10 @@ function TransactionHistoryCard({
               variant="outline"
               onClick={() => {
                 setShowReturnDialog(false);
-                setReturnReason('');
+                setReturnReasonType('');
+                setReturnReasonText('');
+                setIsPartialReturn(false);
+                setProductQuantities({});
               }}
             >
               취소
@@ -451,7 +632,12 @@ function TransactionHistoryCard({
             <Button
               variant="destructive"
               onClick={handleReturn}
-              disabled={isPending || !returnReason.trim()}
+              disabled={
+                isPending ||
+                !returnReasonType ||
+                (returnReasonType === 'OTHER' && !returnReasonText.trim()) ||
+                (isPartialReturn && getTotalSelectedQuantity() === 0)
+              }
             >
               {isPending ? '처리 중...' : '반품하기'}
             </Button>
@@ -486,7 +672,7 @@ export function TransactionHistoryTable({
     <div className="space-y-4">
       {histories.map((history) => (
         <TransactionHistoryCard
-          key={history.id}
+          key={`${history.id}_${history.actionType}`}
           history={history}
           currentOrgId={currentOrgId}
           productAliasMap={productAliasMap}

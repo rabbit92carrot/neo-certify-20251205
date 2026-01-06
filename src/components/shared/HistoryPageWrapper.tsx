@@ -23,7 +23,11 @@ import {
   X,
   Filter,
 } from 'lucide-react';
-import { TransactionHistoryTable } from '@/components/tables/TransactionHistoryTable';
+import {
+  TransactionHistoryTable,
+  type ReturnProductQuantity,
+  type ReturnResult,
+} from '@/components/tables/TransactionHistoryTable';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -68,8 +72,12 @@ interface HistoryPageWrapperProps {
   actionTypeOptions: ActionTypeOption[];
   /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
   productAliasMap?: ProductAliasMap;
-  /** 반품 액션 (입고 이력에서만 사용 - 수신자가 발송자에게 반품) */
-  onReturn?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
+  /** 반품 액션 (입고/반품 이력에서 사용 - 수신자가 발송자에게 반품, 부분 반품 지원) */
+  onReturn?: (
+    shipmentBatchId: string,
+    reason: string,
+    productQuantities?: ReturnProductQuantity[]
+  ) => Promise<ApiResponse<ReturnResult>>;
   /** 반품 버튼 표시 여부 */
   showReturnButton?: boolean;
   /** 기본 액션 타입 필터 */

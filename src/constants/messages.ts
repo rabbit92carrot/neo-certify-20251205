@@ -109,3 +109,20 @@ export const SUCCESS_MESSAGES = {
     DEACTIVATED: '조직이 비활성화되었습니다.',
   },
 } as const;
+
+// ============================================================================
+// 반품 사유 드롭다운 상수
+// ============================================================================
+
+export const RETURN_REASONS = {
+  QUALITY_ISSUE: '품질 불량',
+  WRONG_DELIVERY: '오배송',
+  OTHER: '기타',
+} as const;
+
+export type ReturnReasonType = keyof typeof RETURN_REASONS;
+
+export const RETURN_REASON_OPTIONS = Object.entries(RETURN_REASONS).map(([value, label]) => ({
+  value: value as ReturnReasonType,
+  label,
+}));
