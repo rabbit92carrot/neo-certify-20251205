@@ -806,6 +806,50 @@ describe('원자적 RPC 함수 직접 테스트', () => {
 
       expect(manufacturerCount).toBe(5); // 전량 복귀
     });
+
+    it('스칼라 JSONB 값 전달 시 전량 반품으로 처리해야 한다', async () => {
+      // 테스트 격리: 고유 제품 생성
+      const scalarProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '스칼라반품테스트_' + Date.now(),
+      });
+
+      // Lot 생성 (4개)
+      const scalarLot = await createTestLot({
+        productId: scalarProduct.id,
+        quantity: 4,
+      });
+
+      // 제조사 → 유통사 출고 (3개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: scalarProduct.id, quantity: 3 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 스칼라 값으로 반품 요청 - 전량 반품으로 처리되어야 함
+      // (배열이 아닌 값은 jsonb_typeof로 감지되어 NULL로 정규화됨)
+      const { data: returnResult, error } = await distributorClient.rpc('return_shipment_atomic', {
+        p_shipment_batch_id: batchId,
+        p_reason: '스칼라 값 테스트',
+        p_product_quantities: '"invalid"', // 스칼라 문자열 (JSON 문자열)
+      });
+
+      expect(error).toBeNull();
+      expect(returnResult![0].success).toBe(true);
+      expect(returnResult![0].returned_count).toBe(3); // 전량 반품
+      expect(returnResult![0].new_batch_id).not.toBeNull();
+
+      // 제조사가 모든 4개를 다시 소유하는지 확인 (원래 1개 + 반품 3개)
+      const { count: manufacturerCount } = await adminClient
+        .from('virtual_codes')
+        .select('*', { count: 'exact', head: true })
+        .eq('lot_id', scalarLot.id)
+        .eq('owner_id', TEST_ACCOUNTS.manufacturer.orgId);
+
+      expect(manufacturerCount).toBe(4); // 전량 복귀
+    });
   });
 
   // ============================================================================
