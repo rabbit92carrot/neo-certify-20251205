@@ -681,6 +681,8 @@ export type Database = {
           from_organization_id: string
           id: string
           is_recalled: boolean
+          is_return_batch: boolean
+          parent_batch_id: string | null
           recall_date: string | null
           recall_reason: string | null
           shipment_date: string
@@ -692,6 +694,8 @@ export type Database = {
           from_organization_id: string
           id?: string
           is_recalled?: boolean
+          is_return_batch?: boolean
+          parent_batch_id?: string | null
           recall_date?: string | null
           recall_reason?: string | null
           shipment_date?: string
@@ -703,6 +707,8 @@ export type Database = {
           from_organization_id?: string
           id?: string
           is_recalled?: boolean
+          is_return_batch?: boolean
+          parent_batch_id?: string | null
           recall_date?: string | null
           recall_reason?: string | null
           shipment_date?: string
@@ -715,6 +721,13 @@ export type Database = {
             columns: ["from_organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_batches_parent_batch_id_fkey"
+            columns: ["parent_batch_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_batches"
             referencedColumns: ["id"]
           },
           {
@@ -1235,6 +1248,7 @@ export type Database = {
           group_key: string
           has_more: boolean
           is_recall: boolean
+          owned_quantity: number
           product_summaries: Json
           recall_reason: string
           shipment_batch_id: string
@@ -1366,6 +1380,17 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_returnable_codes_by_batch: {
+        Args: { p_shipment_batch_id: string }
+        Returns: {
+          codes: string[]
+          model_name: string
+          original_quantity: number
+          owned_quantity: number
+          product_id: string
+          product_name: string
+        }[]
+      }
       get_shipment_batch_summaries: {
         Args: { p_batch_ids: string[] }
         Returns: {
@@ -1461,10 +1486,15 @@ export type Database = {
             }[]
           }
       return_shipment_atomic: {
-        Args: { p_reason: string; p_shipment_batch_id: string }
+        Args: {
+          p_product_quantities?: Json
+          p_reason: string
+          p_shipment_batch_id: string
+        }
         Returns: {
           error_code: string
           error_message: string
+          new_batch_id: string
           returned_count: number
           success: boolean
         }[]
@@ -1531,6 +1561,8 @@ export type Database = {
         | "RECALLED"
         | "DISPOSED"
         | "RETURNED"
+        | "RETURN_SENT"
+        | "RETURN_RECEIVED"
       notification_type: "CERTIFICATION" | "RECALL"
       organization_alert_type:
         | "INACTIVE_PRODUCT_USAGE"
@@ -1688,6 +1720,8 @@ export const Constants = {
         "RECALLED",
         "DISPOSED",
         "RETURNED",
+        "RETURN_SENT",
+        "RETURN_RECEIVED",
       ],
       notification_type: ["CERTIFICATION", "RECALL"],
       organization_alert_type: [
