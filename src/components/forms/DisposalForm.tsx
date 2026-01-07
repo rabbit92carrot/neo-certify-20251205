@@ -13,7 +13,6 @@
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Package, Calendar, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,6 +37,7 @@ import {
 import { ProductCard } from '@/components/shared/ProductCard';
 import { CartDisplay } from '@/components/shared/CartDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { QuantityInputPanel } from '@/components/shared/QuantityInputPanel';
 import { useCart } from '@/hooks';
 import { DISPOSAL_REASON_OPTIONS, DISPOSAL_REASON_TYPES } from '@/constants/disposal';
 import type { ProductForTreatment } from '@/types/api.types';
@@ -292,55 +292,24 @@ export function DisposalForm({
             )}
           </CardContent>
         </Card>
-
-        {/* 수량 입력 */}
-        {selectedProduct && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">수량 입력</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  선택된 제품: <strong>{getDisplayName(selectedProduct)}</strong>
-                  {' '}- 가용 재고: <strong>{currentAvailableQty}개</strong>
-                </p>
-              </div>
-
-              {/* 수량 입력 */}
-              <div className="space-y-2">
-                <Label htmlFor="quantity">수량</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min={1}
-                    max={currentAvailableQty}
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="w-32"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    / {currentAvailableQty}개
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                onClick={handleAddToCart}
-                disabled={currentAvailableQty === 0}
-                className="w-full"
-              >
-                장바구니에 담기
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
-      {/* 오른쪽: 장바구니 */}
+      {/* 오른쪽: 수량 입력 + 장바구니 */}
       <div className="lg:col-span-1">
-        <div className="sticky top-6">
+        <div className="sticky top-20 space-y-4">
+          {/* 수량 입력 */}
+          <QuantityInputPanel
+            selectedProduct={selectedProduct ? {
+              productId: selectedProduct.productId,
+              displayName: getDisplayName(selectedProduct),
+            } : null}
+            availableQuantity={currentAvailableQty}
+            quantity={quantity}
+            onQuantityChange={setQuantity}
+            onAddToCart={handleAddToCart}
+          />
+
+          {/* 장바구니 */}
           <CartDisplay
             items={items}
             onUpdateQuantity={(productId, qty, lotId) => {
@@ -369,7 +338,7 @@ export function DisposalForm({
           />
 
           {/* 경고 안내 */}
-          <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
             <div className="flex items-center gap-2 text-amber-700">
               <AlertTriangle className="h-4 w-4" />
               <span className="text-sm font-medium">폐기 주의사항</span>

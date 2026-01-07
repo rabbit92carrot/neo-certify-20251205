@@ -11,5 +11,6 @@ export { DataTable, type ColumnDef } from './DataTable';
 export { CartDisplay } from './CartDisplay';
 export { CollapsibleCard } from './CollapsibleCard';
 export { ProductCard } from './ProductCard';
+export { QuantityInputPanel } from './QuantityInputPanel';
 export { AsyncStatCard } from './AsyncStatCard';
 export { HistoryPageWrapper } from './HistoryPageWrapper';
