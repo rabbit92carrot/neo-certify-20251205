@@ -862,6 +862,47 @@ describe('원자적 RPC 함수 직접 테스트', () => {
 
       expect(manufacturerCount).toBe(4); // 전량 복귀
     });
+
+    it('JSON.stringify()로 문자열 전달 시 전량 반품으로 처리됨 (서비스 레이어 버그 방지)', async () => {
+      // 이 테스트는 서비스 레이어에서 JSON.stringify()를 사용하면 안 되는 이유를 문서화합니다.
+      // Supabase 클라이언트는 배열 객체를 자동으로 JSON 직렬화하므로,
+      // 미리 JSON.stringify()를 호출하면 이중 직렬화되어 JSONB 배열이 아닌 문자열로 파싱됩니다.
+
+      const stringifyProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: 'JSON문자열테스트_' + Date.now(),
+      });
+
+      await createTestLot({
+        productId: stringifyProduct.id,
+        quantity: 5,
+      });
+
+      // 제조사 → 유통사 출고 (5개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: stringifyProduct.id, quantity: 5 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // JSON.stringify()로 부분 반품 요청 (2개만 반품하려고 시도)
+      // 서비스 레이어에서 이렇게 하면 전량 반품이 됨
+      const partialQuantities = [{ productId: stringifyProduct.id, quantity: 2 }];
+      const { data: returnResult } = await distributorClient.rpc('return_shipment_atomic', {
+        p_shipment_batch_id: batchId,
+        p_reason: 'JSON.stringify 테스트',
+        p_product_quantities: JSON.stringify(partialQuantities), // 문자열로 전달 (버그 상황)
+      });
+
+      expect(returnResult![0].success).toBe(true);
+      // JSON.stringify로 전달하면 jsonb_typeof가 'string'이 되어 전량 반품 처리됨
+      expect(returnResult![0].returned_count).toBe(5); // 2개가 아닌 5개 (전량 반품!)
+
+      // 주의: 서비스 레이어에서는 배열 객체를 직접 전달해야 부분 반품이 정상 동작함
+      // p_product_quantities: productQuantities (O)
+      // p_product_quantities: JSON.stringify(productQuantities) (X - 전량 반품됨)
+    });
   });
 
   // ============================================================================

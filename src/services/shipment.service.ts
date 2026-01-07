@@ -21,6 +21,7 @@ import type {
   Organization,
   OrganizationType,
 } from '@/types/api.types';
+import type { Json } from '@/types/database-generated.types';
 import type { ShipmentCreateData, ShipmentHistoryQueryData } from '@/lib/validations/shipment';
 import {
   createErrorResponse,
@@ -646,14 +647,16 @@ export async function returnShipment(
   // 원자적 반품 DB 함수 호출
   // 소유권 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
   // 빈 배열은 null로 처리 (전량 반품)
-  // 빈 배열이 DB로 전달되면 jsonb_to_recordset 에러 발생
+  // Supabase 클라이언트가 배열 객체를 자동으로 JSON 직렬화함
   const hasPartialQuantities = productQuantities && productQuantities.length > 0;
 
   const { data: result, error } = await supabase.rpc('return_shipment_atomic', {
     p_shipment_batch_id: shipmentBatchId,
     p_reason: reason,
+    // Supabase 클라이언트가 배열 객체를 자동으로 JSON 직렬화함
+    // JSON.stringify()를 사용하면 이중 직렬화되어 JSONB 문자열로 파싱됨 (버그)
     p_product_quantities: hasPartialQuantities
-      ? JSON.stringify(productQuantities)
+      ? (productQuantities as unknown as Json)
       : null,
   });
 
