@@ -105,6 +105,8 @@ interface TransactionHistoryTableProps {
   showReturnButton?: boolean;
   /** 반품 가능 수량 조회 액션 (다이얼로그 오픈 시 lazy load) */
   onGetReturnableInfo?: (shipmentBatchId: string) => Promise<ApiResponse<ReturnableProductInfo[]>>;
+  /** 반품 성공 시 콜백 (부모 컴포넌트에서 새로고침 처리) */
+  onReturnSuccess?: () => void;
 }
 
 /**
@@ -247,6 +249,7 @@ function TransactionHistoryCard({
   onReturn,
   showReturnButton,
   onGetReturnableInfo,
+  onReturnSuccess,
 }: {
   history: TransactionHistorySummary;
   currentOrgId: string;
@@ -258,6 +261,7 @@ function TransactionHistoryCard({
   ) => Promise<ApiResponse<ReturnResult>>;
   showReturnButton?: boolean;
   onGetReturnableInfo?: (shipmentBatchId: string) => Promise<ApiResponse<ReturnableProductInfo[]>>;
+  onReturnSuccess?: () => void;
 }): React.ReactElement {
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [returnReasonType, setReturnReasonType] = useState<ReturnReasonType | ''>('');
@@ -401,6 +405,8 @@ function TransactionHistoryCard({
         setReturnReasonText('');
         setIsPartialReturn(false);
         setProductQuantities({});
+        // 부모 컴포넌트에 성공 알림 (새로고침 트리거)
+        onReturnSuccess?.();
       } else {
         toast.error(result.error?.message ?? '반품에 실패했습니다.');
       }
@@ -771,6 +777,7 @@ export function TransactionHistoryTable({
   onReturn,
   showReturnButton,
   onGetReturnableInfo,
+  onReturnSuccess,
 }: TransactionHistoryTableProps): React.ReactElement {
   if (histories.length === 0) {
     return (
@@ -793,6 +800,7 @@ export function TransactionHistoryTable({
           onReturn={onReturn}
           showReturnButton={showReturnButton}
           onGetReturnableInfo={onGetReturnableInfo}
+          onReturnSuccess={onReturnSuccess}
         />
       ))}
     </div>

@@ -119,6 +119,9 @@ export function HistoryPageWrapper({
     actionType: defaultActionType,
   });
 
+  // 조회 버튼 클릭 시 항상 새로고침 트리거 (필터 변경 여부와 관계없이)
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // 이벤트 데이터 상태
   const [histories, setHistories] = useState<TransactionHistorySummary[]>(initialData);
   const [isLoading, setIsLoading] = useState(initialData.length === 0);
@@ -131,18 +134,25 @@ export function HistoryPageWrapper({
   // 페이지별 커서 캐시 (이전 페이지로 돌아갈 때 사용)
   const pageCursorsRef = useRef<Map<number, PageCursor>>(new Map());
 
-  // 필터 조건 키 (변경 감지용)
+  // 스크롤 위치 저장 (반품 후 새로고침 시 복원용)
+  const scrollPositionRef = useRef<number>(0);
+
+  // 필터 조건 키 (변경 감지용) - refreshTrigger 포함으로 조회 버튼 클릭 시 항상 새로고침
   const filterKey = [
     appliedFilters.startDate,
     appliedFilters.endDate,
     appliedFilters.actionType,
+    refreshTrigger,
   ].join('|');
 
   /**
    * 특정 페이지 로드
+   * @param page 로드할 페이지 번호
+   * @param restoreScroll true일 경우 스크롤 위치 복원 (반품 후 새로고침 시 사용)
    */
   const loadPage = useCallback(
-    async (page: number) => {
+    async (page: number, restoreScroll = false) => {
+      const savedScrollY = restoreScroll ? scrollPositionRef.current : 0;
       setIsLoading(true);
       setError(null);
 
@@ -185,6 +195,12 @@ export function HistoryPageWrapper({
         setError('데이터를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
+        // 스크롤 위치 복원 (데이터 로드 완료 후)
+        if (restoreScroll && savedScrollY > 0) {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+          });
+        }
       }
     },
     [appliedFilters, fetchHistoryCursor]
@@ -224,6 +240,8 @@ export function HistoryPageWrapper({
       endDate: endDate ? format(endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       actionType,
     });
+    // 필터 조건 변경 여부와 관계없이 항상 새로고침 트리거
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   // 필터 초기화 (기본값: 3일 전~오늘로 리셋)
@@ -245,6 +263,12 @@ export function HistoryPageWrapper({
     pageCursorsRef.current.clear();
     void loadPage(1);
   }, [loadPage]);
+
+  // 반품 성공 시 콜백 (현재 페이지 새로고침 + 스크롤 위치 유지)
+  const handleReturnSuccess = useCallback(() => {
+    scrollPositionRef.current = window.scrollY;
+    void loadPage(currentPage, true);
+  }, [currentPage, loadPage]);
 
   const activeFilterCount = [startDate, endDate, actionType !== 'all'].filter(Boolean).length;
 
@@ -343,6 +367,7 @@ export function HistoryPageWrapper({
           onReturn={onReturn}
           showReturnButton={showReturnButton}
           onGetReturnableInfo={onGetReturnableInfo}
+          onReturnSuccess={handleReturnSuccess}
         />
       )}
 
