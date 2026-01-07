@@ -349,13 +349,13 @@ export async function getDistributorHistory(
 
 /**
  * 병원 거래이력 조회
- * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED), 반품 출고(RETURN_SENT)
+ * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED), 반품 출고(RETURN_SENT), 폐기(DISPOSED)
  */
 export async function getHospitalHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
-  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURN_SENT'];
+  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURN_SENT', 'DISPOSED'];
 
   const filteredQuery = {
     ...query,
@@ -541,13 +541,13 @@ export async function getDistributorHistoryCursor(
 
 /**
  * 병원 거래이력 조회 (커서 기반)
- * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED), 반품 출고(RETURN_SENT)
+ * - 입고(RECEIVED), 시술(TREATED), 회수(RECALLED), 반품 출고(RETURN_SENT), 폐기(DISPOSED)
  */
 export async function getHospitalHistoryCursor(
   organizationId: string,
   query: HistoryCursorQuery
 ): Promise<ApiResponse<CursorPaginatedHistory>> {
-  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURN_SENT'];
+  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURN_SENT', 'DISPOSED'];
 
   const filteredQuery = {
     ...query,

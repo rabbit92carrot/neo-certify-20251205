@@ -6,7 +6,7 @@ import { getHospitalKnownProducts } from '@/services/hospital-product.service';
 
 export const metadata = {
   title: '거래 이력 | 병원',
-  description: '입고, 시술, 회수, 반품 이력 조회',
+  description: '입고, 시술, 회수, 반품, 폐기 이력 조회',
 };
 
 /**
@@ -34,7 +34,7 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
     <div className="space-y-6">
       <PageHeader
         title="거래 이력"
-        description="입고, 시술, 회수, 반품 이력을 확인할 수 있습니다. 입고 건은 발송 조직에 반품할 수 있습니다."
+        description="입고, 시술, 회수, 반품, 폐기 이력을 확인할 수 있습니다. 입고 건은 발송 조직에 반품할 수 있습니다."
       />
 
       <HistoryPageWrapper
@@ -45,6 +45,7 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
           { value: 'TREATED', label: '시술' },
           { value: 'RECALLED', label: '회수' },
           { value: 'RETURN_SENT', label: '반품 출고' },
+          { value: 'DISPOSED', label: '폐기' },
         ]}
         productAliasMap={productAliasMap}
         onReturn={returnShipmentAction}
