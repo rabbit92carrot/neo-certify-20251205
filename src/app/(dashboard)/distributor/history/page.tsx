@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { PageHeader, HistoryPageWrapper } from '@/components/shared';
-import { getDistributorHistoryCursorAction, returnShipmentAction } from '../actions';
+import { getDistributorHistoryCursorAction, returnShipmentAction, getReturnableCodesAction } from '../actions';
 
 export const metadata = {
   title: '거래 이력 | 유통사',
@@ -37,6 +37,7 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
         ]}
         onReturn={returnShipmentAction}
         showReturnButton={true}
+        onGetReturnableInfo={getReturnableCodesAction}
         defaultActionType="RECEIVED"
       />
     </div>

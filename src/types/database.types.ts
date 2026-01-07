@@ -109,6 +109,8 @@ type CustomFunctions = {
       created_at: string;
       total_quantity: number;
       product_summaries: Json;
+      shipment_batch_id: string | null;
+      owned_quantity: number;
       has_more: boolean;
     }[];
   };
@@ -142,6 +144,26 @@ type CustomFunctions = {
       product_summary: Json;
       code_ids: string[] | null;
       has_more: boolean;
+    }[];
+  };
+
+  /**
+   * Get returnable codes by shipment batch
+   * Returns owned quantity information for return dialog
+   * RPC: get_returnable_codes_by_batch
+   * Migration: 20260107000006_get_returnable_codes_by_batch.sql
+   */
+  get_returnable_codes_by_batch: {
+    Args: {
+      p_shipment_batch_id: string;
+    };
+    Returns: {
+      product_id: string;
+      product_name: string;
+      model_name: string | null;
+      original_quantity: number;
+      owned_quantity: number;
+      codes: string[] | null;
     }[];
   };
 };

@@ -27,6 +27,7 @@ import {
   TransactionHistoryTable,
   type ReturnProductQuantity,
   type ReturnResult,
+  type ReturnableProductInfo,
 } from '@/components/tables/TransactionHistoryTable';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,8 @@ interface HistoryPageWrapperProps {
   ) => Promise<ApiResponse<ReturnResult>>;
   /** 반품 버튼 표시 여부 */
   showReturnButton?: boolean;
+  /** 반품 가능 수량 조회 액션 (다이얼로그 오픈 시 lazy load) */
+  onGetReturnableInfo?: (shipmentBatchId: string) => Promise<ApiResponse<ReturnableProductInfo[]>>;
   /** 기본 액션 타입 필터 */
   defaultActionType?: string;
 }
@@ -101,6 +104,7 @@ export function HistoryPageWrapper({
   productAliasMap,
   onReturn,
   showReturnButton,
+  onGetReturnableInfo,
   defaultActionType = 'all',
 }: HistoryPageWrapperProps): React.ReactElement {
   // 필터 상태 (기본값: 3일 전~오늘)
@@ -338,6 +342,7 @@ export function HistoryPageWrapper({
           productAliasMap={productAliasMap}
           onReturn={onReturn}
           showReturnButton={showReturnButton}
+          onGetReturnableInfo={onGetReturnableInfo}
         />
       )}
 

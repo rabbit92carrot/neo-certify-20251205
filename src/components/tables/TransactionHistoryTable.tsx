@@ -75,6 +75,19 @@ export interface ReturnResult {
   returnedCount: number;
 }
 
+/**
+ * 반품 가능 제품 정보
+ * 다이얼로그에서 현재 보유 수량 표시에 사용
+ */
+export interface ReturnableProductInfo {
+  productId: string;
+  productName: string;
+  modelName: string | null;
+  originalQuantity: number;
+  ownedQuantity: number;
+  codes: string[];
+}
+
 interface TransactionHistoryTableProps {
   /** 거래이력 목록 */
   histories: TransactionHistorySummary[];
@@ -90,6 +103,8 @@ interface TransactionHistoryTableProps {
   ) => Promise<ApiResponse<ReturnResult>>;
   /** 반품 버튼 표시 여부 */
   showReturnButton?: boolean;
+  /** 반품 가능 수량 조회 액션 (다이얼로그 오픈 시 lazy load) */
+  onGetReturnableInfo?: (shipmentBatchId: string) => Promise<ApiResponse<ReturnableProductInfo[]>>;
 }
 
 /**
@@ -225,6 +240,7 @@ function TransactionHistoryCard({
   productAliasMap,
   onReturn,
   showReturnButton,
+  onGetReturnableInfo,
 }: {
   history: TransactionHistorySummary;
   currentOrgId: string;
@@ -235,6 +251,7 @@ function TransactionHistoryCard({
     productQuantities?: ReturnProductQuantity[]
   ) => Promise<ApiResponse<ReturnResult>>;
   showReturnButton?: boolean;
+  onGetReturnableInfo?: (shipmentBatchId: string) => Promise<ApiResponse<ReturnableProductInfo[]>>;
 }): React.ReactElement {
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [returnReasonType, setReturnReasonType] = useState<ReturnReasonType | ''>('');
@@ -242,6 +259,9 @@ function TransactionHistoryCard({
   const [isPartialReturn, setIsPartialReturn] = useState(false);
   const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
   const [isPending, startTransition] = useTransition();
+  // 반품 가능 정보 (lazy load)
+  const [returnableInfo, setReturnableInfo] = useState<ReturnableProductInfo[] | null>(null);
+  const [isLoadingReturnableInfo, setIsLoadingReturnableInfo] = useState(false);
 
   // 내가 보낸 것인지, 받은 것인지
   const isOutgoing = history.fromOwner?.id === currentOrgId;
@@ -254,10 +274,13 @@ function TransactionHistoryCard({
   // 반품 가능 여부 확인
   // - RECEIVED 이벤트 (내가 입고받은 건): 발송자에게 반품 가능
   // - RETURNED 이벤트 (내가 반품받은 건): 상위 조직에게 다시 반품 가능
+  // - 현재 보유 수량이 0이면 반품 불가
   const canReturn = (): boolean => {
     if (!showReturnButton || !onReturn) {return false;}
     if (!history.shipmentBatchId) {return false;} // 배치 ID 필요
     if (history.isRecall) {return false;} // 이미 반품/회수된 건은 제외
+    // 보유 수량이 0이면 반품 불가 (RPC 통합으로 미리 확인 가능)
+    if ((history.totalOwnedQuantity ?? 0) === 0) {return false;}
 
     // RECEIVED 이벤트 (내가 입고받은 건): 발송자에게 반품 가능
     if (history.actionType === 'RECEIVED' && isIncoming) {
@@ -278,15 +301,51 @@ function TransactionHistoryCard({
     return Object.values(productQuantities).reduce((sum, qty) => sum + qty, 0);
   };
 
-  // 부분 반품 수량 업데이트
+  // 부분 반품 수량 업데이트 (보유 수량 기준으로 max 제한)
   const updateQuantity = (productId: string, value: string): void => {
     const numValue = parseInt(value) || 0;
-    const maxQty = history.items.find((item) => item.productId === productId)?.quantity ?? 0;
+    // returnableInfo가 있으면 보유 수량, 없으면 원래 수량 사용
+    const info = returnableInfo?.find((r) => r.productId === productId);
+    const maxQty = info?.ownedQuantity ?? history.items.find((item) => item.productId === productId)?.quantity ?? 0;
     const clampedValue = Math.max(0, Math.min(numValue, maxQty));
     setProductQuantities((prev) => ({
       ...prev,
       [productId]: clampedValue,
     }));
+  };
+
+  // 현재 보유 중인 총 수량 계산
+  const getTotalOwnedQuantity = (): number => {
+    if (!returnableInfo) { return history.totalQuantity; }
+    return returnableInfo.reduce((sum, p) => sum + p.ownedQuantity, 0);
+  };
+
+  // 반품 다이얼로그 오픈 시 보유 정보 조회
+  const handleOpenReturnDialog = async (): Promise<void> => {
+    setShowReturnDialog(true);
+
+    // onGetReturnableInfo가 있으면 현재 보유 정보 조회
+    if (onGetReturnableInfo && history.shipmentBatchId) {
+      setIsLoadingReturnableInfo(true);
+      try {
+        const result = await onGetReturnableInfo(history.shipmentBatchId);
+        if (result.success && result.data) {
+          setReturnableInfo(result.data);
+
+          // 보유 코드가 0이면 안내 메시지 표시 후 다이얼로그 닫기
+          const totalOwned = result.data.reduce((sum, p) => sum + p.ownedQuantity, 0);
+          if (totalOwned === 0) {
+            toast.info('반품 가능한 제품이 없습니다. 모든 제품이 이미 반품/출고/시술되었습니다.');
+            setShowReturnDialog(false);
+          }
+        } else {
+          // RPC 호출 실패 시 에러 표시
+          toast.error(result.error?.message ?? '보유 수량을 조회할 수 없습니다.');
+        }
+      } finally {
+        setIsLoadingReturnableInfo(false);
+      }
+    }
   };
 
   const handleReturn = (): void => {
@@ -407,12 +466,23 @@ function TransactionHistoryCard({
 
           {/* 수량 및 반품 버튼 */}
           <div className="flex items-center gap-3">
+            {/* 입고/반품받은 이벤트: 보유 0이면 "재고 없음" 배지 표시 */}
+            {showReturnButton &&
+              (history.actionType === 'RECEIVED' || history.actionType === 'RETURNED') &&
+              isIncoming &&
+              !history.isRecall &&
+              history.shipmentBatchId &&
+              (history.totalOwnedQuantity ?? 0) === 0 && (
+                <Badge variant="secondary" className="text-gray-500">
+                  재고 없음
+                </Badge>
+              )}
             {canReturn() && (
               <Button
                 variant="outline"
                 size="sm"
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={() => setShowReturnDialog(true)}
+                onClick={handleOpenReturnDialog}
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 반품
@@ -420,7 +490,17 @@ function TransactionHistoryCard({
             )}
             <div className="text-right">
               <p className="font-semibold text-lg">{history.totalQuantity}개</p>
-              <p className="text-xs text-muted-foreground">{history.items.length}종</p>
+              <p className="text-xs text-muted-foreground">
+                {history.items.length}종
+                {/* 입고/반품받은 이벤트: 보유 수량 표시 */}
+                {(history.actionType === 'RECEIVED' || history.actionType === 'RETURNED') &&
+                  isIncoming &&
+                  typeof history.totalOwnedQuantity === 'number' && (
+                    <span className="ml-1">
+                      (보유: {history.totalOwnedQuantity})
+                    </span>
+                  )}
+              </p>
             </div>
           </div>
         </div>
@@ -509,13 +589,26 @@ function TransactionHistoryCard({
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* 로딩 상태 */}
+            {isLoadingReturnableInfo && (
+              <div className="p-3 bg-gray-50 rounded-lg text-center">
+                <p className="text-sm text-gray-600">보유 수량 확인 중...</p>
+              </div>
+            )}
+
+            {/* 발송 조직 및 수량 정보 */}
             <div className="p-3 bg-yellow-50 rounded-lg">
               <p className="text-sm text-yellow-800">
                 <strong>발송 조직:</strong> {history.fromOwner?.name ?? '알 수 없음'}
               </p>
               <p className="text-sm text-yellow-800">
-                <strong>수량:</strong> {history.totalQuantity}개 ({history.items.length}종)
+                <strong>원래 수량:</strong> {history.totalQuantity}개 ({history.items.length}종)
               </p>
+              {returnableInfo && (
+                <p className="text-sm text-yellow-800 font-medium">
+                  <strong>현재 보유:</strong> {getTotalOwnedQuantity()}개
+                </p>
+              )}
             </div>
 
             {/* 반품 유형 선택 (전량/부분) */}
@@ -534,7 +627,7 @@ function TransactionHistoryCard({
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="full" id="return-full" />
                   <Label htmlFor="return-full" className="font-normal cursor-pointer">
-                    전량 반품 ({history.totalQuantity}개)
+                    전량 반품 ({returnableInfo ? getTotalOwnedQuantity() : history.totalQuantity}개)
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -550,10 +643,17 @@ function TransactionHistoryCard({
             {isPartialReturn && (
               <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
                 <Label className="text-sm text-gray-600">제품별 반품 수량</Label>
+                <p className="text-xs text-muted-foreground">
+                  현재 보유 중인 수량만 반품 가능합니다.
+                </p>
                 {history.items.map((item) => {
                   const aliasInfo = productAliasMap?.[item.productId];
                   const displayName = aliasInfo?.alias || item.productName;
                   const currentQty = productQuantities[item.productId] ?? 0;
+                  // returnableInfo에서 보유 수량 가져오기
+                  const info = returnableInfo?.find((r) => r.productId === item.productId);
+                  const ownedQty = info?.ownedQuantity ?? item.quantity;
+                  const originalQty = info?.originalQuantity ?? item.quantity;
 
                   return (
                     <div key={item.productId} className="flex items-center gap-3">
@@ -563,13 +663,15 @@ function TransactionHistoryCard({
                       <Input
                         type="number"
                         min={0}
-                        max={item.quantity}
+                        max={ownedQty}
                         className="w-20 text-center"
                         value={currentQty}
                         onChange={(e) => updateQuantity(item.productId, e.target.value)}
+                        disabled={ownedQty === 0}
                       />
-                      <span className="text-sm text-muted-foreground w-12">
-                        / {item.quantity}
+                      <span className="text-sm text-muted-foreground w-24">
+                        / {ownedQty} (보유)
+                        {returnableInfo && <span className="text-xs ml-1">| 원래: {originalQty}</span>}
                       </span>
                     </div>
                   );
@@ -625,6 +727,7 @@ function TransactionHistoryCard({
                 setReturnReasonText('');
                 setIsPartialReturn(false);
                 setProductQuantities({});
+                setReturnableInfo(null);
               }}
             >
               취소
@@ -657,6 +760,7 @@ export function TransactionHistoryTable({
   productAliasMap,
   onReturn,
   showReturnButton,
+  onGetReturnableInfo,
 }: TransactionHistoryTableProps): React.ReactElement {
   if (histories.length === 0) {
     return (
@@ -678,6 +782,7 @@ export function TransactionHistoryTable({
           productAliasMap={productAliasMap}
           onReturn={onReturn}
           showReturnButton={showReturnButton}
+          onGetReturnableInfo={onGetReturnableInfo}
         />
       ))}
     </div>

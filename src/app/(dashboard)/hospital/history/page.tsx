@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { PageHeader, HistoryPageWrapper } from '@/components/shared';
-import { getHospitalHistoryCursorAction, returnShipmentAction } from '../actions';
+import { getHospitalHistoryCursorAction, returnShipmentAction, getReturnableCodesAction } from '../actions';
 import { getHospitalKnownProducts } from '@/services/hospital-product.service';
 
 export const metadata = {
@@ -49,6 +49,7 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
         productAliasMap={productAliasMap}
         onReturn={returnShipmentAction}
         showReturnButton={true}
+        onGetReturnableInfo={getReturnableCodesAction}
       />
     </div>
   );

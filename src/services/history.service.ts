@@ -114,10 +114,12 @@ export interface TransactionHistorySummary {
     productName: string;
     modelName?: string; // 제품 모델명 추가
     quantity: number;
+    ownedQuantity: number; // 현재 보유 수량 (반품 기능용)
     codes: string[]; // 제품 코드 문자열 배열 (NC-XXXXXXXX 형식)
   }[];
 
   totalQuantity: number;
+  totalOwnedQuantity: number; // 총 보유 수량 (반품 버튼 표시용)
 
   // 회수 기능용 배치 ID (SHIPPED 이벤트)
   shipmentBatchId?: string;
@@ -274,9 +276,11 @@ export async function getTransactionHistory(
         items: (productSummaries ?? []).map((item) => ({
           ...item,
           modelName: item.modelName ?? undefined,
+          ownedQuantity: 0, // 레거시 함수는 owned_quantity 미지원
           codes: item.codes ?? [],
         })),
         totalQuantity: Number(row.total_quantity),
+        totalOwnedQuantity: 0, // 레거시 함수는 owned_quantity 미지원
         shipmentBatchId: row.shipment_batch_id ?? undefined,
       };
     }
@@ -471,9 +475,11 @@ export async function getTransactionHistoryCursor(
         productName: item.productName,
         modelName: item.modelName ?? undefined,
         quantity: item.quantity,
+        ownedQuantity: item.ownedQuantity ?? 0, // 제품별 보유 수량
         codes: item.codes ?? [],
       })),
       totalQuantity: Number(row.total_quantity),
+      totalOwnedQuantity: Number(row.owned_quantity ?? 0), // 총 보유 수량
       shipmentBatchId: row.shipment_batch_id ?? undefined,
     };
   });

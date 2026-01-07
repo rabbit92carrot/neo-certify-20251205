@@ -148,6 +148,28 @@ export async function returnShipmentAction(
   return result;
 }
 
+/**
+ * 반품 가능 수량 조회 Action
+ * 반품 다이얼로그 오픈 시 호출 (lazy load)
+ * 현재 보유 수량과 원래 수량을 비교하여 UI에 표시
+ */
+export async function getReturnableCodesAction(
+  shipmentBatchId: string
+): Promise<ApiResponse<shipmentService.ReturnableProductInfo[]>> {
+  const organizationId = await getDistributorOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '유통사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return shipmentService.getReturnableCodesByBatch(shipmentBatchId);
+}
+
 // ============================================================================
 // 거래 이력 Actions (커서 기반 페이지네이션)
 // ============================================================================

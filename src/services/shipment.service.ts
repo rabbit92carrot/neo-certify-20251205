@@ -32,6 +32,7 @@ import {
   ShipmentAtomicResultSchema,
   RecallShipmentResultSchema,
   ReturnShipmentResultSchema,
+  ReturnableCodesByBatchRowSchema,
   ShipmentBatchSummaryRowSchema,
 } from '@/lib/validations/rpc-schemas';
 
@@ -681,6 +682,59 @@ export async function returnShipment(
     newBatchId: row.new_batch_id,
     returnedCount: row.returned_count,
   });
+}
+
+/**
+ * 반품 가능 제품 정보
+ * 다이얼로그에서 현재 보유 수량 표시에 사용
+ */
+export interface ReturnableProductInfo {
+  productId: string;
+  productName: string;
+  modelName: string | null;
+  originalQuantity: number;
+  ownedQuantity: number;
+  codes: string[];
+}
+
+/**
+ * 반품 가능 코드 조회 (배치 기준)
+ * 다이얼로그 오픈 시 lazy load로 호출
+ *
+ * @param shipmentBatchId 출고/반품 배치 ID
+ * @returns 제품별 보유 수량 정보
+ */
+export async function getReturnableCodesByBatch(
+  shipmentBatchId: string
+): Promise<ApiResponse<ReturnableProductInfo[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('get_returnable_codes_by_batch', {
+    p_shipment_batch_id: shipmentBatchId,
+  });
+
+  if (error) {
+    logger.error('반품 가능 코드 조회 실패', error);
+    return createErrorResponse('QUERY_ERROR', '반품 가능 수량 조회에 실패했습니다.');
+  }
+
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(ReturnableCodesByBatchRowSchema, data, 'get_returnable_codes_by_batch');
+  if (!parsed.success) {
+    logger.error('get_returnable_codes_by_batch 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const result: ReturnableProductInfo[] = parsed.data.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name,
+    originalQuantity: row.original_quantity,
+    ownedQuantity: row.owned_quantity,
+    codes: row.codes ?? [],
+  }));
+
+  return createSuccessResponse(result);
 }
 
 /**

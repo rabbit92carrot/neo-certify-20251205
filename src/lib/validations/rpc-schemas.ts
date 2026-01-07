@@ -107,6 +107,24 @@ export const ReturnShipmentResultSchema = z.object({
 });
 
 /**
+ * 반품 가능 코드 조회 스키마
+ * RPC: get_returnable_codes_by_batch
+ *
+ * 배치별 제품의 원래 수량과 현재 보유 수량을 반환
+ * 반품 다이얼로그에서 lazy load로 호출됨
+ */
+export const ReturnableCodesByBatchRowSchema = z.object({
+  product_id: z.string().uuid(),
+  product_name: z.string(),
+  model_name: z.string().nullable(),
+  original_quantity: z.number(),
+  owned_quantity: z.number(),
+  codes: z.array(z.string()).nullable(),
+});
+
+export type ReturnableCodesByBatchRow = z.infer<typeof ReturnableCodesByBatchRowSchema>;
+
+/**
  * 시술 생성 결과 스키마
  * RPC: create_treatment_atomic
  */
@@ -433,8 +451,9 @@ export type AdminEventSummaryCursorRow = z.infer<typeof AdminEventSummaryCursorR
  * 이력 요약 커서 기반 스키마
  * RPC: get_history_summary_cursor
  *
- * DB 함수 반환 구조 (20251226000003_update_history_summary_cursor.sql):
- * - HistorySummaryRowSchema 필드 + modelName + shipment_batch_id + has_more (BOOLEAN)
+ * DB 함수 반환 구조 (20260107000008_add_owned_quantity_to_history.sql):
+ * - HistorySummaryRowSchema 필드 + modelName + shipment_batch_id + owned_quantity + has_more (BOOLEAN)
+ * - product_summaries에 ownedQuantity 추가 (제품별 보유 수량)
  */
 export const HistorySummaryCursorRowSchema = z.object({
   group_key: z.string(),
@@ -454,9 +473,11 @@ export const HistorySummaryCursorRowSchema = z.object({
     productName: z.string(),
     modelName: z.string().nullable(), // 제품 모델명 추가
     quantity: z.number(),
+    ownedQuantity: z.number(), // 제품별 현재 보유 수량
     codes: z.array(z.string()).optional(), // 제품별 가상 코드 (NC-XXXXXXXX 형식)
   })).nullable(),
   shipment_batch_id: z.string().uuid().nullable(), // 회수 기능용 배치 ID
+  owned_quantity: z.number(), // 총 보유 수량 (반품 버튼 표시용)
   has_more: z.boolean(),
 });
 

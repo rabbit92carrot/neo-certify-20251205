@@ -1095,4 +1095,253 @@ describe('원자적 RPC 함수 직접 테스트', () => {
       expect(code!.status).toBe('DISPOSED');
     });
   });
+
+  // ============================================================================
+  // get_returnable_codes_by_batch 테스트
+  // ============================================================================
+  describe('get_returnable_codes_by_batch RPC', () => {
+    it('배치의 제품별 보유 수량을 조회해야 한다', async () => {
+      // 테스트 격리: 고유 제품 생성
+      const returnableProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '보유수량테스트_' + Date.now(),
+      });
+
+      // Lot 생성 (8개)
+      await createTestLot({
+        productId: returnableProduct.id,
+        quantity: 8,
+      });
+
+      // 제조사 → 유통사 출고 (8개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: returnableProduct.id, quantity: 8 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 유통사가 보유 수량 조회
+      const { data, error } = await distributorClient.rpc('get_returnable_codes_by_batch', {
+        p_shipment_batch_id: batchId,
+      });
+
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      expect(data![0].product_name).toBe(returnableProduct.name); // 생성 시 설정한 이름과 일치해야 함
+      expect(data![0].original_quantity).toBe(8);
+      expect(data![0].owned_quantity).toBe(8); // 전량 보유
+      expect(data![0].codes).toHaveLength(8);
+    });
+
+    it('부분 반품 후 남은 보유 수량을 정확히 반환해야 한다', async () => {
+      // 테스트 격리: 고유 제품 생성
+      const partialReturnProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '부분반품보유_' + Date.now(),
+      });
+
+      // Lot 생성 (10개)
+      await createTestLot({
+        productId: partialReturnProduct.id,
+        quantity: 10,
+      });
+
+      // 제조사 → 유통사 출고 (8개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: partialReturnProduct.id, quantity: 8 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 부분 반품 (4개)
+      await distributorClient.rpc('return_shipment_atomic', {
+        p_shipment_batch_id: batchId,
+        p_reason: '부분 반품',
+        p_product_quantities: [{ productId: partialReturnProduct.id, quantity: 4 }],
+      });
+
+      // 유통사가 보유 수량 조회
+      const { data, error } = await distributorClient.rpc('get_returnable_codes_by_batch', {
+        p_shipment_batch_id: batchId,
+      });
+
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      expect(data![0].original_quantity).toBe(8); // 원래 8개
+      expect(data![0].owned_quantity).toBe(4); // 4개 반품 후 4개 남음
+      expect(data![0].codes).toHaveLength(4);
+    });
+
+    it('전량 반품 후 보유 수량이 0으로 반환해야 한다', async () => {
+      // 테스트 격리: 고유 제품 생성
+      const fullReturnProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '전량반품보유_' + Date.now(),
+      });
+
+      // Lot 생성 (5개)
+      await createTestLot({
+        productId: fullReturnProduct.id,
+        quantity: 5,
+      });
+
+      // 제조사 → 유통사 출고 (5개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: fullReturnProduct.id, quantity: 5 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 전량 반품
+      await distributorClient.rpc('return_shipment_atomic', {
+        p_shipment_batch_id: batchId,
+        p_reason: '전량 반품',
+        p_product_quantities: null,
+      });
+
+      // 유통사가 보유 수량 조회
+      const { data, error } = await distributorClient.rpc('get_returnable_codes_by_batch', {
+        p_shipment_batch_id: batchId,
+      });
+
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      expect(data![0].original_quantity).toBe(5); // 원래 5개
+      expect(data![0].owned_quantity).toBe(0); // 전량 반품 후 0개
+      expect(data![0].codes).toBeNull(); // 보유 코드 없음
+    });
+
+    it('다른 조직에 출고 후 보유 수량이 감소해야 한다', async () => {
+      // 테스트 격리: 고유 제품 생성
+      const reshippedProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '재출고보유_' + Date.now(),
+      });
+
+      // Lot 생성 (8개)
+      await createTestLot({
+        productId: reshippedProduct.id,
+        quantity: 8,
+      });
+
+      // 제조사 → 유통사 출고 (8개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: reshippedProduct.id, quantity: 8 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 유통사 → 병원 출고 (4개)
+      await distributorClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.hospital.orgId,
+        p_to_org_type: 'HOSPITAL',
+        p_items: [{ productId: reshippedProduct.id, quantity: 4 }],
+      });
+
+      // 유통사가 보유 수량 조회
+      const { data, error } = await distributorClient.rpc('get_returnable_codes_by_batch', {
+        p_shipment_batch_id: batchId,
+      });
+
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      expect(data![0].original_quantity).toBe(8); // 원래 8개
+      expect(data![0].owned_quantity).toBe(4); // 4개 출고 후 4개 남음
+      expect(data![0].codes).toHaveLength(4);
+    });
+
+    it('다중 제품 배치의 제품별 보유 수량을 조회해야 한다', async () => {
+      // 테스트 격리: 고유 제품 2개 생성
+      const multiProduct1 = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '다중배치제품1_' + Date.now(),
+      });
+      const multiProduct2 = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '다중배치제품2_' + Date.now(),
+      });
+
+      // 각 제품별 Lot 생성
+      await createTestLot({
+        productId: multiProduct1.id,
+        quantity: 5,
+      });
+      await createTestLot({
+        productId: multiProduct2.id,
+        quantity: 3,
+      });
+
+      // 제조사 → 유통사 출고 (두 제품 함께)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [
+          { productId: multiProduct1.id, quantity: 5 },
+          { productId: multiProduct2.id, quantity: 3 },
+        ],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 첫 번째 제품만 부분 반품 (2개)
+      await distributorClient.rpc('return_shipment_atomic', {
+        p_shipment_batch_id: batchId,
+        p_reason: '첫 번째 제품만 부분 반품',
+        p_product_quantities: [{ productId: multiProduct1.id, quantity: 2 }],
+      });
+
+      // 유통사가 보유 수량 조회
+      const { data, error } = await distributorClient.rpc('get_returnable_codes_by_batch', {
+        p_shipment_batch_id: batchId,
+      });
+
+      expect(error).toBeNull();
+      expect(data).toHaveLength(2);
+
+      // 제품 1: 5개 중 2개 반품 → 3개 남음
+      const product1Info = data!.find((p) => p.product_id === multiProduct1.id);
+      expect(product1Info!.original_quantity).toBe(5);
+      expect(product1Info!.owned_quantity).toBe(3);
+
+      // 제품 2: 3개 그대로
+      const product2Info = data!.find((p) => p.product_id === multiProduct2.id);
+      expect(product2Info!.original_quantity).toBe(3);
+      expect(product2Info!.owned_quantity).toBe(3);
+    });
+
+    it('배치 소유자가 아닌 조직이 조회 시 빈 결과를 반환해야 한다', async () => {
+      // 테스트 격리: 고유 제품 생성
+      const nonOwnerProduct = await createTestProduct({
+        organizationId: TEST_ACCOUNTS.manufacturer.orgId,
+        name: '비소유자테스트_' + Date.now(),
+      });
+
+      // Lot 생성 (5개)
+      await createTestLot({
+        productId: nonOwnerProduct.id,
+        quantity: 5,
+      });
+
+      // 제조사 → 유통사 출고 (5개)
+      const { data: shipmentData } = await manufacturerClient.rpc('create_shipment_atomic', {
+        p_to_org_id: TEST_ACCOUNTS.distributor.orgId,
+        p_to_org_type: 'DISTRIBUTOR',
+        p_items: [{ productId: nonOwnerProduct.id, quantity: 5 }],
+      });
+      const batchId = shipmentData![0].shipment_batch_id!;
+
+      // 제조사가 조회 시도 (소유자 아님)
+      const { data, error } = await manufacturerClient.rpc('get_returnable_codes_by_batch', {
+        p_shipment_batch_id: batchId,
+      });
+
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      // 제조사는 소유권이 없으므로 owned_quantity = 0
+      expect(data![0].owned_quantity).toBe(0);
+    });
+  });
 });
