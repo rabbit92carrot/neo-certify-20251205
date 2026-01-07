@@ -122,6 +122,9 @@ function getActionIcon(actionType: HistoryActionType): React.ReactNode {
       return <Stethoscope className="h-4 w-4" />;
     case 'RECALLED':
       return <RotateCcw className="h-4 w-4" />;
+    case 'RETURN_SENT':
+    case 'RETURN_RECEIVED':
+      return <RotateCcw className="h-4 w-4" />;
     case 'DISPOSED':
       return <AlertTriangle className="h-4 w-4" />;
     default:
@@ -148,6 +151,9 @@ function getActionBadgeVariant(
     case 'TREATED':
       return 'default';
     case 'RECALLED':
+      return 'destructive';
+    case 'RETURN_SENT':
+    case 'RETURN_RECEIVED':
       return 'destructive';
     case 'DISPOSED':
       return 'destructive';
@@ -273,12 +279,14 @@ function TransactionHistoryCard({
 
   // 반품 가능 여부 확인
   // - RECEIVED 이벤트 (내가 입고받은 건): 발송자에게 반품 가능
-  // - RETURNED 이벤트 (내가 반품받은 건): 상위 조직에게 다시 반품 가능
+  // - RETURN_RECEIVED 이벤트 (내가 반품받은 건): 상위 조직에게 다시 반품 가능
   // - 현재 보유 수량이 0이면 반품 불가
   const canReturn = (): boolean => {
     if (!showReturnButton || !onReturn) {return false;}
     if (!history.shipmentBatchId) {return false;} // 배치 ID 필요
-    if (history.isRecall) {return false;} // 이미 반품/회수된 건은 제외
+    // RECALLED는 24시간 내 강제 회수 (병원 → 환자)이므로 재반품 불가
+    // RETURN_RECEIVED는 정상 반품 입고이므로 상위 조직에 재반품 가능
+    if (history.actionType === 'RECALLED') {return false;}
     // 보유 수량이 0이면 반품 불가 (RPC 통합으로 미리 확인 가능)
     if ((history.totalOwnedQuantity ?? 0) === 0) {return false;}
 
@@ -287,9 +295,9 @@ function TransactionHistoryCard({
       return true;
     }
 
-    // RETURNED 이벤트 (내가 반품받은 건): 상위 조직에게 다시 반품 가능
+    // RETURN_RECEIVED 이벤트 (내가 반품받은 건): 상위 조직에게 다시 반품 가능
     // 예: 병원이 유통사에게 반품 → 유통사가 제조사에게 다시 반품
-    if (history.actionType === 'RETURNED' && isIncoming) {
+    if (history.actionType === 'RETURN_RECEIVED' && isIncoming) {
       return true;
     }
 
@@ -412,8 +420,10 @@ function TransactionHistoryCard({
         return '시술';
       case 'RECALLED':
         return isOutgoing ? '회수 복귀' : '회수됨';
-      case 'RETURNED':
-        return isIncoming ? '반품 복귀' : '반품됨';
+      case 'RETURN_SENT':
+        return '반품 출고';
+      case 'RETURN_RECEIVED':
+        return '반품 입고';
       case 'DISPOSED':
         return '폐기';
       default:
@@ -454,7 +464,7 @@ function TransactionHistoryCard({
                 {history.isRecall && (
                   <Badge variant="destructive" className="text-xs">
                     <AlertTriangle className="h-3 w-3 mr-1" />
-                    {history.actionType === 'RETURNED' ? '반품' : '회수'}
+                    {(history.actionType === 'RETURN_SENT' || history.actionType === 'RETURN_RECEIVED') ? '반품' : '회수'}
                   </Badge>
                 )}
               </div>
@@ -468,7 +478,7 @@ function TransactionHistoryCard({
           <div className="flex items-center gap-3">
             {/* 입고/반품받은 이벤트: 보유 0이면 "재고 없음" 배지 표시 */}
             {showReturnButton &&
-              (history.actionType === 'RECEIVED' || history.actionType === 'RETURNED') &&
+              (history.actionType === 'RECEIVED' || history.actionType === 'RETURN_RECEIVED') &&
               isIncoming &&
               !history.isRecall &&
               history.shipmentBatchId &&
@@ -493,7 +503,7 @@ function TransactionHistoryCard({
               <p className="text-xs text-muted-foreground">
                 {history.items.length}종
                 {/* 입고/반품받은 이벤트: 보유 수량 표시 */}
-                {(history.actionType === 'RECEIVED' || history.actionType === 'RETURNED') &&
+                {(history.actionType === 'RECEIVED' || history.actionType === 'RETURN_RECEIVED') &&
                   isIncoming &&
                   typeof history.totalOwnedQuantity === 'number' && (
                     <span className="ml-1">
@@ -572,7 +582,7 @@ function TransactionHistoryCard({
         {history.isRecall && history.recallReason && (
           <div className="mt-3 p-2 bg-red-100 rounded-lg">
             <p className="text-sm text-red-800">
-              <strong>{history.actionType === 'RETURNED' ? '반품' : '회수'} 사유:</strong> {history.recallReason}
+              <strong>{(history.actionType === 'RETURN_SENT' || history.actionType === 'RETURN_RECEIVED') ? '반품' : '회수'} 사유:</strong> {history.recallReason}
             </p>
           </div>
         )}

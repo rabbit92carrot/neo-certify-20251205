@@ -33,7 +33,8 @@ export default async function DistributorHistoryPage(): Promise<React.ReactEleme
         actionTypeOptions={[
           { value: 'RECEIVED', label: '입고' },
           { value: 'SHIPPED', label: '출고' },
-          { value: 'RETURNED', label: '반품' },
+          { value: 'RETURN_SENT', label: '반품 출고' },
+          { value: 'RETURN_RECEIVED', label: '반품 입고' },
         ]}
         onReturn={returnShipmentAction}
         showReturnButton={true}

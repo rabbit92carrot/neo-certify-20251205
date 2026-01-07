@@ -44,7 +44,7 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
           { value: 'RECEIVED', label: '입고' },
           { value: 'TREATED', label: '시술' },
           { value: 'RECALLED', label: '회수' },
-          { value: 'RETURNED', label: '반품' },
+          { value: 'RETURN_SENT', label: '반품 출고' },
         ]}
         productAliasMap={productAliasMap}
         onReturn={returnShipmentAction}

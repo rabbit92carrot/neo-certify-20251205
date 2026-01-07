@@ -33,7 +33,7 @@ export default async function ManufacturerHistoryPage(): Promise<React.ReactElem
         actionTypeOptions={[
           { value: 'PRODUCED', label: '생산' },
           { value: 'SHIPPED', label: '출고' },
-          { value: 'RETURNED', label: '반품' },
+          { value: 'RETURN_RECEIVED', label: '반품 입고' },
         ]}
         showReturnButton={false}
         defaultActionType="SHIPPED"
