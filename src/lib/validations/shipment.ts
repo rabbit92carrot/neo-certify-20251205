@@ -39,7 +39,7 @@ export const shipmentItemSchema = z.object({
  */
 export const shipmentItemsSchema = z
   .array(shipmentItemSchema)
-  .min(1, '최소 1개 이상의 제품을 선택해야 합니다.');
+  .min(1, ERROR_MESSAGES.DISPOSAL.ITEMS_MIN);
 
 // ============================================================================
 // 출고 스키마
@@ -72,28 +72,60 @@ export const shipmentCreateFormSchema = z.object({
         lotId: optionalLotIdSchema,
       })
     )
-    .min(1, '최소 1개 이상의 제품을 선택해야 합니다.'),
+    .min(1, ERROR_MESSAGES.DISPOSAL.ITEMS_MIN),
 });
 
 // ============================================================================
-// 회수 스키마
+// 회수 스키마 (시술 회수용 - 병원 주도, 24시간 제한)
 // ============================================================================
 
 /**
- * 회수 스키마
+ * 회수 스키마 (시술 회수용)
  */
 export const recallSchema = z.object({
   shipmentBatchId: uuidSchema,
   reason: z
     .string()
     .min(1, ERROR_MESSAGES.RECALL.REASON_REQUIRED)
-    .max(500, '회수 사유는 500자를 초과할 수 없습니다.'),
+    .max(500, ERROR_MESSAGES.RECALL.REASON_MAX_LENGTH),
 });
 
 /**
  * 회수 가능 여부 확인 스키마
  */
 export const recallCheckSchema = z.object({
+  shipmentBatchId: uuidSchema,
+});
+
+// ============================================================================
+// 반품 스키마 (출고 반품용 - 수신자 주도, 시간 제한 없음)
+// ============================================================================
+
+/**
+ * 부분 반품 시 제품별 수량 스키마
+ */
+export const returnProductQuantitySchema = z.object({
+  productId: uuidSchema,
+  quantity: z.number().int().positive('수량은 1 이상이어야 합니다.'),
+});
+
+/**
+ * 반품 스키마 (출고 반품용)
+ * - productQuantities: 부분 반품 시 제품별 수량 지정 (생략 시 전량 반품)
+ */
+export const returnSchema = z.object({
+  shipmentBatchId: uuidSchema,
+  reason: z
+    .string()
+    .min(1, ERROR_MESSAGES.RETURN.REASON_REQUIRED)
+    .max(500, ERROR_MESSAGES.RETURN.REASON_MAX_LENGTH),
+  productQuantities: z.array(returnProductQuantitySchema).optional(),
+});
+
+/**
+ * 반품 가능 여부 확인 스키마
+ */
+export const returnCheckSchema = z.object({
   shipmentBatchId: uuidSchema,
 });
 
@@ -169,6 +201,8 @@ export type ShipmentCreateData = z.infer<typeof shipmentCreateSchema>;
 export type ShipmentCreateFormData = z.infer<typeof shipmentCreateFormSchema>;
 export type RecallData = z.infer<typeof recallSchema>;
 export type RecallCheckData = z.infer<typeof recallCheckSchema>;
+export type ReturnData = z.infer<typeof returnSchema>;
+export type ReturnCheckData = z.infer<typeof returnCheckSchema>;
 export type ShipmentHistoryQueryData = z.infer<typeof shipmentHistoryQuerySchema>;
 export type ShipmentDetailQueryData = z.infer<typeof shipmentDetailQuerySchema>;
 export type CartItemData = z.infer<typeof cartItemSchema>;

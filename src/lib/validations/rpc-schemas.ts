@@ -91,6 +91,40 @@ export const RecallShipmentResultSchema = z.object({
 });
 
 /**
+ * 출고 반품 결과 스키마
+ * RPC: return_shipment_atomic
+ *
+ * 반품 시 새로운 반품 배치가 생성됩니다:
+ * - new_batch_id: 생성된 반품 배치 ID (후속 반품에 사용)
+ * - p_product_quantities 파라미터로 부분 반품 지원
+ */
+export const ReturnShipmentResultSchema = z.object({
+  success: z.boolean(),
+  returned_count: z.number(),
+  new_batch_id: z.string().uuid().nullable(), // 새로 생성된 반품 배치 ID
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+});
+
+/**
+ * 반품 가능 코드 조회 스키마
+ * RPC: get_returnable_codes_by_batch
+ *
+ * 배치별 제품의 원래 수량과 현재 보유 수량을 반환
+ * 반품 다이얼로그에서 lazy load로 호출됨
+ */
+export const ReturnableCodesByBatchRowSchema = z.object({
+  product_id: z.string().uuid(),
+  product_name: z.string(),
+  model_name: z.string().nullable(),
+  original_quantity: z.number(),
+  owned_quantity: z.number(),
+  codes: z.array(z.string()).nullable(),
+});
+
+export type ReturnableCodesByBatchRow = z.infer<typeof ReturnableCodesByBatchRowSchema>;
+
+/**
  * 시술 생성 결과 스키마
  * RPC: create_treatment_atomic
  */
@@ -108,6 +142,17 @@ export const TreatmentAtomicResultSchema = z.object({
 export const RecallTreatmentResultSchema = z.object({
   success: z.boolean(),
   recalled_count: z.number(),
+  error_code: z.string().nullable(),
+  error_message: z.string().nullable(),
+});
+
+/**
+ * 폐기 생성 결과 스키마
+ * RPC: create_disposal_atomic
+ */
+export const DisposalAtomicResultSchema = z.object({
+  disposal_id: z.string().uuid().nullable(),
+  total_quantity: z.number(),
   error_code: z.string().nullable(),
   error_message: z.string().nullable(),
 });
@@ -346,8 +391,10 @@ export type HospitalStatsRow = z.infer<typeof HospitalStatsRowSchema>;
 export type AdminStatsRow = z.infer<typeof AdminStatsRowSchema>;
 export type ShipmentAtomicResult = z.infer<typeof ShipmentAtomicResultSchema>;
 export type RecallShipmentResult = z.infer<typeof RecallShipmentResultSchema>;
+export type ReturnShipmentResult = z.infer<typeof ReturnShipmentResultSchema>;
 export type TreatmentAtomicResult = z.infer<typeof TreatmentAtomicResultSchema>;
 export type RecallTreatmentResult = z.infer<typeof RecallTreatmentResultSchema>;
+export type DisposalAtomicResult = z.infer<typeof DisposalAtomicResultSchema>;
 export type InventorySummaryRow = z.infer<typeof InventorySummaryRowSchema>;
 export type InventoryByLotRow = z.infer<typeof InventoryByLotRowSchema>;
 export type HistorySummaryRow = z.infer<typeof HistorySummaryRowSchema>;
@@ -404,8 +451,9 @@ export type AdminEventSummaryCursorRow = z.infer<typeof AdminEventSummaryCursorR
  * 이력 요약 커서 기반 스키마
  * RPC: get_history_summary_cursor
  *
- * DB 함수 반환 구조 (20251226000003_update_history_summary_cursor.sql):
- * - HistorySummaryRowSchema 필드 + modelName + shipment_batch_id + has_more (BOOLEAN)
+ * DB 함수 반환 구조 (20260107000008_add_owned_quantity_to_history.sql):
+ * - HistorySummaryRowSchema 필드 + modelName + shipment_batch_id + owned_quantity + has_more (BOOLEAN)
+ * - product_summaries에 ownedQuantity 추가 (제품별 보유 수량)
  */
 export const HistorySummaryCursorRowSchema = z.object({
   group_key: z.string(),
@@ -425,9 +473,11 @@ export const HistorySummaryCursorRowSchema = z.object({
     productName: z.string(),
     modelName: z.string().nullable(), // 제품 모델명 추가
     quantity: z.number(),
+    ownedQuantity: z.number(), // 제품별 현재 보유 수량
     codes: z.array(z.string()).optional(), // 제품별 가상 코드 (NC-XXXXXXXX 형식)
   })).nullable(),
   shipment_batch_id: z.string().uuid().nullable(), // 회수 기능용 배치 ID
+  owned_quantity: z.number(), // 총 보유 수량 (반품 버튼 표시용)
   has_more: z.boolean(),
 });
 

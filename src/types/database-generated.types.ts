@@ -58,52 +58,150 @@ export type Database = {
         }
         Relationships: []
       }
+      disposal_details: {
+        Row: {
+          disposal_id: string
+          id: string
+          virtual_code_id: string
+        }
+        Insert: {
+          disposal_id: string
+          id?: string
+          virtual_code_id: string
+        }
+        Update: {
+          disposal_id?: string
+          id?: string
+          virtual_code_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disposal_details_disposal_id_fkey"
+            columns: ["disposal_id"]
+            isOneToOne: false
+            referencedRelation: "disposal_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disposal_details_virtual_code_id_fkey"
+            columns: ["virtual_code_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disposal_records: {
+        Row: {
+          created_at: string
+          disposal_date: string
+          disposal_reason_custom: string | null
+          disposal_reason_type: Database["public"]["Enums"]["disposal_reason_type"]
+          hospital_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          disposal_date: string
+          disposal_reason_custom?: string | null
+          disposal_reason_type: Database["public"]["Enums"]["disposal_reason_type"]
+          hospital_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          disposal_date?: string
+          disposal_reason_custom?: string | null
+          disposal_reason_type?: Database["public"]["Enums"]["disposal_reason_type"]
+          hospital_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disposal_records_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       histories: {
         Row: {
           action_type: Database["public"]["Enums"]["history_action_type"]
           created_at: string
+          disposal_id: string | null
           from_owner_id: string
           from_owner_type: Database["public"]["Enums"]["owner_type"]
           id: string
           is_recall: boolean
+          lot_id: string | null
           recall_reason: string | null
           shipment_batch_id: string | null
           to_owner_id: string
           to_owner_type: Database["public"]["Enums"]["owner_type"]
+          treatment_id: string | null
           virtual_code_id: string
         }
         Insert: {
           action_type: Database["public"]["Enums"]["history_action_type"]
           created_at?: string
+          disposal_id?: string | null
           from_owner_id: string
           from_owner_type: Database["public"]["Enums"]["owner_type"]
           id?: string
           is_recall?: boolean
+          lot_id?: string | null
           recall_reason?: string | null
           shipment_batch_id?: string | null
           to_owner_id: string
           to_owner_type: Database["public"]["Enums"]["owner_type"]
+          treatment_id?: string | null
           virtual_code_id: string
         }
         Update: {
           action_type?: Database["public"]["Enums"]["history_action_type"]
           created_at?: string
+          disposal_id?: string | null
           from_owner_id?: string
           from_owner_type?: Database["public"]["Enums"]["owner_type"]
           id?: string
           is_recall?: boolean
+          lot_id?: string | null
           recall_reason?: string | null
           shipment_batch_id?: string | null
           to_owner_id?: string
           to_owner_type?: Database["public"]["Enums"]["owner_type"]
+          treatment_id?: string | null
           virtual_code_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "histories_disposal_id_fkey"
+            columns: ["disposal_id"]
+            isOneToOne: false
+            referencedRelation: "disposal_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "histories_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lots"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "histories_shipment_batch_id_fkey"
             columns: ["shipment_batch_id"]
             isOneToOne: false
             referencedRelation: "shipment_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "histories_treatment_id_fkey"
+            columns: ["treatment_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_records"
             referencedColumns: ["id"]
           },
           {
@@ -583,6 +681,8 @@ export type Database = {
           from_organization_id: string
           id: string
           is_recalled: boolean
+          is_return_batch: boolean
+          parent_batch_id: string | null
           recall_date: string | null
           recall_reason: string | null
           shipment_date: string
@@ -594,6 +694,8 @@ export type Database = {
           from_organization_id: string
           id?: string
           is_recalled?: boolean
+          is_return_batch?: boolean
+          parent_batch_id?: string | null
           recall_date?: string | null
           recall_reason?: string | null
           shipment_date?: string
@@ -605,6 +707,8 @@ export type Database = {
           from_organization_id?: string
           id?: string
           is_recalled?: boolean
+          is_return_batch?: boolean
+          parent_batch_id?: string | null
           recall_date?: string | null
           recall_reason?: string | null
           shipment_date?: string
@@ -617,6 +721,13 @@ export type Database = {
             columns: ["from_organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_batches_parent_batch_id_fkey"
+            columns: ["parent_batch_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_batches"
             referencedColumns: ["id"]
           },
           {
@@ -825,6 +936,20 @@ export type Database = {
         Args: { p_hospital_id: string }
         Returns: number
       }
+      create_disposal_atomic: {
+        Args: {
+          p_disposal_date: string
+          p_disposal_reason_custom: string
+          p_disposal_reason_type: Database["public"]["Enums"]["disposal_reason_type"]
+          p_items: Json
+        }
+        Returns: {
+          disposal_id: string
+          error_code: string
+          error_message: string
+          total_quantity: number
+        }[]
+      }
       create_shipment_atomic:
         | {
             Args: {
@@ -962,6 +1087,7 @@ export type Database = {
         }
         Returns: {
           action_type: string
+          batch_id: string
           event_time: string
           from_owner_id: string
           from_owner_type: string
@@ -1077,7 +1203,7 @@ export type Database = {
         }
         Returns: {
           action_type: string
-          created_at: string
+          event_time: string
           from_owner_id: string
           from_owner_name: string
           from_owner_type: string
@@ -1085,6 +1211,7 @@ export type Database = {
           is_recall: boolean
           product_summaries: Json
           recall_reason: string
+          shipment_batch_id: string
           to_owner_id: string
           to_owner_name: string
           to_owner_type: string
@@ -1121,8 +1248,10 @@ export type Database = {
           group_key: string
           has_more: boolean
           is_recall: boolean
+          owned_quantity: number
           product_summaries: Json
           recall_reason: string
+          shipment_batch_id: string
           to_owner_id: string
           to_owner_name: string
           to_owner_type: string
@@ -1251,6 +1380,17 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_returnable_codes_by_batch: {
+        Args: { p_shipment_batch_id: string }
+        Returns: {
+          codes: string[]
+          model_name: string
+          original_quantity: number
+          owned_quantity: number
+          product_id: string
+          product_name: string
+        }[]
+      }
       get_shipment_batch_summaries: {
         Args: { p_batch_ids: string[] }
         Returns: {
@@ -1345,6 +1485,20 @@ export type Database = {
               success: boolean
             }[]
           }
+      return_shipment_atomic: {
+        Args: {
+          p_product_quantities?: Json
+          p_reason: string
+          p_shipment_batch_id: string
+        }
+        Returns: {
+          error_code: string
+          error_message: string
+          new_batch_id: string
+          returned_count: number
+          success: boolean
+        }[]
+      }
       select_fifo_codes: {
         Args: {
           p_lot_id?: string
@@ -1398,6 +1552,7 @@ export type Database = {
       verify_virtual_code: { Args: { code: string }; Returns: boolean }
     }
     Enums: {
+      disposal_reason_type: "TREATMENT_LOSS" | "EXPIRED" | "DEFECTIVE" | "OTHER"
       history_action_type:
         | "PRODUCED"
         | "SHIPPED"
@@ -1405,6 +1560,9 @@ export type Database = {
         | "TREATED"
         | "RECALLED"
         | "DISPOSED"
+        | "RETURNED"
+        | "RETURN_SENT"
+        | "RETURN_RECEIVED"
       notification_type: "CERTIFICATION" | "RECALL"
       organization_alert_type:
         | "INACTIVE_PRODUCT_USAGE"
@@ -1553,6 +1711,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      disposal_reason_type: ["TREATMENT_LOSS", "EXPIRED", "DEFECTIVE", "OTHER"],
       history_action_type: [
         "PRODUCED",
         "SHIPPED",
@@ -1560,6 +1719,9 @@ export const Constants = {
         "TREATED",
         "RECALLED",
         "DISPOSED",
+        "RETURNED",
+        "RETURN_SENT",
+        "RETURN_RECEIVED",
       ],
       notification_type: ["CERTIFICATION", "RECALL"],
       organization_alert_type: [

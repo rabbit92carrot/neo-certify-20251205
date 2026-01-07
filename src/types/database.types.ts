@@ -25,6 +25,26 @@ export type { Json } from './database-generated.types';
  */
 type CustomFunctions = {
   /**
+   * Atomic disposal creation with FIFO code selection
+   * RPC: create_disposal_atomic
+   * Migration: 20260106000001_add_disposal_feature.sql
+   */
+  create_disposal_atomic: {
+    Args: {
+      p_disposal_date: string;
+      p_disposal_reason_type: string;
+      p_disposal_reason_custom?: string | null;
+      p_items: { productId: string; quantity: number }[];
+    };
+    Returns: {
+      disposal_id: string | null;
+      total_quantity: number;
+      error_code: string | null;
+      error_message: string | null;
+    }[];
+  };
+
+  /**
    * Cursor-based pagination for admin event summary
    * RPC: get_admin_event_summary_cursor
    * Migration: 20251219000003_add_cursor_pagination_support.sql
@@ -89,6 +109,8 @@ type CustomFunctions = {
       created_at: string;
       total_quantity: number;
       product_summaries: Json;
+      shipment_batch_id: string | null;
+      owned_quantity: number;
       has_more: boolean;
     }[];
   };
@@ -122,6 +144,26 @@ type CustomFunctions = {
       product_summary: Json;
       code_ids: string[] | null;
       has_more: boolean;
+    }[];
+  };
+
+  /**
+   * Get returnable codes by shipment batch
+   * Returns owned quantity information for return dialog
+   * RPC: get_returnable_codes_by_batch
+   * Migration: 20260107000006_get_returnable_codes_by_batch.sql
+   */
+  get_returnable_codes_by_batch: {
+    Args: {
+      p_shipment_batch_id: string;
+    };
+    Returns: {
+      product_id: string;
+      product_name: string;
+      model_name: string | null;
+      original_quantity: number;
+      owned_quantity: number;
+      codes: string[] | null;
     }[];
   };
 };

@@ -2,18 +2,23 @@
 
 /**
  * 병원 Server Actions
- * 시술 등록 및 회수 처리
+ * 시술 등록, 회수, 폐기 처리
  */
 
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/services/auth.service';
 import * as treatmentService from '@/services/treatment.service';
+import * as disposalService from '@/services/disposal.service';
+import * as shipmentService from '@/services/shipment.service';
 import * as historyService from '@/services/history.service';
 import * as hospitalProductService from '@/services/hospital-product.service';
 import { treatmentCreateSchema, treatmentRecallSchema } from '@/lib/validations/treatment';
+import { disposalCreateSchema } from '@/lib/validations/disposal';
+import { returnSchema } from '@/lib/validations/shipment';
 import { normalizePhoneNumber } from '@/lib/validations/common';
 import type { ApiResponse, HistoryActionType, HospitalKnownProduct, ProductForTreatment } from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
+import type { DisposalItemData, DisposalReasonTypeValue } from '@/lib/validations/disposal';
 import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
 import type { GetKnownProductsQuery } from '@/services/hospital-product.service';
 import { formatZodErrors } from '@/lib/utils';
@@ -154,6 +159,123 @@ export async function recallTreatmentAction(
     revalidatePath('/hospital/treatment-history');
     revalidatePath('/hospital/inventory');
     revalidatePath('/hospital/dashboard');
+  }
+
+  return result;
+}
+
+// ============================================================================
+// 출고 반품 Actions
+// ============================================================================
+
+/**
+ * 출고 반품 Action
+ * 수신 조직이 발송 조직에게 제품을 반품합니다.
+ * 병원은 유통사로부터 입고받은 제품을 반품할 수 있습니다.
+ * (24시간 제한 없음, 소유권 기반 검증, 부분 반품 지원)
+ */
+export async function returnShipmentAction(
+  shipmentBatchId: string,
+  reason: string,
+  productQuantities?: Array<{ productId: string; quantity: number }>
+): Promise<ApiResponse<{ newBatchId: string | null; returnedCount: number }>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const validation = returnSchema.safeParse({ shipmentBatchId, reason, productQuantities });
+  if (!validation.success) {
+    return formatValidationError(validation.error);
+  }
+
+  const result = await shipmentService.returnShipment(
+    validation.data.shipmentBatchId,
+    validation.data.reason,
+    validation.data.productQuantities
+  );
+
+  if (result.success) {
+    revalidatePath('/hospital/history');
+    revalidatePath('/hospital/inventory');
+    revalidatePath('/hospital/dashboard');
+  }
+
+  return result;
+}
+
+/**
+ * 반품 가능 수량 조회 Action
+ * 반품 다이얼로그 오픈 시 호출 (lazy load)
+ * 현재 보유 수량과 원래 수량을 비교하여 UI에 표시
+ */
+export async function getReturnableCodesAction(
+  shipmentBatchId: string
+): Promise<ApiResponse<shipmentService.ReturnableProductInfo[]>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return shipmentService.getReturnableCodesByBatch(shipmentBatchId);
+}
+
+// ============================================================================
+// 폐기 관련 Actions
+// ============================================================================
+
+/**
+ * 폐기 등록 Action
+ * 병원에서 손실, 만료, 불량 등의 이유로 제품을 폐기합니다.
+ * 폐기는 즉시 확정되며 취소할 수 없습니다.
+ */
+export async function createDisposalAction(
+  disposalDate: string,
+  disposalReasonType: DisposalReasonTypeValue,
+  disposalReasonCustom: string | null,
+  items: DisposalItemData[]
+): Promise<ApiResponse<{ disposalId: string; totalQuantity: number }>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const validation = disposalCreateSchema.safeParse({
+    disposalDate,
+    disposalReasonType,
+    disposalReasonCustom,
+    items,
+  });
+
+  if (!validation.success) {
+    return formatValidationError(validation.error);
+  }
+
+  const result = await disposalService.createDisposal(validation.data);
+
+  if (result.success) {
+    revalidatePath('/hospital/disposal');
+    revalidatePath('/hospital/inventory');
+    revalidatePath('/hospital/dashboard');
+    revalidatePath('/hospital/history');
   }
 
   return result;

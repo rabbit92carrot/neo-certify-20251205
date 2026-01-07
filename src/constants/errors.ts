@@ -25,10 +25,16 @@ export const ERROR_CODES = {
   PRODUCT_NOT_FOUND: 'PRODUCT_NOT_FOUND',
   LOT_NOT_FOUND: 'LOT_NOT_FOUND',
 
-  // 회수 관련
+  // 회수 관련 (시술 회수용 - 병원 주도, 24시간 제한)
   RECALL_TIME_EXCEEDED: 'RECALL_TIME_EXCEEDED',
   RECALL_NOT_ALLOWED: 'RECALL_NOT_ALLOWED',
   ALREADY_RECALLED: 'ALREADY_RECALLED',
+
+  // 반품 관련 (출고 반품용 - 수신자 주도, 시간 제한 없음)
+  RETURN_NOT_ALLOWED: 'RETURN_NOT_ALLOWED',
+  ALREADY_RETURNED: 'ALREADY_RETURNED',
+  NOT_RECEIVER: 'NOT_RECEIVER',
+  CODES_NOT_OWNED: 'CODES_NOT_OWNED',
 
   // 시술 관련
   TREATMENT_NOT_FOUND: 'TREATMENT_NOT_FOUND',
@@ -78,6 +84,12 @@ export const ERROR_CODE_MESSAGES: Record<ErrorCode, string> = {
     '24시간 경과하여 처리할 수 없습니다. 관리자에게 연락해주세요.',
   [ERROR_CODES.RECALL_NOT_ALLOWED]: '회수할 수 없는 상태입니다.',
   [ERROR_CODES.ALREADY_RECALLED]: '이미 회수된 건입니다.',
+
+  [ERROR_CODES.RETURN_NOT_ALLOWED]: '반품할 수 없는 상태입니다.',
+  [ERROR_CODES.ALREADY_RETURNED]: '이미 반품된 건입니다.',
+  [ERROR_CODES.NOT_RECEIVER]: '수신 조직만 반품을 요청할 수 있습니다.',
+  [ERROR_CODES.CODES_NOT_OWNED]:
+    '일부 제품이 더 이상 현재 조직 소유가 아닙니다. 하위 조직에서 먼저 반품해야 합니다.',
 
   [ERROR_CODES.TREATMENT_NOT_FOUND]: '시술 기록을 찾을 수 없습니다.',
   [ERROR_CODES.PATIENT_NOT_FOUND]: '환자를 찾을 수 없습니다.',

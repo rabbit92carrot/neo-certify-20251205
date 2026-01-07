@@ -207,3 +207,25 @@ export {
   type AdminRecallQueryData,
   type AdminRecallQueryFormData,
 } from './admin';
+
+// ============================================================================
+// 폐기 스키마
+// ============================================================================
+export {
+  // 폐기 사유
+  disposalReasonTypeSchema,
+  // 폐기 항목
+  disposalItemSchema,
+  disposalItemsSchema,
+  // 폐기 등록
+  disposalCreateSchema,
+  disposalCreateFormSchema,
+  // 폐기 조회
+  disposalHistoryQuerySchema,
+  // 타입
+  type DisposalReasonTypeValue,
+  type DisposalItemData,
+  type DisposalCreateData,
+  type DisposalCreateFormData,
+  type DisposalHistoryQueryData,
+} from './disposal';

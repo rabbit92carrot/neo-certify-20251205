@@ -8,7 +8,11 @@ export const HISTORY_ACTION_TYPES = {
   RECEIVED: 'RECEIVED',
   TREATED: 'TREATED',
   RECALLED: 'RECALLED',
+  RETURN_SENT: 'RETURN_SENT',
+  RETURN_RECEIVED: 'RETURN_RECEIVED',
   DISPOSED: 'DISPOSED',
+  /** @deprecated Use RETURN_SENT or RETURN_RECEIVED instead */
+  RETURNED: 'RETURNED',
 } as const;
 
 export const HISTORY_ACTION_TYPE_LABELS: Record<HistoryActionType, string> = {
@@ -17,7 +21,11 @@ export const HISTORY_ACTION_TYPE_LABELS: Record<HistoryActionType, string> = {
   RECEIVED: '입고',
   TREATED: '시술',
   RECALLED: '회수',
+  RETURN_SENT: '반품 출고',
+  RETURN_RECEIVED: '반품 입고',
   DISPOSED: '폐기',
+  /** @deprecated Legacy label */
+  RETURNED: '반품',
 };
 
 export const NOTIFICATION_TYPES = {

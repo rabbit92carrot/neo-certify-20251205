@@ -23,7 +23,12 @@ import {
   X,
   Filter,
 } from 'lucide-react';
-import { TransactionHistoryTable } from '@/components/tables/TransactionHistoryTable';
+import {
+  TransactionHistoryTable,
+  type ReturnProductQuantity,
+  type ReturnResult,
+  type ReturnableProductInfo,
+} from '@/components/tables/TransactionHistoryTable';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -68,10 +73,16 @@ interface HistoryPageWrapperProps {
   actionTypeOptions: ActionTypeOption[];
   /** 제품 별칭 맵 (병원용 - 별칭 및 모델명 표시) */
   productAliasMap?: ProductAliasMap;
-  /** 회수 액션 (출고 이력에서만 사용) */
-  onRecall?: (shipmentBatchId: string, reason: string) => Promise<ApiResponse<void>>;
-  /** 회수 버튼 표시 여부 */
-  showRecallButton?: boolean;
+  /** 반품 액션 (입고/반품 이력에서 사용 - 수신자가 발송자에게 반품, 부분 반품 지원) */
+  onReturn?: (
+    shipmentBatchId: string,
+    reason: string,
+    productQuantities?: ReturnProductQuantity[]
+  ) => Promise<ApiResponse<ReturnResult>>;
+  /** 반품 버튼 표시 여부 */
+  showReturnButton?: boolean;
+  /** 반품 가능 수량 조회 액션 (다이얼로그 오픈 시 lazy load) */
+  onGetReturnableInfo?: (shipmentBatchId: string) => Promise<ApiResponse<ReturnableProductInfo[]>>;
   /** 기본 액션 타입 필터 */
   defaultActionType?: string;
 }
@@ -91,8 +102,9 @@ export function HistoryPageWrapper({
   initialData = [],
   actionTypeOptions,
   productAliasMap,
-  onRecall,
-  showRecallButton,
+  onReturn,
+  showReturnButton,
+  onGetReturnableInfo,
   defaultActionType = 'all',
 }: HistoryPageWrapperProps): React.ReactElement {
   // 필터 상태 (기본값: 3일 전~오늘)
@@ -107,6 +119,9 @@ export function HistoryPageWrapper({
     actionType: defaultActionType,
   });
 
+  // 조회 버튼 클릭 시 항상 새로고침 트리거 (필터 변경 여부와 관계없이)
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // 이벤트 데이터 상태
   const [histories, setHistories] = useState<TransactionHistorySummary[]>(initialData);
   const [isLoading, setIsLoading] = useState(initialData.length === 0);
@@ -119,18 +134,25 @@ export function HistoryPageWrapper({
   // 페이지별 커서 캐시 (이전 페이지로 돌아갈 때 사용)
   const pageCursorsRef = useRef<Map<number, PageCursor>>(new Map());
 
-  // 필터 조건 키 (변경 감지용)
+  // 스크롤 위치 저장 (반품 후 새로고침 시 복원용)
+  const scrollPositionRef = useRef<number>(0);
+
+  // 필터 조건 키 (변경 감지용) - refreshTrigger 포함으로 조회 버튼 클릭 시 항상 새로고침
   const filterKey = [
     appliedFilters.startDate,
     appliedFilters.endDate,
     appliedFilters.actionType,
+    refreshTrigger,
   ].join('|');
 
   /**
    * 특정 페이지 로드
+   * @param page 로드할 페이지 번호
+   * @param restoreScroll true일 경우 스크롤 위치 복원 (반품 후 새로고침 시 사용)
    */
   const loadPage = useCallback(
-    async (page: number) => {
+    async (page: number, restoreScroll = false) => {
+      const savedScrollY = restoreScroll ? scrollPositionRef.current : 0;
       setIsLoading(true);
       setError(null);
 
@@ -173,6 +195,12 @@ export function HistoryPageWrapper({
         setError('데이터를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
+        // 스크롤 위치 복원 (데이터 로드 완료 후)
+        if (restoreScroll && savedScrollY > 0) {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+          });
+        }
       }
     },
     [appliedFilters, fetchHistoryCursor]
@@ -212,6 +240,8 @@ export function HistoryPageWrapper({
       endDate: endDate ? format(endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       actionType,
     });
+    // 필터 조건 변경 여부와 관계없이 항상 새로고침 트리거
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   // 필터 초기화 (기본값: 3일 전~오늘로 리셋)
@@ -233,6 +263,12 @@ export function HistoryPageWrapper({
     pageCursorsRef.current.clear();
     void loadPage(1);
   }, [loadPage]);
+
+  // 반품 성공 시 콜백 (현재 페이지 새로고침 + 스크롤 위치 유지)
+  const handleReturnSuccess = useCallback(() => {
+    scrollPositionRef.current = window.scrollY;
+    void loadPage(currentPage, true);
+  }, [currentPage, loadPage]);
 
   const activeFilterCount = [startDate, endDate, actionType !== 'all'].filter(Boolean).length;
 
@@ -328,8 +364,10 @@ export function HistoryPageWrapper({
           histories={histories}
           currentOrgId={currentOrgId}
           productAliasMap={productAliasMap}
-          onRecall={onRecall}
-          showRecallButton={showRecallButton}
+          onReturn={onReturn}
+          showReturnButton={showReturnButton}
+          onGetReturnableInfo={onGetReturnableInfo}
+          onReturnSuccess={handleReturnSuccess}
         />
       )}
 

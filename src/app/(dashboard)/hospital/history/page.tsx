@@ -1,17 +1,18 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { PageHeader, HistoryPageWrapper } from '@/components/shared';
-import { getHospitalHistoryCursorAction } from '../actions';
+import { getHospitalHistoryCursorAction, returnShipmentAction, getReturnableCodesAction } from '../actions';
 import { getHospitalKnownProducts } from '@/services/hospital-product.service';
 
 export const metadata = {
   title: '거래 이력 | 병원',
-  description: '입고, 시술, 회수 이력 조회',
+  description: '입고, 시술, 회수, 반품, 폐기 이력 조회',
 };
 
 /**
  * 병원 거래이력 페이지
  * 커서 기반 무한 스크롤로 성능 최적화
+ * 반품 기능 포함 (입고 건을 유통사에게 반품 가능, 시간 제한 없음)
  */
 export default async function HospitalHistoryPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
@@ -33,7 +34,7 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
     <div className="space-y-6">
       <PageHeader
         title="거래 이력"
-        description="입고, 시술, 회수 이력을 확인할 수 있습니다. 제품을 클릭하여 고유식별코드를 확인하세요."
+        description="입고, 시술, 회수, 반품, 폐기 이력을 확인할 수 있습니다. 입고 건은 발송 조직에 반품할 수 있습니다."
       />
 
       <HistoryPageWrapper
@@ -43,8 +44,13 @@ export default async function HospitalHistoryPage(): Promise<React.ReactElement>
           { value: 'RECEIVED', label: '입고' },
           { value: 'TREATED', label: '시술' },
           { value: 'RECALLED', label: '회수' },
+          { value: 'RETURN_SENT', label: '반품 출고' },
+          { value: 'DISPOSED', label: '폐기' },
         ]}
         productAliasMap={productAliasMap}
+        onReturn={returnShipmentAction}
+        showReturnButton={true}
+        onGetReturnableInfo={getReturnableCodesAction}
       />
     </div>
   );

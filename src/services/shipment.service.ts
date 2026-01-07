@@ -1,12 +1,13 @@
 /**
  * 출고 서비스
- * 출고 생성, 조회, 회수 관련 비즈니스 로직
+ * 출고 생성, 조회, 반품/회수 관련 비즈니스 로직
  *
  * 핵심 기능:
  * - FIFO 기반 가상 코드 자동 할당
  * - 제조사 전용 Lot 선택 옵션
  * - 즉시 소유권 이전
- * - 24시간 내 회수 가능
+ * - 수신자 주도 반품 (시간 제한 없음)
+ * - 시술 회수만 24시간 제한 (별도 treatment.service.ts)
  */
 
 import { unstable_cache } from 'next/cache';
@@ -20,6 +21,7 @@ import type {
   Organization,
   OrganizationType,
 } from '@/types/api.types';
+import type { Json } from '@/types/database-generated.types';
 import type { ShipmentCreateData, ShipmentHistoryQueryData } from '@/lib/validations/shipment';
 import {
   createErrorResponse,
@@ -30,6 +32,8 @@ import {
 import {
   ShipmentAtomicResultSchema,
   RecallShipmentResultSchema,
+  ReturnShipmentResultSchema,
+  ReturnableCodesByBatchRowSchema,
   ShipmentBatchSummaryRowSchema,
 } from '@/lib/validations/rpc-schemas';
 
@@ -511,6 +515,10 @@ async function getShipmentBatchSummariesBulk(
  * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
  * 발송자 검증은 DB 함수 내에서 auth.uid()로부터 수행됩니다.
  *
+ * @deprecated 출고 반품은 returnShipment()를 사용하세요.
+ * 이 함수는 호환성을 위해 유지되지만, 새로운 코드에서는 사용하지 마세요.
+ * 시술 회수는 treatment.service.ts의 recallTreatment()를 사용하세요.
+ *
  * @param shipmentBatchId 출고 뭉치 ID
  * @param reason 회수 사유
  * @returns 회수 결과
@@ -595,5 +603,177 @@ export async function checkRecallAllowed(
     return createSuccessResponse({ allowed: false, reason: '24시간 경과하여 처리할 수 없습니다.' });
   }
 
+  return createSuccessResponse({ allowed: true });
+}
+
+// ============================================================================
+// 출고 반품 (수신자 주도, 시간 제한 없음)
+// ============================================================================
+
+/**
+ * 부분 반품 시 제품별 수량 지정
+ */
+export interface ReturnProductQuantity {
+  productId: string;
+  quantity: number;
+}
+
+/**
+ * 반품 결과
+ */
+export interface ReturnShipmentResponse {
+  newBatchId: string | null; // 새로 생성된 반품 배치 ID (후속 반품에 사용)
+  returnedCount: number;
+}
+
+/**
+ * 출고 반품 (원자적 DB 함수 사용)
+ * 소유권 기반 검증, 시간 제한 없음, 반품 체인 및 부분 반품 지원
+ * 모든 작업이 단일 트랜잭션에서 실행되어 원자성을 보장합니다.
+ * 소유권 검증은 DB 함수 내에서 수행됩니다.
+ *
+ * @param shipmentBatchId 출고/반품 뭉치 ID
+ * @param reason 반품 사유
+ * @param productQuantities 부분 반품 시 제품별 수량 (생략 시 전량 반품)
+ * @returns 반품 결과 (새 배치 ID 포함)
+ */
+export async function returnShipment(
+  shipmentBatchId: string,
+  reason: string,
+  productQuantities?: ReturnProductQuantity[]
+): Promise<ApiResponse<ReturnShipmentResponse>> {
+  const supabase = await createClient();
+
+  // 원자적 반품 DB 함수 호출
+  // 소유권 검증은 DB 함수 내에서 get_user_organization_id()로 수행됨
+  // 빈 배열은 null로 처리 (전량 반품)
+  // Supabase 클라이언트가 배열 객체를 자동으로 JSON 직렬화함
+  const hasPartialQuantities = productQuantities && productQuantities.length > 0;
+
+  const { data: result, error } = await supabase.rpc('return_shipment_atomic', {
+    p_shipment_batch_id: shipmentBatchId,
+    p_reason: reason,
+    // Supabase 클라이언트가 배열 객체를 자동으로 JSON 직렬화함
+    // JSON.stringify()를 사용하면 이중 직렬화되어 JSONB 문자열로 파싱됨 (버그)
+    p_product_quantities: hasPartialQuantities
+      ? (productQuantities as unknown as Json)
+      : null,
+  });
+
+  if (error) {
+    logger.error('원자적 출고 반품 실패', error);
+    return createErrorResponse('RETURN_FAILED', '출고 반품에 실패했습니다.');
+  }
+
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcSingle(ReturnShipmentResultSchema, result, 'return_shipment_atomic');
+  if (!parsed.success) {
+    logger.error('return_shipment_atomic 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const row = parsed.data;
+
+  if (!row?.success) {
+    return createErrorResponse(
+      row?.error_code || 'RETURN_FAILED',
+      row?.error_message || '출고 반품에 실패했습니다.'
+    );
+  }
+
+  return createSuccessResponse({
+    newBatchId: row.new_batch_id,
+    returnedCount: row.returned_count,
+  });
+}
+
+/**
+ * 반품 가능 제품 정보
+ * 다이얼로그에서 현재 보유 수량 표시에 사용
+ */
+export interface ReturnableProductInfo {
+  productId: string;
+  productName: string;
+  modelName: string | null;
+  originalQuantity: number;
+  ownedQuantity: number;
+  codes: string[];
+}
+
+/**
+ * 반품 가능 코드 조회 (배치 기준)
+ * 다이얼로그 오픈 시 lazy load로 호출
+ *
+ * @param shipmentBatchId 출고/반품 배치 ID
+ * @returns 제품별 보유 수량 정보
+ */
+export async function getReturnableCodesByBatch(
+  shipmentBatchId: string
+): Promise<ApiResponse<ReturnableProductInfo[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('get_returnable_codes_by_batch', {
+    p_shipment_batch_id: shipmentBatchId,
+  });
+
+  if (error) {
+    logger.error('반품 가능 코드 조회 실패', error);
+    return createErrorResponse('QUERY_ERROR', '반품 가능 수량 조회에 실패했습니다.');
+  }
+
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(ReturnableCodesByBatchRowSchema, data, 'get_returnable_codes_by_batch');
+  if (!parsed.success) {
+    logger.error('get_returnable_codes_by_batch 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const result: ReturnableProductInfo[] = parsed.data.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name,
+    originalQuantity: row.original_quantity,
+    ownedQuantity: row.owned_quantity,
+    codes: row.codes ?? [],
+  }));
+
+  return createSuccessResponse(result);
+}
+
+/**
+ * 반품 가능 여부 확인
+ * 수신자만 반품 가능, 시간 제한 없음
+ *
+ * @param organizationId 현재 조직 ID (반품 요청자 = 수신자)
+ * @param shipmentBatchId 출고 뭉치 ID
+ * @returns 반품 가능 여부
+ */
+export async function checkReturnAllowed(
+  organizationId: string,
+  shipmentBatchId: string
+): Promise<ApiResponse<{ allowed: boolean; reason?: string }>> {
+  const supabase = await createClient();
+
+  const { data: batch, error: batchError } = await supabase
+    .from('shipment_batches')
+    .select('to_organization_id, is_recalled')
+    .eq('id', shipmentBatchId)
+    .single();
+
+  if (batchError || !batch) {
+    return createErrorResponse('BATCH_NOT_FOUND', '출고 뭉치를 찾을 수 없습니다.');
+  }
+
+  // 수신자만 반품 가능
+  if (batch.to_organization_id !== organizationId) {
+    return createSuccessResponse({ allowed: false, reason: '수신 조직만 반품할 수 있습니다.' });
+  }
+
+  // 이미 반품된 건인지 확인
+  if (batch.is_recalled) {
+    return createSuccessResponse({ allowed: false, reason: '이미 반품된 출고 뭉치입니다.' });
+  }
+
+  // 24시간 제한 없음 - 항상 반품 가능
   return createSuccessResponse({ allowed: true });
 }

@@ -10,13 +10,13 @@
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Package, Stethoscope, Phone, Calendar, Loader2, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProductCard } from '@/components/shared/ProductCard';
 import { CartDisplay } from '@/components/shared/CartDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { QuantityInputPanel } from '@/components/shared/QuantityInputPanel';
 import {
   Command,
   CommandEmpty,
@@ -297,55 +297,24 @@ export function TreatmentForm({
             )}
           </CardContent>
         </Card>
-
-        {/* 수량 입력 */}
-        {selectedProduct && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">수량 입력</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  선택된 제품: <strong>{getDisplayName(selectedProduct)}</strong>
-                  {' '}- 가용 재고: <strong>{currentAvailableQty}개</strong>
-                </p>
-              </div>
-
-              {/* 수량 입력 */}
-              <div className="space-y-2">
-                <Label htmlFor="quantity">수량</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min={1}
-                    max={currentAvailableQty}
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="w-32"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    / {currentAvailableQty}개
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                onClick={handleAddToCart}
-                disabled={currentAvailableQty === 0}
-                className="w-full"
-              >
-                장바구니에 담기
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
-      {/* 오른쪽: 장바구니 */}
+      {/* 오른쪽: 수량 입력 + 장바구니 */}
       <div className="lg:col-span-1">
-        <div className="sticky top-6">
+        <div className="sticky top-20 space-y-4">
+          {/* 수량 입력 */}
+          <QuantityInputPanel
+            selectedProduct={selectedProduct ? {
+              productId: selectedProduct.productId,
+              displayName: getDisplayName(selectedProduct),
+            } : null}
+            availableQuantity={currentAvailableQty}
+            quantity={quantity}
+            onQuantityChange={setQuantity}
+            onAddToCart={handleAddToCart}
+          />
+
+          {/* 장바구니 */}
           <CartDisplay
             items={items}
             onUpdateQuantity={(productId, qty, lotId) => {
@@ -374,7 +343,7 @@ export function TreatmentForm({
           />
 
           {items.length > 0 && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <div className="p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-2 text-blue-700">
                 <Stethoscope className="h-4 w-4" />
                 <span className="text-sm font-medium">시술 안내</span>

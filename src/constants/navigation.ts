@@ -23,7 +23,8 @@ export type IconName =
   | 'UserCheck'
   | 'AlertCircle'
   | 'Bell'
-  | 'Mail';
+  | 'Mail'
+  | 'Trash2';
 
 /**
  * 네비게이션 항목 타입
@@ -72,6 +73,7 @@ export const HOSPITAL_NAV_ITEMS: NavigationItem[] = [
   { label: '대시보드', href: '/hospital/dashboard', icon: 'LayoutDashboard' },
   { label: '시술 등록', mobileLabel: '시술등록', href: '/hospital/treatment', icon: 'Stethoscope' },
   { label: '시술 이력', mobileLabel: '시술이력', href: '/hospital/treatment-history', icon: 'History' },
+  { label: '폐기 등록', mobileLabel: '폐기등록', href: '/hospital/disposal', icon: 'Trash2' },
   { label: '재고 조회', mobileLabel: '재고조회', href: '/hospital/inventory', icon: 'Warehouse' },
   { label: '거래 이력', mobileLabel: '거래이력', href: '/hospital/history', icon: 'FileText' },
   { label: '제품 관리', mobileLabel: '제품관리', href: '/hospital/settings', icon: 'Settings' },

@@ -19,7 +19,7 @@ import {
   lotCreateSchema,
 } from '@/lib/validations/product';
 import { manufacturerSettingsSchema } from '@/lib/validations/organization';
-import { shipmentCreateSchema, recallSchema } from '@/lib/validations/shipment';
+import { shipmentCreateSchema, returnSchema } from '@/lib/validations/shipment';
 import type { ApiResponse, Product, ProductDeactivationReason, OrganizationAlertType, HistoryActionType } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
 import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
@@ -364,12 +364,16 @@ export async function searchShipmentTargetsAction(
 }
 
 /**
- * 출고 회수 Action
+ * 출고 반품 Action
+ * 수신 조직이 발송 조직에게 제품을 반품합니다.
+ * 참고: 제조사는 출고의 발송자이므로 일반적으로 반품 권한이 없습니다.
+ * (소유권 기반 검증 - 서비스에서 권한 검증, 부분 반품 지원)
  */
-export async function recallShipmentAction(
+export async function returnShipmentAction(
   shipmentBatchId: string,
-  reason: string
-): Promise<ApiResponse<void>> {
+  reason: string,
+  productQuantities?: Array<{ productId: string; quantity: number }>
+): Promise<ApiResponse<{ newBatchId: string | null; returnedCount: number }>> {
   const organizationId = await getManufacturerOrganizationId();
   if (!organizationId) {
     return {
@@ -381,14 +385,15 @@ export async function recallShipmentAction(
     };
   }
 
-  const validation = recallSchema.safeParse({ shipmentBatchId, reason });
+  const validation = returnSchema.safeParse({ shipmentBatchId, reason, productQuantities });
   if (!validation.success) {
     return formatValidationError(validation.error);
   }
 
-  const result = await shipmentService.recallShipment(
+  const result = await shipmentService.returnShipment(
     validation.data.shipmentBatchId,
-    validation.data.reason
+    validation.data.reason,
+    validation.data.productQuantities
   );
 
   if (result.success) {

@@ -16,7 +16,11 @@ export const historyActionTypeSchema = z.enum([
   HISTORY_ACTION_TYPES.RECEIVED,
   HISTORY_ACTION_TYPES.TREATED,
   HISTORY_ACTION_TYPES.RECALLED,
+  HISTORY_ACTION_TYPES.RETURN_SENT,
+  HISTORY_ACTION_TYPES.RETURN_RECEIVED,
   HISTORY_ACTION_TYPES.DISPOSED,
+  // @deprecated Legacy compatibility
+  HISTORY_ACTION_TYPES.RETURNED,
 ]);
 
 // ============================================================================
