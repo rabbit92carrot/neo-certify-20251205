@@ -245,7 +245,7 @@ describe('get_history_summary_cursor 중복 이벤트 테스트', () => {
     // 핵심 검증: 반품 후에도 중복 없어야 함
     expect(groupKeys.length).toBe(uniqueGroupKeys.size);
 
-    // 배치 관련 이벤트 확인 (RECEIVED + RETURNED)
+    // 배치 관련 이벤트 확인 (RECEIVED + RETURN_SENT/RETURN_RECEIVED)
     const batchEvents = data!.filter(
       (row) => row.group_key.includes(batchId) || row.shipment_batch_id === batchId
     );

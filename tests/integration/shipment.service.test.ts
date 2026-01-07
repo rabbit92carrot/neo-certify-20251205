@@ -994,13 +994,13 @@ describe('Shipment Service Integration Tests', () => {
       expect(updatedBatch?.recall_reason).toBe('품질 불량');
     });
 
-    it('반품 이력이 RETURNED 타입으로 기록되어야 한다', async () => {
+    it('반품 이력이 RETURN_SENT/RETURN_RECEIVED 타입으로 기록되어야 한다', async () => {
       const { shipmentBatch, codeIds } = await createShipmentWithTransfer(2);
 
-      // 반품 이력 기록 (RETURNED)
-      const historyInserts = codeIds.map((virtualCodeId: string) => ({
+      // 반품 이력 기록 (RETURN_SENT - 발송자 관점)
+      const returnSentInserts = codeIds.map((virtualCodeId: string) => ({
         virtual_code_id: virtualCodeId,
-        action_type: 'RETURNED' as const,
+        action_type: 'RETURN_SENT' as const,
         from_owner_type: 'ORGANIZATION' as const,
         from_owner_id: distributor.id, // 반품 요청자 (수신자)
         to_owner_type: 'ORGANIZATION' as const,
@@ -1009,24 +1009,52 @@ describe('Shipment Service Integration Tests', () => {
         is_recall: true,
         recall_reason: '테스트 반품',
       }));
-      const { error: insertError } = await adminClient.from('histories').insert(historyInserts);
+      const { error: insertError1 } = await adminClient.from('histories').insert(returnSentInserts);
 
-      // RETURNED enum은 마이그레이션으로 추가됨 (20260106000002_change_shipment_recall_to_return.sql)
-      expect(insertError).toBeNull();
+      // RETURN_SENT enum 확인
+      expect(insertError1).toBeNull();
 
-      // 이력 확인
-      const { data: histories } = await adminClient
+      // 반품 이력 기록 (RETURN_RECEIVED - 수신자 관점)
+      const returnReceivedInserts = codeIds.map((virtualCodeId: string) => ({
+        virtual_code_id: virtualCodeId,
+        action_type: 'RETURN_RECEIVED' as const,
+        from_owner_type: 'ORGANIZATION' as const,
+        from_owner_id: distributor.id,
+        to_owner_type: 'ORGANIZATION' as const,
+        to_owner_id: manufacturer.id,
+        shipment_batch_id: shipmentBatch.id,
+        is_recall: true,
+        recall_reason: '테스트 반품',
+      }));
+      const { error: insertError2 } = await adminClient.from('histories').insert(returnReceivedInserts);
+
+      // RETURN_RECEIVED enum 확인
+      expect(insertError2).toBeNull();
+
+      // RETURN_SENT 이력 확인
+      const { data: returnSentHistories } = await adminClient
         .from('histories')
         .select('*')
         .eq('shipment_batch_id', shipmentBatch.id)
-        .eq('action_type', 'RETURNED');
+        .eq('action_type', 'RETURN_SENT');
 
-      expect(histories).not.toBeNull();
-      expect(histories).toHaveLength(2);
-      expect(histories![0].action_type).toBe('RETURNED');
-      expect(histories![0].is_recall).toBe(true);
-      expect(histories![0].from_owner_id).toBe(distributor.id);
-      expect(histories![0].to_owner_id).toBe(manufacturer.id);
+      expect(returnSentHistories).not.toBeNull();
+      expect(returnSentHistories).toHaveLength(2);
+      expect(returnSentHistories![0].action_type).toBe('RETURN_SENT');
+      expect(returnSentHistories![0].is_recall).toBe(true);
+      expect(returnSentHistories![0].from_owner_id).toBe(distributor.id);
+      expect(returnSentHistories![0].to_owner_id).toBe(manufacturer.id);
+
+      // RETURN_RECEIVED 이력 확인
+      const { data: returnReceivedHistories } = await adminClient
+        .from('histories')
+        .select('*')
+        .eq('shipment_batch_id', shipmentBatch.id)
+        .eq('action_type', 'RETURN_RECEIVED');
+
+      expect(returnReceivedHistories).not.toBeNull();
+      expect(returnReceivedHistories).toHaveLength(2);
+      expect(returnReceivedHistories![0].action_type).toBe('RETURN_RECEIVED');
     });
 
     it('24시간 이후에도 반품 가능해야 한다 (시간 제한 없음)', async () => {

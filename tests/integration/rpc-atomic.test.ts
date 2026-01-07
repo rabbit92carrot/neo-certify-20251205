@@ -391,7 +391,7 @@ describe('원자적 RPC 함수 직접 테스트', () => {
       expect(secondReturn![0].error_code).toBe('CODES_NOT_OWNED');
     });
 
-    it('반품 시 RETURNED 이력이 기록되어야 한다', async () => {
+    it('반품 시 RETURN_SENT와 RETURN_RECEIVED 이력이 기록되어야 한다', async () => {
       // 새 출고 생성 후 반품
       await createTestLot({
         productId: testProductId,
@@ -416,18 +416,30 @@ describe('원자적 RPC 함수 직접 테스트', () => {
       const newBatchId = returnData![0].new_batch_id!;
       expect(newBatchId).not.toBeNull();
 
-      // RETURNED 이력 확인 (새 배치 ID로 조회)
-      const { data: histories } = await adminClient
+      // RETURN_SENT 이력 확인 (새 배치 ID로 조회)
+      const { data: returnSentHistories } = await adminClient
         .from('histories')
         .select('*')
         .eq('shipment_batch_id', newBatchId)
-        .eq('action_type', 'RETURNED');
+        .eq('action_type', 'RETURN_SENT');
 
-      expect(histories).toHaveLength(2);
-      expect(histories![0].is_recall).toBe(true);
-      expect(histories![0].recall_reason).toBe('테스트 반품');
-      expect(histories![0].from_owner_id).toBe(TEST_ACCOUNTS.distributor.orgId); // 반품 요청자
-      expect(histories![0].to_owner_id).toBe(TEST_ACCOUNTS.manufacturer.orgId); // 반품 받는 조직
+      expect(returnSentHistories).toHaveLength(2);
+      expect(returnSentHistories![0].is_recall).toBe(true);
+      expect(returnSentHistories![0].recall_reason).toBe('테스트 반품');
+      expect(returnSentHistories![0].from_owner_id).toBe(TEST_ACCOUNTS.distributor.orgId); // 반품 요청자
+      expect(returnSentHistories![0].to_owner_id).toBe(TEST_ACCOUNTS.manufacturer.orgId); // 반품 받는 조직
+
+      // RETURN_RECEIVED 이력 확인 (새 배치 ID로 조회)
+      const { data: returnReceivedHistories } = await adminClient
+        .from('histories')
+        .select('*')
+        .eq('shipment_batch_id', newBatchId)
+        .eq('action_type', 'RETURN_RECEIVED');
+
+      expect(returnReceivedHistories).toHaveLength(2);
+      expect(returnReceivedHistories![0].is_recall).toBe(true);
+      expect(returnReceivedHistories![0].from_owner_id).toBe(TEST_ACCOUNTS.distributor.orgId);
+      expect(returnReceivedHistories![0].to_owner_id).toBe(TEST_ACCOUNTS.manufacturer.orgId);
     });
 
     it('반품 시 소유권이 발송자에게 복귀되어야 한다', async () => {

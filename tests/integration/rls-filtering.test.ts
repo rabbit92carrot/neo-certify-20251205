@@ -7,7 +7,8 @@
  * 올바른 필터링 규칙:
  * - SHIPPED: from_owner_id = 현재 조직 (내가 발송한 건만)
  * - RECEIVED: to_owner_id = 현재 조직 (내가 수신한 건만)
- * - RETURNED: 양쪽 모두 (내가 반품하거나 반품받은 건)
+ * - RETURN_SENT: 반품 요청자만 (내가 반품한 건)
+ * - RETURN_RECEIVED: 반품 수신자만 (반품받은 건)
  * - RECALLED: 양쪽 모두 (내가 회수하거나 회수당한 건)
  * - TREATED: from_owner_id = 현재 조직 (내가 시술한 건만)
  * - PRODUCED: from_owner_id = 현재 조직 (내가 생산한 건만)
@@ -219,7 +220,7 @@ describe('RLS 필터링 테스트 (get_history_summary_cursor)', () => {
       expect(error).toBeNull();
 
       // 제조사의 RECEIVED는 없어야 함 (제조사는 수신하지 않음)
-      // 단, 반품받은 경우는 RETURNED로 기록되므로 RECEIVED가 없을 수 있음
+      // 단, 반품받은 경우는 RETURN_RECEIVED로 기록되므로 RECEIVED가 없을 수 있음
       data?.forEach((item) => {
         expect(item.action_type).toBe('RECEIVED');
         expect(item.to_owner_id).toBe(TEST_ACCOUNTS.manufacturer.orgId);
@@ -245,31 +246,37 @@ describe('RLS 필터링 테스트 (get_history_summary_cursor)', () => {
   });
 
   // ============================================================================
-  // RETURNED 이벤트 필터링 테스트
+  // RETURN_SENT/RETURN_RECEIVED 이벤트 필터링 테스트
   // ============================================================================
-  describe('RETURNED 이벤트 필터링', () => {
-    it('반품 시 발송자(반품 요청자)와 수신자(반품 받는 조직) 모두 RETURNED 조회 가능', async () => {
-      // 병원이 반품 요청자 (from)
+  describe('RETURN_SENT/RETURN_RECEIVED 이벤트 필터링', () => {
+    it('반품 요청자는 RETURN_SENT, 수신자는 RETURN_RECEIVED를 조회해야 한다', async () => {
+      // 병원이 반품 요청자 (from) → RETURN_SENT 조회
       const { data: hospitalData } = await hospitalClient.rpc('get_history_summary_cursor', {
         p_organization_id: TEST_ACCOUNTS.hospital.orgId,
-        p_action_types: ['RETURNED'],
+        p_action_types: ['RETURN_SENT'],
         p_start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
-      // 병원은 자신이 반품한 RETURNED를 볼 수 있어야 함
-      const hospitalReturned = hospitalData?.filter((item) => item.action_type === 'RETURNED');
-      expect(hospitalReturned?.length).toBeGreaterThanOrEqual(0);
+      // 병원은 자신이 반품한 RETURN_SENT를 볼 수 있어야 함
+      const hospitalReturnSent = hospitalData?.filter((item) => item.action_type === 'RETURN_SENT');
+      expect(hospitalReturnSent?.length).toBeGreaterThanOrEqual(0);
+      hospitalReturnSent?.forEach((item) => {
+        expect(item.from_owner_id).toBe(TEST_ACCOUNTS.hospital.orgId);
+      });
 
-      // 유통사가 반품 받는 조직 (to)
+      // 유통사가 반품 받는 조직 (to) → RETURN_RECEIVED 조회
       const { data: distributorData } = await distributorClient.rpc('get_history_summary_cursor', {
         p_organization_id: TEST_ACCOUNTS.distributor.orgId,
-        p_action_types: ['RETURNED'],
+        p_action_types: ['RETURN_RECEIVED'],
         p_start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
-      // 유통사도 반품받은 RETURNED를 볼 수 있어야 함
-      const distributorReturned = distributorData?.filter((item) => item.action_type === 'RETURNED');
-      expect(distributorReturned?.length).toBeGreaterThanOrEqual(0);
+      // 유통사는 반품받은 RETURN_RECEIVED를 볼 수 있어야 함
+      const distributorReturnReceived = distributorData?.filter((item) => item.action_type === 'RETURN_RECEIVED');
+      expect(distributorReturnReceived?.length).toBeGreaterThanOrEqual(0);
+      distributorReturnReceived?.forEach((item) => {
+        expect(item.to_owner_id).toBe(TEST_ACCOUNTS.distributor.orgId);
+      });
     });
   });
 
@@ -312,10 +319,10 @@ describe('RLS 필터링 테스트 (get_history_summary_cursor)', () => {
   // 이벤트 타입 필터 테스트
   // ============================================================================
   describe('이벤트 타입 필터', () => {
-    it('RETURNED 필터 선택 시 RETURNED만 반환해야 한다', async () => {
+    it('RETURN_SENT 필터 선택 시 RETURN_SENT만 반환해야 한다', async () => {
       const { data, error } = await hospitalClient.rpc('get_history_summary_cursor', {
         p_organization_id: TEST_ACCOUNTS.hospital.orgId,
-        p_action_types: ['RETURNED'],
+        p_action_types: ['RETURN_SENT'],
         p_start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
@@ -323,7 +330,22 @@ describe('RLS 필터링 테스트 (get_history_summary_cursor)', () => {
 
       // 다른 이벤트 타입이 포함되면 안 됨
       data?.forEach((item) => {
-        expect(item.action_type).toBe('RETURNED');
+        expect(item.action_type).toBe('RETURN_SENT');
+      });
+    });
+
+    it('RETURN_RECEIVED 필터 선택 시 RETURN_RECEIVED만 반환해야 한다', async () => {
+      const { data, error } = await distributorClient.rpc('get_history_summary_cursor', {
+        p_organization_id: TEST_ACCOUNTS.distributor.orgId,
+        p_action_types: ['RETURN_RECEIVED'],
+        p_start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+
+      expect(error).toBeNull();
+
+      // 다른 이벤트 타입이 포함되면 안 됨
+      data?.forEach((item) => {
+        expect(item.action_type).toBe('RETURN_RECEIVED');
       });
     });
 
