@@ -1,0 +1,157 @@
+/* Daou Office Inspired Design Variables */
+
+/* Background Colors */
+.daou-bg-main {
+  background-color: #f8fafc;
+}
+
+.daou-bg-card {
+  background-color: #ffffff;
+}
+
+.daou-bg-sidebar {
+  background-color: #ffffff;
+}
+
+/* Pastel Accent Colors */
+.daou-accent-mint {
+  background-color: #e0f7f5;
+}
+
+.daou-accent-lavender {
+  background-color: #ede7f6;
+}
+
+.daou-accent-peach {
+  background-color: #fce4ec;
+}
+
+.daou-accent-sky {
+  background-color: #e3f2fd;
+}
+
+.daou-accent-lemon {
+  background-color: #fff9e6;
+}
+
+/* Icon Colors for Pastel Backgrounds */
+.daou-icon-mint {
+  color: #0d9488;
+}
+
+.daou-icon-lavender {
+  color: #7c3aed;
+}
+
+.daou-icon-peach {
+  color: #e11d48;
+}
+
+.daou-icon-sky {
+  color: #2563eb;
+}
+
+.daou-icon-lemon {
+  color: #ca8a04;
+}
+
+/* Primary Gradient */
+.daou-gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.daou-gradient-secondary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* Text Gradient */
+.daou-text-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Shadows */
+.daou-shadow-sm {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.daou-shadow-md {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.daou-shadow-lg {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.daou-shadow-card {
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+}
+
+/* Card Hover Effect */
+.daou-card-hover {
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.daou-card-hover:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Border Radius */
+.daou-radius-sm {
+  border-radius: 12px;
+}
+
+.daou-radius-md {
+  border-radius: 16px;
+}
+
+.daou-radius-lg {
+  border-radius: 20px;
+}
+
+.daou-radius-full {
+  border-radius: 9999px;
+}
+
+/* Active Icon Button (for sidebar) */
+.daou-icon-active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  color: white;
+}
+
+/* Text Colors */
+.daou-text-primary {
+  color: #1e293b;
+}
+
+.daou-text-secondary {
+  color: #64748b;
+}
+
+.daou-text-muted {
+  color: #94a3b8;
+}
+
+/* Scrollbar Styling */
+.daou-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.daou-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.daou-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e2e8f0;
+  border-radius: 3px;
+}
+
+.daou-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #cbd5e1;
+}
