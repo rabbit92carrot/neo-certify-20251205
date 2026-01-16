@@ -1,14 +1,23 @@
-import type { PageMapConfig } from '@/components/design-system/types';
+import type { FrameMapConfig } from '@/components/design-system/types';
 
 /**
- * 제조사 페이지 맵 설정
+ * 제조사 페이지 맵 설정 (행 기반 레이아웃 - 100% 스케일)
+ *
+ * 레이아웃:
+ * - 프레임 크기: 1200×836 (콘텐츠 800 + 헤더 36)
+ * - 행 간격: 1000px (프레임 836px + 여백 164px)
+ * - 컴포넌트 카드: 160×50px, x=1280 시작
+ * - 카드 간격: 66px (카드 50px + 여백 16px)
+ *
+ * 페이지 순서: 사이드바 메뉴 순서대로
  */
-export const manufacturerPageMap: PageMapConfig = {
+export const manufacturerPageMap: FrameMapConfig = {
   nodes: [
+    // Row 0: 대시보드
     {
       id: 'dashboard',
-      type: 'page',
-      position: { x: 400, y: 0 },
+      type: 'frame',
+      position: { x: 0, y: 0 },
       data: {
         label: '대시보드',
         route: '/manufacturer/dashboard',
@@ -18,9 +27,23 @@ export const manufacturerPageMap: PageMapConfig = {
       },
     },
     {
+      id: 'dashboard-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 50 },
+      data: { componentName: 'StatCard', storybookPath: 'shared-statcard' },
+    },
+    {
+      id: 'dashboard-comp-2',
+      type: 'component-card',
+      position: { x: 1280, y: 116 },
+      data: { componentName: 'Card', storybookPath: 'ui-card' },
+    },
+
+    // Row 1: 제품 관리
+    {
       id: 'products',
-      type: 'page',
-      position: { x: 100, y: 150 },
+      type: 'frame',
+      position: { x: 0, y: 1000 },
       data: {
         label: '제품 관리',
         route: '/manufacturer/products',
@@ -30,9 +53,29 @@ export const manufacturerPageMap: PageMapConfig = {
       },
     },
     {
+      id: 'products-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 1050 },
+      data: { componentName: 'ProductsTable' },
+    },
+    {
+      id: 'products-comp-2',
+      type: 'component-card',
+      position: { x: 1280, y: 1116 },
+      data: { componentName: 'ProductForm' },
+    },
+    {
+      id: 'products-comp-3',
+      type: 'component-card',
+      position: { x: 1280, y: 1182 },
+      data: { componentName: 'ProductDeactivateDialog' },
+    },
+
+    // Row 2: 생산 등록
+    {
       id: 'production',
-      type: 'page',
-      position: { x: 300, y: 150 },
+      type: 'frame',
+      position: { x: 0, y: 2000 },
       data: {
         label: '생산 등록',
         route: '/manufacturer/production',
@@ -42,9 +85,23 @@ export const manufacturerPageMap: PageMapConfig = {
       },
     },
     {
+      id: 'production-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 2050 },
+      data: { componentName: 'LotForm' },
+    },
+    {
+      id: 'production-comp-2',
+      type: 'component-card',
+      position: { x: 1280, y: 2116 },
+      data: { componentName: 'ProductSelector' },
+    },
+
+    // Row 3: 출고
+    {
       id: 'shipment',
-      type: 'page',
-      position: { x: 500, y: 150 },
+      type: 'frame',
+      position: { x: 0, y: 3000 },
       data: {
         label: '출고',
         route: '/manufacturer/shipment',
@@ -54,9 +111,29 @@ export const manufacturerPageMap: PageMapConfig = {
       },
     },
     {
+      id: 'shipment-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 3050 },
+      data: { componentName: 'ShipmentForm' },
+    },
+    {
+      id: 'shipment-comp-2',
+      type: 'component-card',
+      position: { x: 1280, y: 3116 },
+      data: { componentName: 'CartDisplay' },
+    },
+    {
+      id: 'shipment-comp-3',
+      type: 'component-card',
+      position: { x: 1280, y: 3182 },
+      data: { componentName: 'SearchableCombobox' },
+    },
+
+    // Row 4: 재고 조회
+    {
       id: 'inventory',
-      type: 'page',
-      position: { x: 700, y: 150 },
+      type: 'frame',
+      position: { x: 0, y: 4000 },
       data: {
         label: '재고 조회',
         route: '/manufacturer/inventory',
@@ -66,9 +143,23 @@ export const manufacturerPageMap: PageMapConfig = {
       },
     },
     {
+      id: 'inventory-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 4050 },
+      data: { componentName: 'InventoryTable' },
+    },
+    {
+      id: 'inventory-comp-2',
+      type: 'component-card',
+      position: { x: 1280, y: 4116 },
+      data: { componentName: 'DataTable' },
+    },
+
+    // Row 5: 거래 이력
+    {
       id: 'history',
-      type: 'page',
-      position: { x: 200, y: 300 },
+      type: 'frame',
+      position: { x: 0, y: 5000 },
       data: {
         label: '거래 이력',
         route: '/manufacturer/history',
@@ -78,9 +169,23 @@ export const manufacturerPageMap: PageMapConfig = {
       },
     },
     {
+      id: 'history-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 5050 },
+      data: { componentName: 'TransactionHistoryTable' },
+    },
+    {
+      id: 'history-comp-2',
+      type: 'component-card',
+      position: { x: 1280, y: 5116 },
+      data: { componentName: 'VirtualDataTable' },
+    },
+
+    // Row 6: 알림 보관함
+    {
       id: 'inbox',
-      type: 'page',
-      position: { x: 500, y: 300 },
+      type: 'frame',
+      position: { x: 0, y: 6000 },
       data: {
         label: '알림 보관함',
         route: '/manufacturer/inbox',
@@ -90,9 +195,17 @@ export const manufacturerPageMap: PageMapConfig = {
       },
     },
     {
+      id: 'inbox-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 6050 },
+      data: { componentName: 'NotificationList' },
+    },
+
+    // Row 7: 환경 설정
+    {
       id: 'settings',
-      type: 'page',
-      position: { x: 700, y: 300 },
+      type: 'frame',
+      position: { x: 0, y: 7000 },
       data: {
         label: '환경 설정',
         route: '/manufacturer/settings',
@@ -101,15 +214,12 @@ export const manufacturerPageMap: PageMapConfig = {
         storybookPath: 'pages-manufacturer-settings',
       },
     },
+    {
+      id: 'settings-comp-1',
+      type: 'component-card',
+      position: { x: 1280, y: 7050 },
+      data: { componentName: 'ManufacturerSettingsForm' },
+    },
   ],
-  edges: [
-    { id: 'e-dash-products', source: 'dashboard', target: 'products', label: '메뉴' },
-    { id: 'e-dash-production', source: 'dashboard', target: 'production', label: '메뉴' },
-    { id: 'e-dash-shipment', source: 'dashboard', target: 'shipment', label: '메뉴' },
-    { id: 'e-dash-inventory', source: 'dashboard', target: 'inventory', label: '메뉴' },
-    { id: 'e-production-inventory', source: 'production', target: 'inventory', label: '생산 후' },
-    { id: 'e-shipment-inventory', source: 'shipment', target: 'inventory', label: '출고 후' },
-    { id: 'e-shipment-history', source: 'shipment', target: 'history', label: '이력 기록' },
-    { id: 'e-products-production', source: 'products', target: 'production', label: '제품 선택' },
-  ],
+  edges: [], // 행 기반 레이아웃에서는 엣지 제거
 };
