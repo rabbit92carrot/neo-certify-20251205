@@ -1,7 +1,7 @@
 export { AdminDashboardPreview } from './AdminDashboardPreview';
 export { PlaceholderPreview } from './PlaceholderPreview';
 
-import type { RoleType, PageNodeData } from '../types';
+import type { RoleType, PageNodeData, FrameNodeData } from '../types';
 import { AdminDashboardPreview } from './AdminDashboardPreview';
 
 /**
@@ -29,12 +29,13 @@ const PREVIEW_REGISTRY: Record<RoleType, Record<string, PreviewComponent>> = {
 
 /**
  * 역할과 페이지 노드 데이터로 프리뷰 컴포넌트 가져오기
+ * PageNodeData 또는 FrameNodeData 모두 지원
  */
 export function getPreviewComponent(
   role: RoleType,
-  nodeData: PageNodeData
+  nodeData: PageNodeData | FrameNodeData
 ): PreviewComponent | null {
-  // 노드 ID에서 페이지 ID 추출 (예: 'dashboard' → 'dashboard')
+  // 노드 라우트에서 페이지 ID 추출 (예: '/admin/dashboard' → 'dashboard')
   const pageId = nodeData.route.split('/').pop() ?? '';
   return PREVIEW_REGISTRY[role]?.[pageId] ?? null;
 }
