@@ -1,4 +1,4 @@
-export { PageMapCanvas } from './PageMapCanvas';
-export { PagePreviewNode } from './PagePreviewNode';
-export { PreviewPanel } from './PreviewPanel';
+export { FrameMapCanvas } from './PageMapCanvas';
+export { FramePreviewNode } from './FramePreviewNode';
+export { ComponentCard } from './ComponentCard';
 export * from './types';
