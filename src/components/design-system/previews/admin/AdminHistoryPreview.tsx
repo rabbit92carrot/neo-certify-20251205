@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Admin History Preview 컴포넌트
  * Design System 페이지 맵에서 관리자 전체 이력 페이지 미리보기
