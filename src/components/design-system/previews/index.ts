@@ -4,36 +4,70 @@ export {
   ManufacturerDashboardPreview,
   ManufacturerInventoryPreview,
   ManufacturerHistoryPreview,
+  ManufacturerProductionPreview,
+  ManufacturerShipmentPreview,
+  ManufacturerProductsPreview,
+  ManufacturerSettingsPreview,
+  ManufacturerInboxPreview,
 } from './manufacturer';
 export {
   DistributorDashboardPreview,
   DistributorInventoryPreview,
   DistributorHistoryPreview,
+  DistributorShipmentPreview,
 } from './distributor';
 export {
   HospitalDashboardPreview,
   HospitalInventoryPreview,
   HospitalHistoryPreview,
+  HospitalTreatmentPreview,
+  HospitalDisposalPreview,
+  HospitalTreatmentHistoryPreview,
+  HospitalSettingsPreview,
 } from './hospital';
-export { AdminHistoryPreview } from './admin';
+export {
+  AdminHistoryPreview,
+  AdminOrganizationsPreview,
+  AdminApprovalsPreview,
+  AdminRecallsPreview,
+  AdminAlertsPreview,
+  AdminInboxPreview,
+} from './admin';
 
 import type { RoleType, PageNodeData, FrameNodeData } from '../types';
 import { AdminDashboardPreview } from './AdminDashboardPreview';
-import { AdminHistoryPreview } from './admin';
+import {
+  AdminHistoryPreview,
+  AdminOrganizationsPreview,
+  AdminApprovalsPreview,
+  AdminRecallsPreview,
+  AdminAlertsPreview,
+  AdminInboxPreview,
+} from './admin';
 import {
   ManufacturerDashboardPreview,
   ManufacturerInventoryPreview,
   ManufacturerHistoryPreview,
+  ManufacturerProductionPreview,
+  ManufacturerShipmentPreview,
+  ManufacturerProductsPreview,
+  ManufacturerSettingsPreview,
+  ManufacturerInboxPreview,
 } from './manufacturer';
 import {
   DistributorDashboardPreview,
   DistributorInventoryPreview,
   DistributorHistoryPreview,
+  DistributorShipmentPreview,
 } from './distributor';
 import {
   HospitalDashboardPreview,
   HospitalInventoryPreview,
   HospitalHistoryPreview,
+  HospitalTreatmentPreview,
+  HospitalDisposalPreview,
+  HospitalTreatmentHistoryPreview,
+  HospitalSettingsPreview,
 } from './hospital';
 
 /**
@@ -46,22 +80,37 @@ type PreviewComponent = React.ComponentType<any>;
 const PREVIEW_REGISTRY: Record<RoleType, Record<string, PreviewComponent>> = {
   admin: {
     dashboard: AdminDashboardPreview,
+    organizations: AdminOrganizationsPreview,
+    approvals: AdminApprovalsPreview,
     history: AdminHistoryPreview,
+    recalls: AdminRecallsPreview,
+    alerts: AdminAlertsPreview,
+    inbox: AdminInboxPreview,
   },
   manufacturer: {
     dashboard: ManufacturerDashboardPreview,
+    products: ManufacturerProductsPreview,
+    production: ManufacturerProductionPreview,
+    shipment: ManufacturerShipmentPreview,
     inventory: ManufacturerInventoryPreview,
     history: ManufacturerHistoryPreview,
+    inbox: ManufacturerInboxPreview,
+    settings: ManufacturerSettingsPreview,
   },
   distributor: {
     dashboard: DistributorDashboardPreview,
+    shipment: DistributorShipmentPreview,
     inventory: DistributorInventoryPreview,
     history: DistributorHistoryPreview,
   },
   hospital: {
     dashboard: HospitalDashboardPreview,
+    treatment: HospitalTreatmentPreview,
+    'treatment-history': HospitalTreatmentHistoryPreview,
+    disposal: HospitalDisposalPreview,
     inventory: HospitalInventoryPreview,
     history: HospitalHistoryPreview,
+    settings: HospitalSettingsPreview,
   },
 };
 
