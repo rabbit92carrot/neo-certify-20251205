@@ -12,8 +12,36 @@ export const distributorDashboardMockData = {
     totalInventory: 8000,
     todayReceived: 300,
     todayShipments: 150,
-    activePartners: 25,
   },
+};
+
+/**
+ * Distributor Inventory mock 데이터
+ */
+export const distributorInventoryMockData = {
+  summaries: [
+    {
+      productId: 'prod-001',
+      productName: 'PDO Thread COG 19G-100mm',
+      modelName: 'PT-COG-19G-100',
+      udiDi: 'UDI-001-COG-19G',
+      totalQuantity: 3000,
+    },
+    {
+      productId: 'prod-002',
+      productName: 'PDO Thread MONO 23G-60mm',
+      modelName: 'PT-MONO-23G-60',
+      udiDi: 'UDI-002-MONO-23G',
+      totalQuantity: 2500,
+    },
+    {
+      productId: 'prod-003',
+      productName: 'PDO Thread SCREW 21G-90mm',
+      modelName: 'PT-SCREW-21G-90',
+      udiDi: 'UDI-003-SCREW-21G',
+      totalQuantity: 2500,
+    },
+  ],
 };
 
 /**
@@ -21,5 +49,5 @@ export const distributorDashboardMockData = {
  */
 export const distributorMockData: Record<string, Record<string, unknown>> = {
   dashboard: distributorDashboardMockData,
-  // 다른 페이지 mock 데이터는 추후 추가
+  inventory: distributorInventoryMockData,
 };

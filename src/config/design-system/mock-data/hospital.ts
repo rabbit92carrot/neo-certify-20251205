@@ -11,9 +11,37 @@ export const hospitalDashboardMockData = {
   stats: {
     totalInventory: 2500,
     todayTreatments: 15,
-    monthlyTreatments: 320,
-    activeProducts: 8,
+    totalPatients: 320,
   },
+};
+
+/**
+ * Hospital Inventory mock 데이터
+ */
+export const hospitalInventoryMockData = {
+  summaries: [
+    {
+      productId: 'prod-001',
+      productName: 'PDO Thread COG 19G-100mm',
+      modelName: 'PT-COG-19G-100',
+      udiDi: 'UDI-001-COG-19G',
+      totalQuantity: 1000,
+    },
+    {
+      productId: 'prod-002',
+      productName: 'PDO Thread MONO 23G-60mm',
+      modelName: 'PT-MONO-23G-60',
+      udiDi: 'UDI-002-MONO-23G',
+      totalQuantity: 800,
+    },
+    {
+      productId: 'prod-003',
+      productName: 'PDO Thread SCREW 21G-90mm',
+      modelName: 'PT-SCREW-21G-90',
+      udiDi: 'UDI-003-SCREW-21G',
+      totalQuantity: 700,
+    },
+  ],
 };
 
 /**
@@ -21,5 +49,5 @@ export const hospitalDashboardMockData = {
  */
 export const hospitalMockData: Record<string, Record<string, unknown>> = {
   dashboard: hospitalDashboardMockData,
-  // 다른 페이지 mock 데이터는 추후 추가
+  inventory: hospitalInventoryMockData,
 };

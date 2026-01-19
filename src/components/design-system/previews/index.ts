@@ -1,8 +1,32 @@
 export { AdminDashboardPreview } from './AdminDashboardPreview';
 export { PlaceholderPreview } from './PlaceholderPreview';
+export {
+  ManufacturerDashboardPreview,
+  ManufacturerInventoryPreview,
+} from './manufacturer';
+export {
+  DistributorDashboardPreview,
+  DistributorInventoryPreview,
+} from './distributor';
+export {
+  HospitalDashboardPreview,
+  HospitalInventoryPreview,
+} from './hospital';
 
 import type { RoleType, PageNodeData, FrameNodeData } from '../types';
 import { AdminDashboardPreview } from './AdminDashboardPreview';
+import {
+  ManufacturerDashboardPreview,
+  ManufacturerInventoryPreview,
+} from './manufacturer';
+import {
+  DistributorDashboardPreview,
+  DistributorInventoryPreview,
+} from './distributor';
+import {
+  HospitalDashboardPreview,
+  HospitalInventoryPreview,
+} from './hospital';
 
 /**
  * 프리뷰 컴포넌트 레지스트리
@@ -14,16 +38,18 @@ type PreviewComponent = React.ComponentType<any>;
 const PREVIEW_REGISTRY: Record<RoleType, Record<string, PreviewComponent>> = {
   admin: {
     dashboard: AdminDashboardPreview,
-    // 다른 페이지 프리뷰는 추후 추가
   },
   manufacturer: {
-    // 프리뷰 컴포넌트 추후 추가
+    dashboard: ManufacturerDashboardPreview,
+    inventory: ManufacturerInventoryPreview,
   },
   distributor: {
-    // 프리뷰 컴포넌트 추후 추가
+    dashboard: DistributorDashboardPreview,
+    inventory: DistributorInventoryPreview,
   },
   hospital: {
-    // 프리뷰 컴포넌트 추후 추가
+    dashboard: HospitalDashboardPreview,
+    inventory: HospitalInventoryPreview,
   },
 };
 
