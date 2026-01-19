@@ -63,7 +63,7 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
   // params Promise 해결
-  useMemo(() => {
+  useEffect(() => {
     params.then(setResolvedParams);
   }, [params]);
 

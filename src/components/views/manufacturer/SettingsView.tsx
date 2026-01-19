@@ -86,7 +86,7 @@ export function ManufacturerSettingsView({
                 <SelectContent>
                   <SelectItem value="-">하이픈 (-)</SelectItem>
                   <SelectItem value="_">언더스코어 (_)</SelectItem>
-                  <SelectItem value="">없음</SelectItem>
+                  <SelectItem value="none">없음</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
