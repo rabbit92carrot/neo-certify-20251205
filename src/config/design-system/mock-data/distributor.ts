@@ -144,10 +144,39 @@ export const distributorHistoryMockData = {
 };
 
 /**
+ * Distributor Shipment mock 데이터
+ */
+export const distributorShipmentMockData = {
+  organizationType: 'DISTRIBUTOR' as const,
+  products: [
+    {
+      id: 'prod-001',
+      name: 'PDO Thread COG 19G-100mm',
+      modelName: 'PT-COG-19G-100',
+      availableQuantity: 3000,
+    },
+    {
+      id: 'prod-002',
+      name: 'PDO Thread MONO 23G-60mm',
+      modelName: 'PT-MONO-23G-60',
+      availableQuantity: 2500,
+    },
+    {
+      id: 'prod-003',
+      name: 'PDO Thread SCREW 21G-90mm',
+      modelName: 'PT-SCREW-21G-90',
+      availableQuantity: 2500,
+    },
+  ],
+  canSelectLot: false,
+};
+
+/**
  * Distributor 역할 mock 데이터 매핑
  */
 export const distributorMockData: Record<string, Record<string, unknown>> = {
   dashboard: distributorDashboardMockData,
   inventory: distributorInventoryMockData,
   history: distributorHistoryMockData,
+  shipment: distributorShipmentMockData,
 };

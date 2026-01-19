@@ -138,10 +138,187 @@ export const hospitalHistoryMockData = {
 };
 
 /**
+ * Hospital Treatment mock 데이터
+ */
+export const hospitalTreatmentMockData = {
+  products: [
+    {
+      id: 'prod-001',
+      name: 'PDO Thread COG 19G-100mm',
+      modelName: 'PT-COG-19G-100',
+      alias: 'COG 100',
+      availableQuantity: 1000,
+    },
+    {
+      id: 'prod-002',
+      name: 'PDO Thread MONO 23G-60mm',
+      modelName: 'PT-MONO-23G-60',
+      alias: 'MONO 60',
+      availableQuantity: 800,
+    },
+    {
+      id: 'prod-003',
+      name: 'PDO Thread SCREW 21G-90mm',
+      modelName: 'PT-SCREW-21G-90',
+      alias: 'SCREW 90',
+      availableQuantity: 700,
+    },
+  ],
+};
+
+/**
+ * Hospital Treatment History mock 데이터
+ * TreatmentRecordSummary 형태와 일치하도록 구성
+ */
+export const hospitalTreatmentHistoryMockData = {
+  treatments: [
+    {
+      id: 'treatment-001',
+      hospital_id: 'org-hospital',
+      patient_phone: '01012341234',
+      treatment_date: '2024-01-17',
+      created_at: '2024-01-17T14:00:00Z',
+      updated_at: null,
+      hospital: { id: 'org-hospital', name: '테스트 병원', type: 'HOSPITAL' as const },
+      itemSummary: [
+        {
+          productId: 'prod-001',
+          productName: 'PDO Thread COG 19G-100mm',
+          modelName: 'PT-COG-19G-100',
+          alias: 'COG 100',
+          quantity: 5,
+        },
+      ],
+      totalQuantity: 5,
+      isRecallable: true,
+    },
+    {
+      id: 'treatment-002',
+      hospital_id: 'org-hospital',
+      patient_phone: '01056785678',
+      treatment_date: '2024-01-17',
+      created_at: '2024-01-17T15:30:00Z',
+      updated_at: null,
+      hospital: { id: 'org-hospital', name: '테스트 병원', type: 'HOSPITAL' as const },
+      itemSummary: [
+        {
+          productId: 'prod-002',
+          productName: 'PDO Thread MONO 23G-60mm',
+          modelName: 'PT-MONO-23G-60',
+          alias: 'MONO 60',
+          quantity: 10,
+        },
+      ],
+      totalQuantity: 10,
+      isRecallable: true,
+    },
+    {
+      id: 'treatment-003',
+      hospital_id: 'org-hospital',
+      patient_phone: '01090129012',
+      treatment_date: '2024-01-16',
+      created_at: '2024-01-16T10:00:00Z',
+      updated_at: null,
+      hospital: { id: 'org-hospital', name: '테스트 병원', type: 'HOSPITAL' as const },
+      itemSummary: [
+        {
+          productId: 'prod-003',
+          productName: 'PDO Thread SCREW 21G-90mm',
+          modelName: 'PT-SCREW-21G-90',
+          alias: 'SCREW 90',
+          quantity: 3,
+        },
+      ],
+      totalQuantity: 3,
+      isRecallable: false,
+    },
+    {
+      id: 'treatment-004',
+      hospital_id: 'org-hospital',
+      patient_phone: '01034563456',
+      treatment_date: '2024-01-15',
+      created_at: '2024-01-15T11:00:00Z',
+      updated_at: null,
+      hospital: { id: 'org-hospital', name: '테스트 병원', type: 'HOSPITAL' as const },
+      itemSummary: [
+        {
+          productId: 'prod-001',
+          productName: 'PDO Thread COG 19G-100mm',
+          modelName: 'PT-COG-19G-100',
+          alias: 'COG 100',
+          quantity: 8,
+        },
+      ],
+      totalQuantity: 8,
+      isRecallable: false,
+    },
+  ],
+};
+
+/**
+ * Hospital Disposal mock 데이터
+ */
+export const hospitalDisposalMockData = {
+  products: [
+    {
+      id: 'prod-001',
+      name: 'PDO Thread COG 19G-100mm',
+      modelName: 'PT-COG-19G-100',
+      alias: 'COG 100',
+      availableQuantity: 1000,
+    },
+    {
+      id: 'prod-002',
+      name: 'PDO Thread MONO 23G-60mm',
+      modelName: 'PT-MONO-23G-60',
+      alias: 'MONO 60',
+      availableQuantity: 800,
+    },
+    {
+      id: 'prod-003',
+      name: 'PDO Thread SCREW 21G-90mm',
+      modelName: 'PT-SCREW-21G-90',
+      alias: 'SCREW 90',
+      availableQuantity: 700,
+    },
+  ],
+};
+
+/**
+ * Hospital Settings mock 데이터
+ */
+export const hospitalSettingsMockData = {
+  productAliases: [
+    {
+      productId: 'prod-001',
+      productName: 'PDO Thread COG 19G-100mm',
+      modelName: 'PT-COG-19G-100',
+      alias: 'COG 100',
+    },
+    {
+      productId: 'prod-002',
+      productName: 'PDO Thread MONO 23G-60mm',
+      modelName: 'PT-MONO-23G-60',
+      alias: 'MONO 60',
+    },
+    {
+      productId: 'prod-003',
+      productName: 'PDO Thread SCREW 21G-90mm',
+      modelName: 'PT-SCREW-21G-90',
+      alias: 'SCREW 90',
+    },
+  ],
+};
+
+/**
  * Hospital 역할 mock 데이터 매핑
  */
 export const hospitalMockData: Record<string, Record<string, unknown>> = {
   dashboard: hospitalDashboardMockData,
+  treatment: hospitalTreatmentMockData,
+  'treatment-history': hospitalTreatmentHistoryMockData,
+  disposal: hospitalDisposalMockData,
   inventory: hospitalInventoryMockData,
   history: hospitalHistoryMockData,
+  settings: hospitalSettingsMockData,
 };
