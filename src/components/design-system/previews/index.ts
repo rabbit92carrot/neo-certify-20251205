@@ -3,29 +3,37 @@ export { PlaceholderPreview } from './PlaceholderPreview';
 export {
   ManufacturerDashboardPreview,
   ManufacturerInventoryPreview,
+  ManufacturerHistoryPreview,
 } from './manufacturer';
 export {
   DistributorDashboardPreview,
   DistributorInventoryPreview,
+  DistributorHistoryPreview,
 } from './distributor';
 export {
   HospitalDashboardPreview,
   HospitalInventoryPreview,
+  HospitalHistoryPreview,
 } from './hospital';
+export { AdminHistoryPreview } from './admin';
 
 import type { RoleType, PageNodeData, FrameNodeData } from '../types';
 import { AdminDashboardPreview } from './AdminDashboardPreview';
+import { AdminHistoryPreview } from './admin';
 import {
   ManufacturerDashboardPreview,
   ManufacturerInventoryPreview,
+  ManufacturerHistoryPreview,
 } from './manufacturer';
 import {
   DistributorDashboardPreview,
   DistributorInventoryPreview,
+  DistributorHistoryPreview,
 } from './distributor';
 import {
   HospitalDashboardPreview,
   HospitalInventoryPreview,
+  HospitalHistoryPreview,
 } from './hospital';
 
 /**
@@ -38,18 +46,22 @@ type PreviewComponent = React.ComponentType<any>;
 const PREVIEW_REGISTRY: Record<RoleType, Record<string, PreviewComponent>> = {
   admin: {
     dashboard: AdminDashboardPreview,
+    history: AdminHistoryPreview,
   },
   manufacturer: {
     dashboard: ManufacturerDashboardPreview,
     inventory: ManufacturerInventoryPreview,
+    history: ManufacturerHistoryPreview,
   },
   distributor: {
     dashboard: DistributorDashboardPreview,
     inventory: DistributorInventoryPreview,
+    history: DistributorHistoryPreview,
   },
   hospital: {
     dashboard: HospitalDashboardPreview,
     inventory: HospitalInventoryPreview,
+    history: HospitalHistoryPreview,
   },
 };
 

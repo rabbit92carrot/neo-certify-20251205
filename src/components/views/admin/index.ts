@@ -8,3 +8,4 @@ export {
   PendingOrganizationsList,
   type PendingOrganizationsListProps,
 } from './PendingOrganizationsList';
+export { AdminHistoryView, type AdminHistoryViewProps } from './AdminHistoryView';
