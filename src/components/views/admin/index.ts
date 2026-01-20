@@ -12,7 +12,6 @@ export { AdminHistoryView, type AdminHistoryViewProps } from './AdminHistoryView
 export {
   OrganizationsView,
   type OrganizationsViewProps,
-  type OrganizationItem,
 } from './OrganizationsView';
 export {
   ApprovalsView,
