@@ -1,21 +1,25 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FrameMapCanvas } from '@/components/design-system/PageMapCanvas';
 import { PageMapSidebar } from '@/components/design-system/PageMapSidebar';
+import { DetailPanel } from '@/components/design-system/DetailPanel';
 import {
   type FrameMapConfig,
   type RoleType,
   type FrameNodeData,
+  type ComponentShowcaseData,
+  type DetailPanelData,
   ROLE_LABELS,
 } from '@/components/design-system/types';
 import { getPreviewComponent } from '@/components/design-system/previews';
 import { getPageMap } from '@/config/design-system/page-maps';
 import { getMockData } from '@/config/design-system/mock-data';
+import { getPageComponents } from '@/config/design-system/component-catalogs';
 
 const VALID_ROLES: RoleType[] = ['manufacturer', 'distributor', 'hospital', 'admin'];
 
@@ -24,33 +28,84 @@ interface RolePageProps {
 }
 
 /**
+ * 컴포넌트 쇼케이스 노드 크기 상수 (가로 레이아웃)
+ */
+const SHOWCASE_WIDTH = 800;
+const SHOWCASE_GAP = 40;
+const SHOWCASE_X = 1280;
+
+/**
  * 프레임 노드 데이터에 PreviewComponent와 mockData 주입
- * component-card 노드는 그대로 유지
+ * component-card 노드를 component-showcase 노드로 변환 (카탈로그에 설정이 있는 경우)
  */
 function injectPreviewData(pageMap: FrameMapConfig, role: RoleType): FrameMapConfig {
-  return {
-    ...pageMap,
-    nodes: pageMap.nodes.map((node) => {
-      // component-card 노드는 그대로 반환
-      if (node.type === 'component-card') {
-        return node;
-      }
+  // 프레임 노드 ID를 기준으로 행 인덱스 매핑 생성
+  const frameRowMap = new Map<string, number>();
+  let rowIndex = 0;
+  pageMap.nodes.forEach((node) => {
+    if (node.type === 'frame') {
+      frameRowMap.set(node.id, rowIndex);
+      rowIndex++;
+    }
+  });
 
-      // frame 노드에만 프리뷰 데이터 주입
+  const newNodes: FrameMapConfig['nodes'] = [];
+
+  pageMap.nodes.forEach((node) => {
+    // frame 노드 처리
+    if (node.type === 'frame') {
       const frameData = node.data as FrameNodeData;
       const pageId = frameData.route.split('/').pop() ?? '';
       const PreviewComponent = getPreviewComponent(role, frameData);
       const mockData = getMockData(role, pageId);
 
-      return {
+      // 해당 페이지의 컴포넌트 쇼케이스 설정 가져오기
+      const showcaseConfigs = getPageComponents(role, pageId);
+
+      // 프레임 노드 업데이트
+      newNodes.push({
         ...node,
         data: {
           ...frameData,
           PreviewComponent: PreviewComponent ?? undefined,
           mockData: mockData ?? undefined,
         },
-      };
-    }),
+      });
+
+      // 쇼케이스 노드 생성 (설정이 있는 경우) - 가로 정렬
+      if (showcaseConfigs.length > 0) {
+        const currentRow = frameRowMap.get(node.id) ?? 0;
+        showcaseConfigs.forEach((showcase, idx) => {
+          newNodes.push({
+            id: `${node.id}-showcase-${idx}`,
+            type: 'component-showcase',
+            position: {
+              x: SHOWCASE_X + idx * (SHOWCASE_WIDTH + SHOWCASE_GAP),
+              y: currentRow * 1000,
+            },
+            data: {
+              showcase,
+              selectedVariantId: showcase.variants[0]?.id,
+              showProps: false,
+            } as ComponentShowcaseData,
+          });
+        });
+      }
+      return;
+    }
+
+    // component-card 노드는 이제 frame 처리 시 showcase로 생성되므로 스킵
+    if (node.type === 'component-card') {
+      return;
+    }
+
+    // 다른 노드 타입은 그대로 반환
+    newNodes.push(node);
+  });
+
+  return {
+    ...pageMap,
+    nodes: newNodes,
   };
 }
 
@@ -61,6 +116,8 @@ function injectPreviewData(pageMap: FrameMapConfig, role: RoleType): FrameMapCon
 export default function RolePageMapPage({ params }: RolePageProps): React.ReactElement {
   const [resolvedParams, setResolvedParams] = useState<{ role: string } | null>(null);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [detailPanelData, setDetailPanelData] = useState<DetailPanelData | null>(null);
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
 
   // params Promise 해결
   useEffect(() => {
@@ -96,6 +153,70 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
       }));
   }, [basePageMap]);
 
+  // 노드 클릭 핸들러 - 프레임 클릭 시 상세 패널 열기
+  const handleNodeClick = useCallback(
+    (nodeId: string, nodeType: string) => {
+      if (nodeType === 'frame' && basePageMap) {
+        const frameNode = basePageMap.nodes.find((n) => n.id === nodeId && n.type === 'frame');
+        if (frameNode) {
+          const frameData = frameNode.data as FrameNodeData;
+          setDetailPanelData({
+            pageId: nodeId,
+            label: frameData.label,
+            route: frameData.route,
+            pageType: frameData.pageType,
+            components: frameData.components,
+          });
+          setIsDetailPanelOpen(true);
+        }
+      }
+    },
+    [basePageMap]
+  );
+
+  // 상세 패널 닫기
+  const handleCloseDetailPanel = useCallback(() => {
+    setIsDetailPanelOpen(false);
+  }, []);
+
+  // 노드에 프리뷰 데이터 주입 (handleComponentClick에서 사용하기 위해 미리 계산)
+  const pageMapWithPreviews = useMemo(() => {
+    if (!role || !VALID_ROLES.includes(role) || !basePageMap) {
+      return null;
+    }
+    return injectPreviewData(basePageMap, role);
+  }, [basePageMap, role]);
+
+  // 컴포넌트 ID로 해당 showcase 노드 ID 찾기
+  const findShowcaseNodeId = useCallback(
+    (componentId: string): string | null => {
+      if (!pageMapWithPreviews) {
+        return null;
+      }
+
+      const showcaseNode = pageMapWithPreviews.nodes.find(
+        (node) =>
+          node.type === 'component-showcase' &&
+          (node.data as ComponentShowcaseData).showcase.id === componentId
+      );
+
+      return showcaseNode?.id ?? null;
+    },
+    [pageMapWithPreviews]
+  );
+
+  // 상세패널에서 컴포넌트 클릭 시 해당 showcase로 포커싱
+  const handleComponentClick = useCallback(
+    (componentId: string) => {
+      const showcaseNodeId = findShowcaseNodeId(componentId);
+      if (showcaseNodeId) {
+        setSelectedPageId(showcaseNodeId);
+        // NavigationHandler가 자동으로 fitView 실행
+      }
+    },
+    [findShowcaseNodeId]
+  );
+
   // 로딩 상태
   if (!role) {
     return (
@@ -111,9 +232,6 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
   }
 
   const roleLabel = ROLE_LABELS[role];
-
-  // 노드에 프리뷰 데이터 주입
-  const pageMapWithPreviews = injectPreviewData(basePageMap, role);
 
   // 프레임 노드만 카운트 (component-card 제외)
   const pageCount = basePageMap.nodes.filter((node) => node.type === 'frame').length;
@@ -144,12 +262,23 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
 
         {/* 캔버스 */}
         <div className="flex-1 min-h-0">
-          <FrameMapCanvas
-            config={pageMapWithPreviews}
-            selectedNodeId={selectedPageId}
-          />
+          {pageMapWithPreviews && (
+            <FrameMapCanvas
+              config={pageMapWithPreviews}
+              selectedNodeId={selectedPageId}
+              onNodeClick={handleNodeClick}
+            />
+          )}
         </div>
       </div>
+
+      {/* 상세 패널 */}
+      <DetailPanel
+        isOpen={isDetailPanelOpen}
+        onClose={handleCloseDetailPanel}
+        data={detailPanelData}
+        onComponentClick={handleComponentClick}
+      />
     </div>
   );
 }
