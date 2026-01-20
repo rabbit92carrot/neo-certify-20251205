@@ -29,7 +29,7 @@ function PreviewContainerComponent({
       )}
 
       {/* Preview Area */}
-      <div className="flex-1 p-6 overflow-auto bg-white min-h-[300px]">
+      <div className="flex-1 p-6 overflow-auto bg-white min-h-[500px]">
         <div
           className="h-full flex items-center justify-center"
           style={{ pointerEvents: 'none' }}

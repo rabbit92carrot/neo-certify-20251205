@@ -12,7 +12,7 @@ import { PropsTable } from './showcase/PropsTable';
  * 쇼케이스 노드 크기 상수 (가로 레이아웃용)
  */
 const SHOWCASE_WIDTH = 800;
-const SHOWCASE_HEIGHT = 600;
+const SHOWCASE_HEIGHT = 800;  // Frame 높이와 동일하게 설정
 
 /**
  * 카테고리별 배지 색상
@@ -49,9 +49,9 @@ function ComponentShowcaseNodeComponent({
     [variants, selectedVariantId]
   );
 
-  // Storybook URL
+  // Storybook URL (docs 페이지로 이동)
   const storybookUrl = storybookPath
-    ? `https://69688e87a244b9e8bdf234dc-wnerlmjfwy.chromatic.com/?path=/story/${storybookPath}`
+    ? `https://69688e87a244b9e8bdf234dc-wnerlmjfwy.chromatic.com/?path=/docs/${storybookPath}--docs`
     : null;
 
   return (
@@ -98,7 +98,7 @@ function ComponentShowcaseNodeComponent({
       {/* Preview Container */}
       <PreviewContainer
         Component={Component}
-        props={selectedVariant?.props ?? {}}
+        props={{ ...selectedVariant?.props, variant: selectedVariant }}
         variantDescription={selectedVariant?.description}
       />
 
