@@ -141,6 +141,13 @@ export const distributorHistoryMockData = {
     },
   ],
   currentOrgId: 'org-distributor',
+  actionTypeOptions: [
+    { value: 'RECEIVED', label: '입고' },
+    { value: 'SHIPPED', label: '출고' },
+    { value: 'RETURN_RECEIVED', label: '반품 입고' },
+  ],
+  defaultActionType: 'all',
+  showReturnButton: true,
 };
 
 /**

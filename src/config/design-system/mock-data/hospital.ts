@@ -135,6 +135,14 @@ export const hospitalHistoryMockData = {
     },
   ],
   currentOrgId: 'org-hospital',
+  actionTypeOptions: [
+    { value: 'RECEIVED', label: '입고' },
+    { value: 'TREATED', label: '시술' },
+    { value: 'DISPOSED', label: '폐기' },
+    { value: 'RETURN_RECEIVED', label: '반품 입고' },
+  ],
+  defaultActionType: 'all',
+  showReturnButton: true,
 };
 
 /**
@@ -143,23 +151,26 @@ export const hospitalHistoryMockData = {
 export const hospitalTreatmentMockData = {
   products: [
     {
-      id: 'prod-001',
-      name: 'PDO Thread COG 19G-100mm',
+      productId: 'prod-001',
+      productName: 'PDO Thread COG 19G-100mm',
       modelName: 'PT-COG-19G-100',
+      udiDi: 'UDI-001-COG-19G',
       alias: 'COG 100',
       availableQuantity: 1000,
     },
     {
-      id: 'prod-002',
-      name: 'PDO Thread MONO 23G-60mm',
+      productId: 'prod-002',
+      productName: 'PDO Thread MONO 23G-60mm',
       modelName: 'PT-MONO-23G-60',
+      udiDi: 'UDI-002-MONO-23G',
       alias: 'MONO 60',
       availableQuantity: 800,
     },
     {
-      id: 'prod-003',
-      name: 'PDO Thread SCREW 21G-90mm',
+      productId: 'prod-003',
+      productName: 'PDO Thread SCREW 21G-90mm',
       modelName: 'PT-SCREW-21G-90',
+      udiDi: 'UDI-003-SCREW-21G',
       alias: 'SCREW 90',
       availableQuantity: 700,
     },
@@ -257,27 +268,31 @@ export const hospitalTreatmentHistoryMockData = {
 
 /**
  * Hospital Disposal mock 데이터
+ * ProductForTreatment 타입에 맞춰 구성
  */
 export const hospitalDisposalMockData = {
   products: [
     {
-      id: 'prod-001',
-      name: 'PDO Thread COG 19G-100mm',
+      productId: 'prod-001',
+      productName: 'PDO Thread COG 19G-100mm',
       modelName: 'PT-COG-19G-100',
+      udiDi: 'UDI-001-COG-19G',
       alias: 'COG 100',
       availableQuantity: 1000,
     },
     {
-      id: 'prod-002',
-      name: 'PDO Thread MONO 23G-60mm',
+      productId: 'prod-002',
+      productName: 'PDO Thread MONO 23G-60mm',
       modelName: 'PT-MONO-23G-60',
+      udiDi: 'UDI-002-MONO-23G',
       alias: 'MONO 60',
       availableQuantity: 800,
     },
     {
-      id: 'prod-003',
-      name: 'PDO Thread SCREW 21G-90mm',
+      productId: 'prod-003',
+      productName: 'PDO Thread SCREW 21G-90mm',
       modelName: 'PT-SCREW-21G-90',
+      udiDi: 'UDI-003-SCREW-21G',
       alias: 'SCREW 90',
       availableQuantity: 700,
     },

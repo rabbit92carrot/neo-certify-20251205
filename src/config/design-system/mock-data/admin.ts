@@ -165,6 +165,7 @@ export const adminHistoryMockData = {
 
 /**
  * Admin Organizations mock 데이터
+ * OrganizationWithStats 타입에 맞춤
  */
 export const adminOrganizationsMockData = {
   organizations: [
@@ -174,7 +175,12 @@ export const adminOrganizationsMockData = {
       email: 'manufacturer-a@test.com',
       type: 'MANUFACTURER' as const,
       status: 'ACTIVE' as const,
-      createdAt: '2024-01-10',
+      business_number: '123-45-67890',
+      representative_name: '홍길동',
+      created_at: '2024-01-10T00:00:00Z',
+      updated_at: '2024-01-10T00:00:00Z',
+      virtualCodeCount: 5000,
+      totalInventory: 3500,
     },
     {
       id: 'org-002',
@@ -182,7 +188,12 @@ export const adminOrganizationsMockData = {
       email: 'distributor-b@test.com',
       type: 'DISTRIBUTOR' as const,
       status: 'ACTIVE' as const,
-      createdAt: '2024-01-12',
+      business_number: '234-56-78901',
+      representative_name: '김철수',
+      created_at: '2024-01-12T00:00:00Z',
+      updated_at: '2024-01-12T00:00:00Z',
+      virtualCodeCount: 2500,
+      totalInventory: 1200,
     },
     {
       id: 'org-003',
@@ -190,7 +201,12 @@ export const adminOrganizationsMockData = {
       email: 'hospital-c@test.com',
       type: 'HOSPITAL' as const,
       status: 'PENDING_APPROVAL' as const,
-      createdAt: '2024-01-15',
+      business_number: '345-67-89012',
+      representative_name: '박의사',
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-15T00:00:00Z',
+      virtualCodeCount: 0,
+      totalInventory: 0,
     },
     {
       id: 'org-004',
@@ -198,11 +214,15 @@ export const adminOrganizationsMockData = {
       email: 'manufacturer-d@test.com',
       type: 'MANUFACTURER' as const,
       status: 'INACTIVE' as const,
-      createdAt: '2024-01-08',
+      business_number: '456-78-90123',
+      representative_name: '이영희',
+      created_at: '2024-01-08T00:00:00Z',
+      updated_at: '2024-01-20T00:00:00Z',
+      virtualCodeCount: 1000,
+      totalInventory: 0,
     },
   ],
   statusCounts: {
-    total: 45,
     active: 38,
     inactive: 4,
     pendingApproval: 3,
@@ -315,38 +335,52 @@ export const adminAlertsMockData = {
 
 /**
  * Admin Inbox mock 데이터
+ * OrganizationAlert 타입에 맞춤
  */
 export const adminInboxMockData = {
-  messages: [
+  alerts: [
     {
-      id: 'msg-001',
-      subject: '조직 승인 요청',
+      id: 'alert-001',
+      alertType: 'SYSTEM_NOTICE' as const,
+      recipientOrgId: 'org-admin',
+      title: '조직 승인 요청',
       content: '신규 제조사 "테스트 제조사 E"가 가입 승인을 요청했습니다.',
-      senderName: '시스템',
-      senderType: 'SYSTEM' as const,
+      metadata: {
+        organizationId: 'pending-004',
+        organizationName: '테스트 제조사 E',
+      },
       isRead: false,
-      createdAt: '2024-01-18 10:30',
+      readAt: null,
+      createdAt: '2024-01-18T10:30:00Z',
     },
     {
-      id: 'msg-002',
-      subject: '문의사항',
+      id: 'alert-002',
+      alertType: 'CUSTOM_MESSAGE' as const,
+      recipientOrgId: 'org-admin',
+      title: '문의사항',
       content: '제품 등록 관련 문의드립니다. UDI-DI 형식에 대해 확인 부탁드립니다.',
-      senderName: '테스트 제조사',
-      senderType: 'ORGANIZATION' as const,
+      metadata: {
+        organizationId: 'org-manufacturer',
+        organizationName: '테스트 제조사',
+      },
       isRead: false,
-      createdAt: '2024-01-17 15:00',
+      readAt: null,
+      createdAt: '2024-01-17T15:00:00Z',
     },
     {
-      id: 'msg-003',
-      subject: '시스템 알림',
+      id: 'alert-003',
+      alertType: 'SYSTEM_NOTICE' as const,
+      recipientOrgId: 'org-admin',
+      title: '일일 거래 현황',
       content: '어제 총 1,250건의 거래가 처리되었습니다.',
-      senderName: '시스템',
-      senderType: 'SYSTEM' as const,
+      metadata: {},
       isRead: true,
-      createdAt: '2024-01-17 08:00',
+      readAt: '2024-01-17T09:00:00Z',
+      createdAt: '2024-01-17T08:00:00Z',
     },
   ],
-  unreadCount: 2,
+  title: '메시지함',
+  description: '시스템 알림 및 조직 문의를 확인합니다.',
 };
 
 /**
