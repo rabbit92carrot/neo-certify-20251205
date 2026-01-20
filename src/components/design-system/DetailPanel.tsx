@@ -100,34 +100,40 @@ function DetailPanelComponent({
             <div className="space-y-2">
               {data.components.length > 0 ? (
                 data.components.map((component) => {
-                  const componentId = component.toLowerCase().replace(/([A-Z])/g, '-$1').replace(/^-/, '');
+                  // storybookPath가 있으면 Storybook URL 생성
+                  const storybookUrl = component.storybookPath
+                    ? `https://69688e87a244b9e8bdf234dc-wnerlmjfwy.chromatic.com/?path=/docs/${component.storybookPath}--docs`
+                    : null;
+
                   return (
                     <div
-                      key={component}
+                      key={component.catalogId}
                       className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg"
                     >
                       {/* 컴포넌트 이름 + Showcase 포커싱 버튼 */}
                       <button
                         type="button"
                         className="flex-1 flex items-center justify-between hover:bg-gray-100 rounded px-2 py-1 -mx-2 -my-1 transition-colors text-left"
-                        onClick={() => onComponentClick?.(componentId)}
+                        onClick={() => onComponentClick?.(component.catalogId)}
                         title="Showcase로 이동"
                       >
-                        <span className="text-sm font-medium text-gray-700">{component}</span>
+                        <span className="text-sm font-medium text-gray-700">{component.name}</span>
                         <Focus className="h-3.5 w-3.5 text-blue-500" />
                       </button>
 
-                      {/* Storybook 링크 버튼 (별도) */}
-                      <a
-                        href={`https://69688e87a244b9e8bdf234dc-wnerlmjfwy.chromatic.com/?path=/docs/components-${componentId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-                        title="Storybook에서 보기"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-blue-500" />
-                      </a>
+                      {/* Storybook 링크 버튼 (storybookPath가 있는 경우만) */}
+                      {storybookUrl && (
+                        <a
+                          href={storybookUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                          title="Storybook에서 보기"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-gray-400 hover:text-blue-500" />
+                        </a>
+                      )}
                     </div>
                   );
                 })

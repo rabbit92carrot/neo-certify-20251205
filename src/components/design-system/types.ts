@@ -176,6 +176,18 @@ export interface PageStateInfo {
 }
 
 /**
+ * 컴포넌트 정보 (DetailPanel용)
+ */
+export interface ComponentInfo {
+  /** 컴포넌트 이름 (예: "StatCard") */
+  name: string;
+  /** 카탈로그 ID (예: "stat-card") */
+  catalogId: string;
+  /** Storybook 경로 (있는 경우) */
+  storybookPath?: string;
+}
+
+/**
  * 상세 패널 데이터
  * 프레임 클릭 시 우측에 표시되는 정보
  */
@@ -188,8 +200,8 @@ export interface DetailPanelData {
   route: string;
   /** 페이지 타입 */
   pageType: string;
-  /** 사용 컴포넌트 목록 */
-  components: string[];
+  /** 사용 컴포넌트 목록 (enriched with catalog info) */
+  components: ComponentInfo[];
   /** 페이지 상태/모달 정보 (선택적) */
   states?: PageStateInfo[];
 }

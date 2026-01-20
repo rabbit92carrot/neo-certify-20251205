@@ -1,5 +1,6 @@
 import type {
   ComponentShowcaseConfig,
+  ComponentInfo,
   RoleType,
 } from '@/components/design-system/types';
 import { manufacturerComponentCatalog, manufacturerPageComponents } from './manufacturer';
@@ -53,4 +54,37 @@ export function getComponentConfig(
   componentId: string
 ): ComponentShowcaseConfig | undefined {
   return COMPONENT_CATALOGS[role]?.[componentId];
+}
+
+/**
+ * 컴포넌트 이름을 카탈로그 ID로 변환
+ * 예: "StatCard" → "stat-card", "DataTable" → "data-table"
+ */
+export function componentNameToCatalogId(name: string): string {
+  return name
+    .replace(/([A-Z])/g, '-$1')
+    .toLowerCase()
+    .replace(/^-/, '');
+}
+
+/**
+ * 컴포넌트 이름 목록에서 ComponentInfo 목록 생성
+ * DetailPanel에서 사용하기 위해 카탈로그 정보 enrichment
+ */
+export function getComponentInfoList(
+  role: RoleType,
+  componentNames: string[]
+): ComponentInfo[] {
+  const catalog = COMPONENT_CATALOGS[role];
+
+  return componentNames.map((name) => {
+    const catalogId = componentNameToCatalogId(name);
+    const config = catalog[catalogId];
+
+    return {
+      name,
+      catalogId,
+      storybookPath: config?.storybookPath,
+    };
+  });
 }
