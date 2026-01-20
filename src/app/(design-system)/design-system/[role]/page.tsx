@@ -19,7 +19,7 @@ import {
 import { getPreviewComponent } from '@/components/design-system/previews';
 import { getPageMap } from '@/config/design-system/page-maps';
 import { getMockData } from '@/config/design-system/mock-data';
-import { getPageComponents } from '@/config/design-system/component-catalogs';
+import { getPageComponents, getComponentInfoList } from '@/config/design-system/component-catalogs';
 
 const VALID_ROLES: RoleType[] = ['manufacturer', 'distributor', 'hospital', 'admin'];
 
@@ -116,6 +116,7 @@ function injectPreviewData(pageMap: FrameMapConfig, role: RoleType): FrameMapCon
 export default function RolePageMapPage({ params }: RolePageProps): React.ReactElement {
   const [resolvedParams, setResolvedParams] = useState<{ role: string } | null>(null);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [focusKey, setFocusKey] = useState(0);
   const [detailPanelData, setDetailPanelData] = useState<DetailPanelData | null>(null);
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
 
@@ -156,28 +157,56 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
   // 노드 클릭 핸들러 - 프레임 클릭 시 상세 패널 열기
   const handleNodeClick = useCallback(
     (nodeId: string, nodeType: string) => {
-      if (nodeType === 'frame' && basePageMap) {
+      if (nodeType === 'frame' && basePageMap && role) {
         const frameNode = basePageMap.nodes.find((n) => n.id === nodeId && n.type === 'frame');
         if (frameNode) {
           const frameData = frameNode.data as FrameNodeData;
+          // 컴포넌트 이름 목록을 ComponentInfo 목록으로 변환 (카탈로그 정보 포함)
+          const componentInfoList = getComponentInfoList(role, frameData.components);
           setDetailPanelData({
             pageId: nodeId,
             label: frameData.label,
             route: frameData.route,
             pageType: frameData.pageType,
-            components: frameData.components,
+            components: componentInfoList,
           });
           setIsDetailPanelOpen(true);
         }
       }
     },
-    [basePageMap]
+    [basePageMap, role]
   );
 
   // 상세 패널 닫기
   const handleCloseDetailPanel = useCallback(() => {
     setIsDetailPanelOpen(false);
   }, []);
+
+  // 사이드바에서 페이지 선택 (재선택 시에도 포커싱 동작 + 상세패널 열기)
+  const handlePageSelect = useCallback(
+    (pageId: string) => {
+      setSelectedPageId(pageId);
+      setFocusKey((prev) => prev + 1);
+
+      // 선택된 페이지의 상세 정보로 패널 열기
+      if (basePageMap && role) {
+        const frameNode = basePageMap.nodes.find((n) => n.id === pageId && n.type === 'frame');
+        if (frameNode) {
+          const frameData = frameNode.data as FrameNodeData;
+          const componentInfoList = getComponentInfoList(role, frameData.components);
+          setDetailPanelData({
+            pageId,
+            label: frameData.label,
+            route: frameData.route,
+            pageType: frameData.pageType,
+            components: componentInfoList,
+          });
+          setIsDetailPanelOpen(true);
+        }
+      }
+    },
+    [basePageMap, role]
+  );
 
   // 노드에 프리뷰 데이터 주입 (handleComponentClick에서 사용하기 위해 미리 계산)
   const pageMapWithPreviews = useMemo(() => {
@@ -207,11 +236,12 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
 
   // 상세패널에서 컴포넌트 클릭 시 해당 showcase로 포커싱
   const handleComponentClick = useCallback(
-    (componentId: string) => {
-      const showcaseNodeId = findShowcaseNodeId(componentId);
+    (catalogId: string) => {
+      const showcaseNodeId = findShowcaseNodeId(catalogId);
       if (showcaseNodeId) {
         setSelectedPageId(showcaseNodeId);
-        // NavigationHandler가 자동으로 fitView 실행
+        setFocusKey((prev) => prev + 1);
+        // 패널은 열린 상태로 유지, NavigationHandler가 자동으로 fitView 실행
       }
     },
     [findShowcaseNodeId]
@@ -257,7 +287,7 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
         <PageMapSidebar
           pages={pageList}
           selectedPageId={selectedPageId}
-          onPageSelect={setSelectedPageId}
+          onPageSelect={handlePageSelect}
         />
 
         {/* 캔버스 */}
@@ -266,6 +296,7 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
             <FrameMapCanvas
               config={pageMapWithPreviews}
               selectedNodeId={selectedPageId}
+              focusKey={focusKey}
               onNodeClick={handleNodeClick}
             />
           )}

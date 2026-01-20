@@ -23,24 +23,25 @@ import type { FrameMapConfig } from './types';
 interface FrameMapCanvasProps {
   config: FrameMapConfig;
   selectedNodeId: string | null;
+  focusKey?: number;
   onNodeClick?: (nodeId: string, nodeType: string) => void;
 }
 
 /**
  * 네비게이션 핸들러 - ReactFlow 내부에서 fitView 호출
  */
-function NavigationHandler({ selectedNodeId }: { selectedNodeId: string | null }) {
+function NavigationHandler({
+  selectedNodeId,
+  focusKey,
+}: {
+  selectedNodeId: string | null;
+  focusKey?: number;
+}) {
   const { fitView, getNode } = useReactFlow();
   const isInitialMount = useRef(true);
-  const previousNodeId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!selectedNodeId) {
-      return;
-    }
-
-    // 같은 노드가 다시 선택되면 무시
-    if (previousNodeId.current === selectedNodeId && !isInitialMount.current) {
       return;
     }
 
@@ -49,16 +50,15 @@ function NavigationHandler({ selectedNodeId }: { selectedNodeId: string | null }
       return;
     }
 
-    // fitView로 해당 노드로 이동
+    // focusKey가 변경되면 항상 fitView 실행 (같은 노드 재선택 시에도)
     fitView({
       nodes: [node],
       padding: 0.3,
       duration: isInitialMount.current ? 0 : 500, // 초기 로드는 애니메이션 없이
     });
 
-    previousNodeId.current = selectedNodeId;
     isInitialMount.current = false;
-  }, [selectedNodeId, fitView, getNode]);
+  }, [selectedNodeId, focusKey, fitView, getNode]);
 
   return null;
 }
@@ -69,6 +69,7 @@ function NavigationHandler({ selectedNodeId }: { selectedNodeId: string | null }
 function FrameMapCanvasInner({
   config,
   selectedNodeId,
+  focusKey,
   onNodeClick,
 }: FrameMapCanvasProps): React.ReactElement {
   const [nodes, , onNodesChange] = useNodesState(config.nodes as Node[]);
@@ -114,7 +115,7 @@ function FrameMapCanvasInner({
       }}
       proOptions={{ hideAttribution: true }}
     >
-      <NavigationHandler selectedNodeId={selectedNodeId} />
+      <NavigationHandler selectedNodeId={selectedNodeId} focusKey={focusKey} />
       <Background color="#e2e8f0" gap={20} />
       <Controls position="bottom-left" />
       <MiniMap
@@ -139,6 +140,7 @@ function FrameMapCanvasInner({
 export function FrameMapCanvas({
   config,
   selectedNodeId,
+  focusKey,
   onNodeClick,
 }: FrameMapCanvasProps): React.ReactElement {
   return (
@@ -147,6 +149,7 @@ export function FrameMapCanvas({
         <FrameMapCanvasInner
           config={config}
           selectedNodeId={selectedNodeId}
+          focusKey={focusKey}
           onNodeClick={onNodeClick}
         />
       </ReactFlowProvider>
