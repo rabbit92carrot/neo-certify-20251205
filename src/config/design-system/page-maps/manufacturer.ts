@@ -48,7 +48,7 @@ export const manufacturerPageMap: FrameMapConfig = {
         label: '제품 관리',
         route: '/manufacturer/products',
         pageType: 'table',
-        components: ['ProductsTable', 'ProductForm', 'ProductDeactivateDialog'],
+        components: ['ProductsTable', 'ProductForm', 'ProductDeactivateDialog', 'Badge'],
         storybookPath: 'pages-manufacturer-products',
       },
     },
