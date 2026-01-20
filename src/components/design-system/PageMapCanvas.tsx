@@ -17,11 +17,13 @@ import '@xyflow/react/dist/style.css';
 
 import { FramePreviewNode } from './FramePreviewNode';
 import { ComponentCard } from './ComponentCard';
+import { ComponentShowcaseNode } from './ComponentShowcaseNode';
 import type { FrameMapConfig } from './types';
 
 interface FrameMapCanvasProps {
   config: FrameMapConfig;
   selectedNodeId: string | null;
+  onNodeClick?: (nodeId: string, nodeType: string) => void;
 }
 
 /**
@@ -67,6 +69,7 @@ function NavigationHandler({ selectedNodeId }: { selectedNodeId: string | null }
 function FrameMapCanvasInner({
   config,
   selectedNodeId,
+  onNodeClick,
 }: FrameMapCanvasProps): React.ReactElement {
   const [nodes, , onNodesChange] = useNodesState(config.nodes as Node[]);
   const [edges, , onEdgesChange] = useEdgesState(config.edges);
@@ -75,8 +78,19 @@ function FrameMapCanvasInner({
     () => ({
       frame: FramePreviewNode,
       'component-card': ComponentCard,
+      'component-showcase': ComponentShowcaseNode,
     }),
     []
+  );
+
+  const handleNodeClick = useMemo(
+    () =>
+      onNodeClick
+        ? (_event: React.MouseEvent, node: Node) => {
+            onNodeClick(node.id, node.type ?? 'unknown');
+          }
+        : undefined,
+    [onNodeClick]
   );
 
   return (
@@ -85,11 +99,14 @@ function FrameMapCanvasInner({
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
+      onNodeClick={handleNodeClick}
       nodeTypes={nodeTypes}
       fitView={!selectedNodeId} // 선택된 노드 없으면 전체 뷰
       fitViewOptions={{ padding: 0.15 }}
       minZoom={0.05}
       maxZoom={1.5}
+      nodesDraggable={false}
+      nodesConnectable={false}
       defaultEdgeOptions={{
         type: 'smoothstep',
         animated: false,
@@ -117,15 +134,21 @@ function FrameMapCanvasInner({
  *
  * @param config - 노드와 엣지 설정
  * @param selectedNodeId - 선택된 노드 ID (사이드바에서 선택)
+ * @param onNodeClick - 노드 클릭 핸들러
  */
 export function FrameMapCanvas({
   config,
   selectedNodeId,
+  onNodeClick,
 }: FrameMapCanvasProps): React.ReactElement {
   return (
     <div className="h-full w-full">
       <ReactFlowProvider>
-        <FrameMapCanvasInner config={config} selectedNodeId={selectedNodeId} />
+        <FrameMapCanvasInner
+          config={config}
+          selectedNodeId={selectedNodeId}
+          onNodeClick={onNodeClick}
+        />
       </ReactFlowProvider>
     </div>
   );
