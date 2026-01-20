@@ -66,6 +66,82 @@ export interface ComponentCardData extends Record<string, unknown> {
  */
 export type ComponentCardNode = Node<ComponentCardData, 'component-card'>;
 
+// ============================================
+// Component Showcase Types (Storybook-like)
+// ============================================
+
+/**
+ * 컴포넌트 variant 설정
+ * 컴포넌트의 다양한 상태/변형을 정의
+ */
+export interface ComponentVariant {
+  /** Variant 식별자 */
+  id: string;
+  /** 표시 이름 (예: "Default", "Loading", "Error") */
+  name: string;
+  /** Variant 설명 (선택적) */
+  description?: string;
+  /** 해당 variant에 전달할 props */
+  props: Record<string, unknown>;
+}
+
+/**
+ * 컴포넌트 Props 문서화
+ */
+export interface ComponentPropDoc {
+  /** 속성 이름 */
+  name: string;
+  /** TypeScript 타입 (문자열) */
+  type: string;
+  /** 필수 여부 */
+  required: boolean;
+  /** 기본값 (있는 경우) */
+  defaultValue?: string;
+  /** 속성 설명 */
+  description: string;
+}
+
+/**
+ * 컴포넌트 쇼케이스 설정
+ * Storybook 스타일로 컴포넌트를 표시하기 위한 전체 설정
+ */
+export interface ComponentShowcaseConfig {
+  /** 컴포넌트 식별자 */
+  id: string;
+  /** 표시 이름 */
+  name: string;
+  /** 컴포넌트 카테고리 */
+  category: 'ui' | 'shared' | 'forms' | 'tables' | 'layout';
+  /** 간단한 설명 */
+  description: string;
+  /** Storybook 경로 (외부 링크용) */
+  storybookPath?: string;
+  /** 렌더링할 실제 컴포넌트 */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Component: React.ComponentType<any>;
+  /** 표시할 variant 목록 */
+  variants: ComponentVariant[];
+  /** Props 문서 */
+  props: ComponentPropDoc[];
+}
+
+/**
+ * 컴포넌트 쇼케이스 노드 데이터 (ReactFlow용)
+ */
+export interface ComponentShowcaseData extends Record<string, unknown> {
+  /** 쇼케이스 설정 */
+  showcase: ComponentShowcaseConfig;
+  /** 현재 선택된 variant ID */
+  selectedVariantId?: string;
+  /** Props 테이블 표시 여부 */
+  showProps?: boolean;
+}
+
+/**
+ * 컴포넌트 쇼케이스 노드 타입
+ */
+export type ComponentShowcaseNode = Node<ComponentShowcaseData, 'component-showcase'>;
+
 /**
  * 페이지 맵 설정 타입
  */
@@ -76,11 +152,46 @@ export interface PageMapConfig {
 
 /**
  * 프레임 맵 설정 타입 (Figma 스타일)
- * FrameNode와 ComponentCardNode를 모두 포함
+ * FrameNode, ComponentCardNode, ComponentShowcaseNode를 포함
  */
 export interface FrameMapConfig {
-  nodes: (FrameNode | ComponentCardNode)[];
+  nodes: (FrameNode | ComponentCardNode | ComponentShowcaseNode)[];
   edges: Edge[];
+}
+
+// ============================================
+// Detail Panel Types
+// ============================================
+
+/**
+ * 상세 패널에 표시할 페이지 상태/모달 정보
+ */
+export interface PageStateInfo {
+  /** 상태 식별자 */
+  id: string;
+  /** 상태 이름 */
+  name: string;
+  /** 설명 */
+  description?: string;
+}
+
+/**
+ * 상세 패널 데이터
+ * 프레임 클릭 시 우측에 표시되는 정보
+ */
+export interface DetailPanelData {
+  /** 페이지 ID */
+  pageId: string;
+  /** 페이지 라벨 */
+  label: string;
+  /** 라우트 경로 */
+  route: string;
+  /** 페이지 타입 */
+  pageType: string;
+  /** 사용 컴포넌트 목록 */
+  components: string[];
+  /** 페이지 상태/모달 정보 (선택적) */
+  states?: PageStateInfo[];
 }
 
 /**
