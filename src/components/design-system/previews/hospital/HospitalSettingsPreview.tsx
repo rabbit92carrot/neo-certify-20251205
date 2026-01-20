@@ -3,10 +3,8 @@
  * Design System 페이지 맵에서 설정 페이지 미리보기
  */
 
-import { HospitalSettingsView, type HospitalSettingsViewProps } from '@/components/views/hospital';
+import { HospitalSettingsView } from '@/components/views/hospital';
 
-export function HospitalSettingsPreview(
-  props: HospitalSettingsViewProps
-): React.ReactElement {
-  return <HospitalSettingsView {...props} />;
+export function HospitalSettingsPreview(): React.ReactElement {
+  return <HospitalSettingsView />;
 }
