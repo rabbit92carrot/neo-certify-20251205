@@ -17,6 +17,7 @@ function isValidOrigin(request: NextRequest): boolean {
   // 허용된 origins 목록
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_APP_URL,
+    'https://neo-certify-20251205.vercel.app',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
   ].filter(Boolean) as string[];
