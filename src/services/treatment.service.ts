@@ -175,23 +175,26 @@ export async function createTreatment(
 
   // 3. 정품 인증 알림 메시지 기록 (트랜잭션 외부, 실패해도 시술은 유지)
   try {
-    // 시술 기록에서 병원 정보 조회 (알림 메시지용)
-    const { data: treatmentRecord } = await supabase
-      .from('treatment_records')
-      .select('hospital:organizations!treatment_records_hospital_id_fkey(name)')
-      .eq('id', treatmentId)
-      .single();
+    // 병렬로 병원 정보와 제품 정보 조회 (알림 메시지용)
+    const productIds = data.items.map(item => item.productId);
+    const [treatmentRecordResult, productsInfoResult] = await Promise.all([
+      supabase
+        .from('treatment_records')
+        .select('hospital:organizations!treatment_records_hospital_id_fkey(name)')
+        .eq('id', treatmentId)
+        .single(),
+      supabase
+        .from('products')
+        .select('id, name, organization:organizations!inner(name)')
+        .in('id', productIds),
+    ]);
+
+    const { data: treatmentRecord } = treatmentRecordResult;
+    const { data: productsInfo } = productsInfoResult;
 
     const hospitalName = (treatmentRecord?.hospital as { name: string } | null)?.name ?? '병원';
 
-    // 제품 정보 조회 (알림 메시지용) - 벌크 쿼리로 N+1 최적화
     const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
-    const productIds = data.items.map(item => item.productId);
-    const { data: productsInfo } = await supabase
-      .from('products')
-      .select('id, name, organization:organizations!inner(name)')
-      .in('id', productIds);
-
     if (productsInfo) {
       const productMap = new Map(productsInfo.map(p => [p.id, p]));
       for (const item of data.items) {
@@ -410,22 +413,25 @@ export async function recallTreatment(
 ): Promise<ApiResponse<void>> {
   const supabase = await createClient();
 
-  // 1. 시술 기록 조회 (알림 메시지용 - 회수 전에 조회해야 함)
-  const { data: treatment, error: treatmentError } = await supabase
-    .from('treatment_records')
-    .select('patient_phone, hospital:organizations!treatment_records_hospital_id_fkey(name, representative_contact)')
-    .eq('id', treatmentId)
-    .single();
+  // 1+2. 병렬로 시술 기록과 상세 정보 조회 (회수 전에 조회해야 함)
+  const [treatmentResult, detailsResult] = await Promise.all([
+    supabase
+      .from('treatment_records')
+      .select('patient_phone, hospital:organizations!treatment_records_hospital_id_fkey(name, representative_contact)')
+      .eq('id', treatmentId)
+      .single(),
+    supabase
+      .from('treatment_details')
+      .select('virtual_code_id')
+      .eq('treatment_id', treatmentId),
+  ]);
+
+  const { data: treatment, error: treatmentError } = treatmentResult;
+  const { data: details } = detailsResult;
 
   if (treatmentError || !treatment) {
     return createErrorResponse('TREATMENT_NOT_FOUND', '시술 기록을 찾을 수 없습니다.');
   }
-
-  // 2. 알림 메시지용 제품 요약 조회 (회수 전에 조회해야 함)
-  const { data: details } = await supabase
-    .from('treatment_details')
-    .select('virtual_code_id')
-    .eq('treatment_id', treatmentId);
 
   const codeIds = details?.map((d) => d.virtual_code_id) ?? [];
   const summary = codeIds.length > 0 ? await getTreatmentSummaryFromCodes(codeIds) : [];

@@ -96,14 +96,17 @@ describe('common.service', () => {
     });
 
     it('ACTION_TYPE_LABELS 상수가 올바르게 정의됨', () => {
-      expect(Object.keys(ACTION_TYPE_LABELS)).toHaveLength(6);
+      expect(Object.keys(ACTION_TYPE_LABELS)).toHaveLength(9);
       expect(ACTION_TYPE_LABELS).toMatchObject({
         PRODUCED: '생산',
         SHIPPED: '출고',
         RECEIVED: '입고',
         TREATED: '시술',
         RECALLED: '회수',
+        RETURN_SENT: '반품 출고',
+        RETURN_RECEIVED: '반품 입고',
         DISPOSED: '폐기',
+        RETURNED: '반품',
       });
     });
   });
