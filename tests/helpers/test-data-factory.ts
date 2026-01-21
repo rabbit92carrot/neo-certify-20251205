@@ -144,6 +144,7 @@ export async function createTestOrganizationWithAuth(
   // 2. 조직 생성 (Auth ID를 조직 ID로 사용)
   const orgData = {
     id: authData.user.id,
+    auth_user_id: authData.user.id, // RLS 정책에서 본인 조직 조회에 필요
     type: options.type || 'MANUFACTURER',
     email,
     business_number: options.businessNumber || generateTestBusinessNumber(),
