@@ -12,6 +12,7 @@ import type {
   ProductListQueryData,
 } from '@/lib/validations/product';
 import { createErrorResponse, createSuccessResponse, createNotFoundResponse } from './common.service';
+import { buildIlikeFilter } from '@/lib/utils/db';
 
 // 캐시 TTL 상수 (초)
 const PRODUCTS_CACHE_TTL = 300; // 5분
@@ -45,7 +46,7 @@ export async function getProducts(
   // 검색어 필터 (제품명, 모델명, UDI-DI)
   if (search) {
     queryBuilder = queryBuilder.or(
-      `name.ilike.%${search}%,model_name.ilike.%${search}%,udi_di.ilike.%${search}%`
+      buildIlikeFilter(['name', 'model_name', 'udi_di'], search)
     );
   }
 

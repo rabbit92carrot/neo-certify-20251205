@@ -9,6 +9,7 @@ import {
   createSuccessResponse,
 } from '../common.service';
 import type { ApiResponse, OrganizationType } from '@/types/api.types';
+import { buildIlikeFilter } from '@/lib/utils/db';
 
 // ============================================================================
 // 조직 선택 목록 (드롭다운용)
@@ -97,7 +98,7 @@ export async function searchProducts(
     `
     )
     .eq('is_active', true)
-    .or(`model_name.ilike.%${query}%,name.ilike.%${query}%`)
+    .or(buildIlikeFilter(['model_name', 'name'], query))
     .order('model_name')
     .limit(limit);
 
