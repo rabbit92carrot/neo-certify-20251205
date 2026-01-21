@@ -6,5 +6,5 @@
 import { HospitalSettingsView } from '@/components/views/hospital';
 
 export function HospitalSettingsPreview(): React.ReactElement {
-  return <HospitalSettingsView />;
+  return <HospitalSettingsView isPreview />;
 }

@@ -6,4 +6,4 @@ export {
 export { TreatmentView, type TreatmentViewProps } from './TreatmentView';
 export { DisposalView, type DisposalViewProps } from './DisposalView';
 export { TreatmentHistoryView, type TreatmentHistoryViewProps } from './TreatmentHistoryView';
-export { HospitalSettingsView } from './SettingsView';
+export { HospitalSettingsView, type HospitalSettingsViewProps } from './SettingsView';

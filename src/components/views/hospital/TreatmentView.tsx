@@ -14,6 +14,8 @@ import type { TreatmentItemData } from '@/lib/validations/treatment';
 export interface TreatmentViewProps {
   /** 시술 가능한 제품 목록 */
   products: ProductForTreatment[];
+  /** 환자 검색 함수 (Preview에서 mock 주입용) */
+  searchFn?: (query: string) => Promise<{ success: boolean; data?: string[] }>;
 }
 
 /**
@@ -21,6 +23,7 @@ export interface TreatmentViewProps {
  */
 export function TreatmentView({
   products,
+  searchFn,
 }: TreatmentViewProps): React.ReactElement {
   // Preview용 no-op 핸들러
   const handleSubmit = async (
@@ -42,6 +45,7 @@ export function TreatmentView({
       <TreatmentForm
         products={products}
         onSubmit={handleSubmit}
+        searchFn={searchFn}
       />
     </div>
   );

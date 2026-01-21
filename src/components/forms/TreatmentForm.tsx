@@ -40,6 +40,8 @@ interface TreatmentFormProps {
     treatmentDate: string,
     items: TreatmentItemData[]
   ) => Promise<{ success: boolean; error?: { message: string } }>;
+  /** 환자 검색 함수 (Preview에서 mock 주입용) */
+  searchFn?: (query: string) => Promise<{ success: boolean; data?: string[] }>;
 }
 
 /**
@@ -48,6 +50,7 @@ interface TreatmentFormProps {
 export function TreatmentForm({
   products,
   onSubmit,
+  searchFn = searchHospitalPatientsAction,
 }: TreatmentFormProps): React.ReactElement {
   const [isPending, startTransition] = useTransition();
   const [selectedProduct, setSelectedProduct] = useState<ProductForTreatment | null>(null);
@@ -69,7 +72,7 @@ export function TreatmentForm({
     handlePatientSelect,
     reset: resetPatientSearch,
   } = usePatientSearch({
-    searchFn: searchHospitalPatientsAction,
+    searchFn,
   });
 
   const {

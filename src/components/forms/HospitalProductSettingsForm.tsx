@@ -25,7 +25,14 @@ import {
 import type { AliasFilter, ActiveFilter } from './hospital-product';
 import type { HospitalKnownProduct } from '@/types/api.types';
 
-export function HospitalProductSettingsForm(): React.ReactElement {
+interface HospitalProductSettingsFormProps {
+  /** Preview 모드 여부 (true면 초기 데이터 로드 스킵) */
+  isPreview?: boolean;
+}
+
+export function HospitalProductSettingsForm({
+  isPreview = false,
+}: HospitalProductSettingsFormProps): React.ReactElement {
   // 제품 목록 상태
   const [products, setProducts] = useState<HospitalKnownProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<HospitalKnownProduct | null>(null);
@@ -83,8 +90,12 @@ export function HospitalProductSettingsForm(): React.ReactElement {
   }, [debouncedSearch, aliasFilter, activeFilter]);
 
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    if (!isPreview) {
+      loadProducts();
+    } else {
+      setIsLoading(false);
+    }
+  }, [loadProducts, isPreview]);
 
   // ============================================================================
   // 제품 선택 시 폼 초기화

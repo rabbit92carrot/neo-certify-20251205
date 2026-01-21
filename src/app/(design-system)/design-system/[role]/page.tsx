@@ -216,16 +216,17 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
     return injectPreviewData(basePageMap, role);
   }, [basePageMap, role]);
 
-  // 컴포넌트 ID로 해당 showcase 노드 ID 찾기
+  // 컴포넌트 ID와 현재 페이지로 해당 showcase 노드 ID 찾기
   const findShowcaseNodeId = useCallback(
-    (componentId: string): string | null => {
-      if (!pageMapWithPreviews) {
+    (componentId: string, pageId: string | null): string | null => {
+      if (!pageMapWithPreviews || !pageId) {
         return null;
       }
 
       const showcaseNode = pageMapWithPreviews.nodes.find(
         (node) =>
           node.type === 'component-showcase' &&
+          node.id.startsWith(`${pageId}-showcase-`) && // 현재 페이지의 showcase만
           (node.data as ComponentShowcaseData).showcase.id === componentId
       );
 
@@ -237,14 +238,14 @@ export default function RolePageMapPage({ params }: RolePageProps): React.ReactE
   // 상세패널에서 컴포넌트 클릭 시 해당 showcase로 포커싱
   const handleComponentClick = useCallback(
     (catalogId: string) => {
-      const showcaseNodeId = findShowcaseNodeId(catalogId);
+      const showcaseNodeId = findShowcaseNodeId(catalogId, detailPanelData?.pageId ?? null);
       if (showcaseNodeId) {
         setSelectedPageId(showcaseNodeId);
         setFocusKey((prev) => prev + 1);
         // 패널은 열린 상태로 유지, NavigationHandler가 자동으로 fitView 실행
       }
     },
-    [findShowcaseNodeId]
+    [findShowcaseNodeId, detailPanelData?.pageId]
   );
 
   // 로딩 상태
