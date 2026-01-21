@@ -8,6 +8,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { LOGIN_PATH } from '@/constants/routes';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('useAuth');
 import type { User } from '@supabase/supabase-js';
 import type { Organization, ManufacturerSettings } from '@/types/api.types';
 
@@ -95,7 +98,7 @@ export function useAuth(): UseAuthReturn {
         setManufacturerSettings(null);
       }
     } catch (error) {
-      console.error('Error fetching user:', error);
+      logger.error('Error fetching user:', error);
       setUser(null);
       setOrganization(null);
       setManufacturerSettings(null);
@@ -120,7 +123,7 @@ export function useAuth(): UseAuthReturn {
       // 로그인 페이지로 이동 (hard navigation)
       window.location.href = LOGIN_PATH;
     } catch (error) {
-      console.error('Error signing out:', error);
+      logger.error('Error signing out:', error);
       // 오류가 발생해도 로그인 페이지로 이동
       window.location.href = LOGIN_PATH;
     }
