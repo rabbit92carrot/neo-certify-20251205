@@ -4,6 +4,9 @@ import type {
   RoleType,
 } from '@/components/design-system/types';
 import { manufacturerComponentCatalog, manufacturerPageComponents } from './manufacturer';
+import { distributorComponentCatalog, distributorPageComponents } from './distributor';
+import { hospitalComponentCatalog, hospitalPageComponents } from './hospital';
+import { adminComponentCatalog, adminPageComponents } from './admin';
 
 /**
  * 역할별 컴포넌트 카탈로그
@@ -13,9 +16,9 @@ export const COMPONENT_CATALOGS: Record<
   Record<string, ComponentShowcaseConfig>
 > = {
   manufacturer: manufacturerComponentCatalog,
-  distributor: {}, // TODO: 구현 예정
-  hospital: {}, // TODO: 구현 예정
-  admin: {}, // TODO: 구현 예정
+  distributor: distributorComponentCatalog,
+  hospital: hospitalComponentCatalog,
+  admin: adminComponentCatalog,
 };
 
 /**
@@ -24,9 +27,9 @@ export const COMPONENT_CATALOGS: Record<
  */
 export const PAGE_COMPONENTS: Record<RoleType, Record<string, string[]>> = {
   manufacturer: manufacturerPageComponents,
-  distributor: {}, // TODO: 구현 예정
-  hospital: {}, // TODO: 구현 예정
-  admin: {}, // TODO: 구현 예정
+  distributor: distributorPageComponents,
+  hospital: hospitalPageComponents,
+  admin: adminPageComponents,
 };
 
 /**
