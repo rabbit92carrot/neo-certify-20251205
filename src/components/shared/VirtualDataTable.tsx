@@ -307,7 +307,7 @@ export function VirtualDataTable<T>({
       {/* 추가 로딩 표시 */}
       {isLoading && data.length > 0 && (
         <div className="py-4 border-t">
-          <LoadingSpinner size="sm" text="더 불러오는 중..." />
+          <LoadingSpinner size="sm" text="더 불러오는 중…" />
         </div>
       )}
     </div>

@@ -47,7 +47,7 @@ export function LogoutButton({
       disabled={isLoading}
       className={className}
     >
-      {isLoading ? '로그아웃 중...' : '로그아웃'}
+      {isLoading ? '로그아웃 중…' : '로그아웃'}
     </Button>
   );
 }

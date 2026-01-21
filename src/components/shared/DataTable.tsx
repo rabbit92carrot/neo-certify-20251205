@@ -245,7 +245,7 @@ export function DataTable<T>({
       {/* 추가 로딩 표시 */}
       {isLoadingMore && (
         <div className="py-4 border-t">
-          <LoadingSpinner size="sm" text="더 불러오는 중..." />
+          <LoadingSpinner size="sm" text="더 불러오는 중…" />
         </div>
       )}
     </div>

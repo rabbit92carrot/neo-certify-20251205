@@ -304,6 +304,7 @@ export function RegisterForm(): React.ReactElement {
                 <FormControl>
                   <Input
                     placeholder="010-0000-0000"
+                    autoComplete="tel"
                     disabled={isLoading}
                     {...field}
                   />
@@ -334,9 +335,10 @@ export function RegisterForm(): React.ReactElement {
 
           {/* 사업자등록증 파일 업로드 */}
           <FormItem>
-            <FormLabel>사업자등록증 *</FormLabel>
+            <FormLabel htmlFor="business-registration">사업자등록증 *</FormLabel>
             <FormControl>
               <Input
+                id="business-registration"
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileChange}
@@ -350,7 +352,7 @@ export function RegisterForm(): React.ReactElement {
           </FormItem>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? '가입 처리 중...' : '회원가입'}
+            {isLoading ? '가입 처리 중…' : '회원가입'}
           </Button>
         </form>
       </Form>

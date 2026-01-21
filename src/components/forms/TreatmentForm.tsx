@@ -221,7 +221,7 @@ export function TreatmentForm({
                         {isSearching && (
                           <div className="flex items-center justify-center py-3 gap-2 text-sm text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            검색 중...
+                            검색 중…
                           </div>
                         )}
                         {patientSuggestions.length > 0 && (

@@ -124,7 +124,7 @@ export function LoginForm(): React.ReactElement {
           />
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? '로그인 중...' : '로그인'}
+            {isLoading ? '로그인 중…' : '로그인'}
           </Button>
         </form>
       </Form>
