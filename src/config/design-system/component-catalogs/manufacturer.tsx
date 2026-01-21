@@ -1,11 +1,16 @@
 import { useState, useMemo } from 'react';
 import type { ComponentShowcaseConfig, ComponentVariant } from '@/components/design-system/types';
+import { cn } from '@/lib/utils';
 import { StatCard } from '@/components/shared/StatCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ProductCard } from '@/components/shared/ProductCard';
+import { QuantityInputPanel } from '@/components/shared/QuantityInputPanel';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -34,6 +39,12 @@ import {
   HelpCircle,
   Check,
   ChevronsUpDown,
+  Filter,
+  Calendar,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Command,
@@ -63,6 +74,45 @@ interface ProductWithInventory extends Product {
  * 각 컴포넌트의 variants와 props 문서화
  */
 export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfig> = {
+  'page-header': {
+    id: 'page-header',
+    name: 'PageHeader',
+    category: 'shared',
+    description: '페이지 상단에 제목과 설명, 액션 버튼을 표시하는 헤더',
+    storybookPath: 'shared-layout-pageheader',
+    Component: function PageHeaderDemo({ variant }: { variant?: ComponentVariant }) {
+      if (variant?.id === 'with-action') {
+        return (
+          <div className="w-[600px]">
+            <PageHeader
+              title="제품 관리"
+              description="제품을 등록하고 관리합니다."
+              actions={<Button size="sm"><Plus className="h-4 w-4 mr-1" />제품 추가</Button>}
+            />
+          </div>
+        );
+      }
+      return (
+        <div className="w-[600px]">
+          <PageHeader
+            title="재고 조회"
+            description="제품별 재고 현황을 확인합니다."
+          />
+        </div>
+      );
+    },
+    variants: [
+      { id: 'default', name: '기본', description: '제목과 설명만 있는 헤더', props: {} },
+      { id: 'with-action', name: '액션 버튼', description: '우측에 액션 버튼이 있는 헤더', props: {} },
+    ],
+    props: [
+      { name: 'title', type: 'string', required: true, description: '페이지 제목' },
+      { name: 'description', type: 'string', required: false, description: '페이지 설명' },
+      { name: 'actions', type: 'ReactNode', required: false, description: '우측 액션 버튼 영역' },
+      { name: 'className', type: 'string', required: false, description: '추가 CSS 클래스' },
+    ],
+  },
+
   'stat-card': {
     id: 'stat-card',
     name: 'StatCard',
@@ -299,48 +349,226 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
     id: 'lot-form',
     name: 'LotForm',
     category: 'forms',
-    description: '생산 로트 등록 폼',
+    description: '생산 로트 등록 폼 (제품 선택 + 생산 정보)',
     storybookPath: 'forms-manufacturer-lotform',
-    Component: function LotFormDemo() {
+    Component: function LotFormDemo({ variant }: { variant?: ComponentVariant }) {
+      // full-layout: 실제 2열 레이아웃
+      if (variant?.id === 'full-layout') {
+        return (
+          <div className="w-[900px] flex gap-6">
+            {/* 좌측: ProductSelector (펼쳐진 아코디언) */}
+            <div className="flex-1">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">제품 선택</CardTitle>
+                  <p className="text-sm text-muted-foreground">제품군을 선택한 후 모델을 선택하세요</p>
+                </CardHeader>
+                <CardContent>
+                  {/* 검색 */}
+                  <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="제품명 또는 모델명 검색..." className="pl-9" />
+                  </div>
+                  {/* 아코디언 (1개 그룹 펼침, 나머지 접힘) */}
+                  <div className="space-y-2">
+                    {/* 펼쳐진 그룹 */}
+                    <div className="border rounded-lg px-3">
+                      <div className="flex items-center justify-between py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">PDO Thread Alpha</span>
+                          <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">2개</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </div>
+                      <div className="border-t pb-3 grid grid-cols-2 gap-2 pt-3">
+                        <div className="p-3 rounded-lg border border-primary bg-primary/5 ring-2 ring-primary">
+                          <p className="font-medium text-sm">PDO-100</p>
+                          <p className="text-xs text-muted-foreground">UDI-001</p>
+                          <Check className="h-4 w-4 text-primary mt-1" />
+                        </div>
+                        <div className="p-3 rounded-lg border hover:bg-gray-50">
+                          <p className="font-medium text-sm">PDO-200</p>
+                          <p className="text-xs text-muted-foreground">UDI-002</p>
+                        </div>
+                      </div>
+                    </div>
+                    {/* 접힌 그룹들 */}
+                    <div className="border rounded-lg px-3">
+                      <div className="flex items-center justify-between py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">PDO Thread Beta</span>
+                          <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">1개</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4" />
+                      </div>
+                    </div>
+                    <div className="border rounded-lg px-3">
+                      <div className="flex items-center justify-between py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">Cog Thread</span>
+                          <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">2개</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+                  {/* 푸터 */}
+                  <div className="text-xs text-muted-foreground text-center pt-4 border-t mt-4">
+                    3개 제품군 · 총 5개 제품
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 우측: 생산 정보 폼 */}
+            <div className="w-[40%]">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">생산 정보</CardTitle>
+                  <p className="text-sm text-muted-foreground">생산 수량 및 일자를 입력하세요</p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* 선택된 제품 */}
+                  <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-full p-1.5 bg-primary text-primary-foreground shrink-0">
+                        <Check className="h-3 w-3" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">PDO Thread Alpha</p>
+                        <p className="text-xs text-muted-foreground truncate">PDO-100</p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 폼 필드들 */}
+                  <div className="space-y-3">
+                    <div>
+                      <Label>수량 *</Label>
+                      <Input type="number" placeholder="생산 수량 (1 ~ 100,000)" className="mt-1" />
+                      <p className="text-xs text-muted-foreground mt-1">최대 100,000개까지 입력 가능합니다.</p>
+                    </div>
+                    <div>
+                      <Label>생산일자 *</Label>
+                      <Input type="date" defaultValue="2024-01-20" className="mt-1" />
+                    </div>
+                    <div>
+                      <Label>사용기한 *</Label>
+                      <Input type="date" defaultValue="2026-01-19" className="mt-1" />
+                      <p className="text-xs text-muted-foreground mt-1">기본값: 생산일자 + 24개월</p>
+                    </div>
+                    <Button className="w-full">생산 등록</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+      }
+
+      // with-selection: 제품 선택된 상태 (우측 폼만)
+      if (variant?.id === 'with-selection') {
+        return (
+          <Card className="w-[400px]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">생산 정보</CardTitle>
+              <p className="text-sm text-muted-foreground">생산 수량 및 일자를 입력하세요</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-full p-1.5 bg-primary text-primary-foreground shrink-0">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">PDO Thread Alpha</p>
+                    <p className="text-xs text-muted-foreground truncate">PDO-100</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <Label>수량 *</Label>
+                  <Input type="number" defaultValue="1000" className="mt-1" />
+                </div>
+                <div>
+                  <Label>생산일자 *</Label>
+                  <Input type="date" defaultValue="2024-01-20" className="mt-1" />
+                </div>
+                <div>
+                  <Label>사용기한 *</Label>
+                  <Input type="date" defaultValue="2026-01-19" className="mt-1" />
+                </div>
+                <Button className="w-full">생산 등록</Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }
+
+      // success: 등록 완료
+      if (variant?.id === 'success') {
+        return (
+          <div className="w-[400px] space-y-4">
+            <div className="p-4 rounded-md bg-green-50 border border-green-200">
+              <p className="text-green-800 font-medium">생산 등록이 완료되었습니다!</p>
+              <p className="text-green-700 text-sm mt-1">
+                Lot 번호: <span className="font-mono font-semibold">LOT-20240120-001</span>
+              </p>
+            </div>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">생산 정보</CardTitle>
+                <p className="text-sm text-muted-foreground">제품을 먼저 선택해주세요</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 opacity-50">
+                  <div>
+                    <Label>수량 *</Label>
+                    <Input disabled placeholder="생산 수량" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>생산일자 *</Label>
+                    <Input type="date" disabled className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>사용기한 *</Label>
+                    <Input type="date" disabled className="mt-1" />
+                  </div>
+                  <Button disabled className="w-full">생산 등록</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+
+      // default: 개요
       return (
         <Card className="w-[400px]">
           <CardHeader>
-            <CardTitle className="text-lg">생산 등록</CardTitle>
+            <CardTitle className="text-sm">LotForm</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>제품 선택</Label>
-              <Select defaultValue="pt-cog">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pt-cog">PT-COG-19G-100</SelectItem>
-                  <SelectItem value="pt-mono">PT-MONO-23G-60</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>수량</Label>
-              <Input type="number" defaultValue="100" />
-            </div>
-            <div className="space-y-2">
-              <Label>유효기간</Label>
-              <Input type="date" defaultValue="2025-12-31" />
-            </div>
+          <CardContent className="text-sm text-muted-foreground space-y-2">
+            <p>생산 로트 등록을 위한 폼입니다.</p>
+            <ul className="list-disc list-inside text-xs space-y-1">
+              <li>좌측: ProductSelector (아코디언 제품 선택)</li>
+              <li>우측: 생산 정보 입력 (수량, 생산일자, 사용기한)</li>
+              <li>제품 선택 시 우측 폼 활성화</li>
+              <li>생산일자 변경 시 사용기한 자동 계산</li>
+            </ul>
           </CardContent>
-          <CardFooter>
-            <Button className="w-full">생산 등록</Button>
-          </CardFooter>
         </Card>
       );
     },
     variants: [
-      { id: 'default', name: '기본', description: '생산 등록 폼', props: {} },
+      { id: 'default', name: '개요', description: '폼 구조 요약', props: {} },
+      { id: 'full-layout', name: '전체 레이아웃', description: '2열 레이아웃 (ProductSelector + 생산 정보)', props: {} },
+      { id: 'with-selection', name: '제품 선택됨', description: '제품 선택 후 폼 입력 가능 상태', props: {} },
+      { id: 'success', name: '등록 완료', description: '성공 메시지 표시', props: {} },
     ],
     props: [
       { name: 'products', type: 'Product[]', required: true, description: '선택 가능한 제품 목록' },
-      { name: 'onSuccess', type: '() => void', required: false, description: '성공 콜백' },
+      { name: 'settings', type: 'ManufacturerSettings', required: false, description: '제조사 설정 (사용기한 계산용)' },
     ],
   },
 
@@ -503,63 +731,115 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
     id: 'inventory-table',
     name: 'InventoryTable',
     category: 'tables',
-    description: '재고 현황 테이블',
+    description: '재고 현황 테이블 (Card 아코디언 스타일, 클릭 시 Lot 상세 확장)',
     storybookPath: 'tables-shared-inventorytable',
     Component: function InventoryTableDemo({ variant }: { variant?: ComponentVariant }) {
-      const isLoading = variant?.id === 'loading';
       const isEmpty = variant?.id === 'empty';
-      const items = [
-        { product: 'PT-COG-19G-100', total: 5000, available: 4800, reserved: 200 },
-        { product: 'PT-MONO-23G-60', total: 3000, available: 2900, reserved: 100 },
-        { product: 'PT-SCREW-21G-90', total: 2000, available: 2000, reserved: 0 },
+      const isExpanded = variant?.id === 'expanded';
+
+      if (isEmpty) {
+        return (
+          <div className="w-[600px] p-8 text-center text-gray-500 border rounded-lg">
+            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p>재고 데이터가 없습니다</p>
+          </div>
+        );
+      }
+
+      const products = [
+        {
+          name: 'PDO Thread COG 19G-100mm',
+          model: 'PT-COG-19G-100',
+          udi: 'UDI-2024-001',
+          total: 5000,
+          lots: [
+            { lotNumber: 'ND12345-240115', mfgDate: '2024-01-15', expiryDate: '2025-01-15', qty: 3000 },
+            { lotNumber: 'ND12345-240110', mfgDate: '2024-01-10', expiryDate: '2024-02-10', qty: 2000, expirySoon: true },
+          ],
+        },
+        {
+          name: 'PDO Thread MONO 23G-60mm',
+          model: 'PT-MONO-23G-60',
+          udi: 'UDI-2024-002',
+          total: 3000,
+          lots: [
+            { lotNumber: 'ND12346-240112', mfgDate: '2024-01-12', expiryDate: '2025-01-12', qty: 3000 },
+          ],
+        },
+        {
+          name: 'PDO Thread SCREW 21G-90mm',
+          model: 'PT-SCREW-21G-90',
+          udi: 'UDI-2024-003',
+          total: 2000,
+          lots: [
+            { lotNumber: 'ND12347-240108', mfgDate: '2024-01-08', expiryDate: '2025-01-08', qty: 2000 },
+          ],
+        },
       ];
+
       return (
-        <div className="w-[600px] border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>제품</TableHead>
-                <TableHead className="text-right">총 재고</TableHead>
-                <TableHead className="text-right">가용</TableHead>
-                <TableHead className="text-right">예약</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
-                    로딩 중...
-                  </TableCell>
-                </TableRow>
-              ) : isEmpty ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                    재고 데이터가 없습니다
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.product}>
-                    <TableCell className="font-medium">{item.product}</TableCell>
-                    <TableCell className="text-right">{item.total.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-green-600">{item.available.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-orange-600">{item.reserved.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))
+        <div className="w-[600px] space-y-3">
+          {products.map((product, i) => (
+            <Card key={i}>
+              <CardHeader className="cursor-pointer py-3">
+                <div className="flex items-center gap-3">
+                  {isExpanded && i === 0 ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <Package className="h-4 w-4 text-gray-400" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium">{product.name}</span>
+                    <div className="text-xs text-muted-foreground">
+                      {product.model} · UDI: {product.udi}
+                    </div>
+                  </div>
+                  <Badge variant="secondary">{product.total.toLocaleString()}개</Badge>
+                </div>
+              </CardHeader>
+              {isExpanded && i === 0 && (
+                <CardContent className="pt-0 border-t">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Lot 번호</TableHead>
+                        <TableHead>제조일자</TableHead>
+                        <TableHead>유효기한</TableHead>
+                        <TableHead className="text-right">수량</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {product.lots.map((lot, j) => (
+                        <TableRow key={j}>
+                          <TableCell className="font-mono text-sm">{lot.lotNumber}</TableCell>
+                          <TableCell>{lot.mfgDate}</TableCell>
+                          <TableCell className="flex items-center gap-2">
+                            {lot.expiryDate}
+                            {lot.expirySoon && (
+                              <Badge variant="destructive" className="text-xs">임박</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{lot.qty.toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
               )}
-            </TableBody>
-          </Table>
+            </Card>
+          ))}
         </div>
       );
     },
     variants: [
-      { id: 'default', name: '기본', description: '재고 목록 표시', props: {} },
-      { id: 'empty', name: '데이터 없음', description: '빈 상태', props: { variant: 'empty' } },
-      { id: 'loading', name: '로딩', description: '로딩 상태', props: { variant: 'loading' } },
+      { id: 'default', name: '기본', description: '접힌 상태의 Card 목록', props: {} },
+      { id: 'expanded', name: '카드 펼침', description: 'Lot별 상세 테이블 표시', props: {} },
+      { id: 'empty', name: '빈 상태', description: '재고 없음', props: {} },
     ],
     props: [
-      { name: 'inventory', type: 'InventoryItem[]', required: true, description: '재고 목록' },
-      { name: 'onItemClick', type: '(item) => void', required: false, description: '아이템 클릭 핸들러' },
+      { name: 'summaries', type: 'InventorySummary[]', required: true, description: '재고 요약 목록' },
+      { name: 'getDetail', type: '(productId) => Promise<Detail>', required: true, description: 'Lot 상세 조회 액션' },
     ],
   },
 
@@ -567,66 +847,118 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
     id: 'transaction-history-table',
     name: 'TransactionHistoryTable',
     category: 'tables',
-    description: '거래 이력 테이블',
+    description: '거래 이력 테이블 (Card 아코디언 스타일, 제품 확장 시 코드 목록)',
     storybookPath: 'tables-shared-transactionhistorytable',
     Component: function TransactionHistoryTableDemo({ variant }: { variant?: ComponentVariant }) {
-      const isLoading = variant?.id === 'loading';
       const isEmpty = variant?.id === 'empty';
-      const items = [
-        { type: '출고', target: '(주)메디칼서플라이', quantity: 100, date: '2024.01.15 14:30' },
-        { type: '생산', target: '-', quantity: 500, date: '2024.01.14 09:00' },
-        { type: '출고', target: '강남의료센터', quantity: 50, date: '2024.01.13 16:45' },
+      const isExpanded = variant?.id === 'expanded';
+
+      if (isEmpty) {
+        return (
+          <div className="w-[600px] p-8 text-center text-gray-500 border rounded-lg">
+            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p>거래 이력이 없습니다</p>
+          </div>
+        );
+      }
+
+      const getTypeIcon = (type: string): React.ReactNode => {
+        switch (type) {
+          case '생산': return <Package className="h-4 w-4" />;
+          case '출고': return <TrendingUp className="h-4 w-4" />;
+          default: return <Package className="h-4 w-4" />;
+        }
+      };
+
+      const transactions = [
+        {
+          type: '출고',
+          from: '테스트제조사',
+          to: '(주)메디칼서플라이',
+          date: '2024.01.15 14:30',
+          totalQty: 100,
+          products: [
+            { name: 'PDO Thread COG 19G-100mm', qty: 60 },
+            { name: 'PDO Thread MONO 23G-60mm', qty: 40 },
+          ],
+        },
+        {
+          type: '생산',
+          from: '-',
+          to: '테스트제조사',
+          date: '2024.01.14 09:00',
+          totalQty: 500,
+          products: [
+            { name: 'PDO Thread COG 19G-100mm', qty: 500 },
+          ],
+        },
+        {
+          type: '출고',
+          from: '테스트제조사',
+          to: '강남의료센터',
+          date: '2024.01.13 16:45',
+          totalQty: 50,
+          products: [
+            { name: 'PDO Thread SCREW 21G-90mm', qty: 50 },
+          ],
+        },
       ];
+
       return (
-        <div className="w-[600px] border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>유형</TableHead>
-                <TableHead>대상</TableHead>
-                <TableHead className="text-right">수량</TableHead>
-                <TableHead>일시</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
-                    로딩 중...
-                  </TableCell>
-                </TableRow>
-              ) : isEmpty ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                    거래 이력이 없습니다
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((item, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <Badge variant={item.type === '출고' ? 'default' : 'secondary'}>{item.type}</Badge>
-                    </TableCell>
-                    <TableCell>{item.target}</TableCell>
-                    <TableCell className="text-right">{item.quantity}개</TableCell>
-                    <TableCell className="text-gray-500 text-sm">{item.date}</TableCell>
-                  </TableRow>
-                ))
+        <div className="w-[600px] space-y-3">
+          {transactions.map((tx, i) => (
+            <Card key={i}>
+              <CardHeader className="cursor-pointer py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {isExpanded && i === 0 ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    {getTypeIcon(tx.type)}
+                    <Badge variant={tx.type === '출고' ? 'default' : 'secondary'}>{tx.type}</Badge>
+                    <span className="text-sm text-muted-foreground">{tx.date}</span>
+                  </div>
+                  <Badge variant="outline">{tx.totalQty}개</Badge>
+                </div>
+                {tx.type !== '생산' && (
+                  <div className="flex items-center gap-2 mt-2 text-sm ml-7">
+                    <span className="text-muted-foreground">{tx.from}</span>
+                    <ChevronRight className="h-3 w-3" />
+                    <span>{tx.to}</span>
+                  </div>
+                )}
+              </CardHeader>
+              {isExpanded && i === 0 && (
+                <CardContent className="pt-0 border-t">
+                  <div className="space-y-2 py-2">
+                    {tx.products.map((product, j) => (
+                      <div key={j} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{product.name}</span>
+                        </div>
+                        <Badge variant="secondary">{product.qty}개</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
               )}
-            </TableBody>
-          </Table>
+            </Card>
+          ))}
         </div>
       );
     },
     variants: [
-      { id: 'default', name: '기본', description: '거래 이력 표시', props: {} },
-      { id: 'empty', name: '데이터 없음', description: '빈 상태', props: { variant: 'empty' } },
-      { id: 'loading', name: '로딩', description: '로딩 상태', props: { variant: 'loading' } },
+      { id: 'default', name: '기본', description: '접힌 상태의 Card 목록', props: {} },
+      { id: 'expanded', name: '제품 펼침', description: '제품 목록 확장', props: {} },
+      { id: 'empty', name: '빈 상태', description: '거래 이력 없음', props: {} },
     ],
     props: [
-      { name: 'history', type: 'Transaction[]', required: true, description: '거래 이력' },
-      { name: 'hasMore', type: 'boolean', required: false, description: '추가 데이터 여부' },
-      { name: 'onLoadMore', type: '() => void', required: false, description: '더 로드 핸들러' },
+      { name: 'histories', type: 'TransactionHistorySummary[]', required: true, description: '거래 이력' },
+      { name: 'currentOrgId', type: 'string', required: true, description: '현재 조직 ID' },
+      { name: 'showReturnButton', type: 'boolean', required: false, description: '반품 버튼 표시 여부' },
     ],
   },
 
@@ -892,8 +1224,89 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
     category: 'forms',
     description: '제품 비활성화 확인 다이얼로그',
     storybookPath: 'forms-manufacturer-productdeactivatedialog',
-    Component: function ProductDeactivateDialogDemo() {
-      // Dialog 대신 Card로 내부 콘텐츠 재현 (모달 포탈 방지)
+    Component: function ProductDeactivateDialogDemo({ variant }: { variant?: ComponentVariant }) {
+      // 펼쳐진 상태 - Select 대신 옵션 목록을 직접 표시 (Badge 색상 포함)
+      if (variant?.id === 'expanded') {
+        return (
+          <Card className="w-[500px]">
+            <CardHeader>
+              <CardTitle className="text-lg">제품 비활성화</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold">PDO Thread Alpha (PT-COG-19G-100)</span> 제품을 비활성화합니다.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 비활성화 사유 선택 - 펼쳐진 상태 */}
+              <div className="space-y-2">
+                <Label>
+                  비활성화 사유 <span className="text-red-500">*</span>
+                </Label>
+
+                {/* Select Trigger (열린 상태 시뮬레이션) */}
+                <div className="flex items-center justify-between h-10 px-3 border rounded-md bg-gray-50">
+                  <span className="text-sm text-muted-foreground">사유를 선택하세요</span>
+                  <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+                </div>
+
+                {/* 펼쳐진 옵션 목록 - Badge 색상 포함 */}
+                <div className="border rounded-md shadow-md bg-white p-1">
+                  {/* SAFETY_ISSUE - destructive (빨강) */}
+                  <div className="px-3 py-2 hover:bg-blue-50 rounded cursor-pointer flex items-center gap-2">
+                    <AlertOctagon className="h-4 w-4 text-red-500" />
+                    <span className="flex-1">안전 문제</span>
+                    <Badge variant="destructive">위험</Badge>
+                  </div>
+
+                  {/* QUALITY_ISSUE - default (파랑) - 선택됨 */}
+                  <div className="px-3 py-2 bg-blue-50 rounded cursor-pointer flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+                    <span className="flex-1">품질 문제</span>
+                    <Badge variant="default">품질</Badge>
+                    <Check className="h-4 w-4 text-primary" />
+                  </div>
+
+                  {/* DISCONTINUED - secondary (회색) */}
+                  <div className="px-3 py-2 hover:bg-blue-50 rounded cursor-pointer flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gray-500" />
+                    <span className="flex-1">생산 중단</span>
+                    <Badge variant="secondary">중단</Badge>
+                  </div>
+
+                  {/* OTHER - outline (테두리만) */}
+                  <div className="px-3 py-2 hover:bg-blue-50 rounded cursor-pointer flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 text-blue-500" />
+                    <span className="flex-1">기타</span>
+                    <Badge variant="outline">기타</Badge>
+                  </div>
+                </div>
+
+                {/* 선택된 사유 설명 */}
+                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                  품질 문제가 발견된 제품입니다. 해당 제품이 사용될 경우 관리자와 제조사에 알림이 전송됩니다.
+                </p>
+              </div>
+
+              {/* 상세 메모 */}
+              <div className="space-y-2">
+                <Label>상세 사유 (선택)</Label>
+                <Textarea placeholder="추가적인 비활성화 사유를 입력하세요..." rows={3} />
+              </div>
+
+              {/* 경고 메시지 */}
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm text-amber-800">
+                <strong>주의:</strong> 비활성화된 제품은 생산 등록 목록에서 표시되지 않습니다. 기존 재고는 계속 사용
+                가능하며, 사용 시 관리자에게 알림이 전송됩니다. 필요 시 다시 활성화할 수 있습니다.
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Button variant="outline">취소</Button>
+              <Button variant="destructive">비활성화</Button>
+            </CardFooter>
+          </Card>
+        );
+      }
+
+      // 기본 상태 - Dialog 대신 Card로 내부 콘텐츠 재현 (모달 포탈 방지)
       return (
         <Card className="w-[500px]">
           <CardHeader>
@@ -964,7 +1377,8 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
       );
     },
     variants: [
-      { id: 'default', name: '기본', description: '제품 비활성화 다이얼로그 (Card 형태)', props: {} },
+      { id: 'default', name: '기본', description: '다이얼로그 기본 상태 (Select 닫힘)', props: {} },
+      { id: 'expanded', name: '사유 선택 펼침', description: '모든 비활성화 사유 옵션 표시 (Badge 색상 포함)', props: {} },
     ],
     props: [
       { name: 'product', type: 'Product', required: true, description: '비활성화할 제품' },
@@ -991,6 +1405,7 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
         { id: 'prod-5', name: 'Cog Thread', model_name: 'Cog-100', udi_di: 'UDI-005', organization_id: 'org-1', is_active: true, created_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-20T00:00:00Z', deactivated_at: null, deactivation_reason: null, deactivation_note: null },
       ];
 
+      // empty 상태
       if (variant?.id === 'empty') {
         return (
           <div className="w-[450px]">
@@ -999,6 +1414,94 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
         );
       }
 
+      // expanded 상태 (아코디언 펼침 시뮬레이션)
+      if (variant?.id === 'expanded') {
+        // 제품군별 그룹화
+        const grouped = mockProducts.reduce((acc, p) => {
+          const group = acc[p.name] ?? [];
+          group.push(p);
+          acc[p.name] = group;
+          return acc;
+        }, {} as Record<string, Product[]>);
+
+        return (
+          <Card className="w-[450px]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">제품 선택</CardTitle>
+              <p className="text-sm text-muted-foreground">제품군을 선택한 후 모델을 선택하세요</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 검색 입력 */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="제품명 또는 모델명 검색..." className="pl-9" />
+              </div>
+
+              {/* 펼쳐진 아코디언 UI */}
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 -mr-2">
+                {Object.entries(grouped).map(([productName, prods]) => (
+                  <div key={productName} className="border rounded-lg px-3">
+                    {/* Trigger (펼쳐진 상태 - ChevronDown) */}
+                    <div className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{productName}</span>
+                        <span className="text-xs text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">
+                          {prods.length}개
+                        </span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </div>
+                    {/* Content (항상 표시) */}
+                    <div className="border-t pb-3">
+                      <div className="grid grid-cols-2 gap-2 pt-3">
+                        {prods.map((p) => (
+                          <div
+                            key={p.id}
+                            className={cn(
+                              'cursor-pointer rounded-lg border p-2.5 transition-all duration-200',
+                              'hover:border-primary hover:shadow-sm',
+                              selected === p.id && 'border-primary ring-2 ring-primary/20 bg-primary/5'
+                            )}
+                            onClick={() => setSelected(p.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              {/* 원형 아이콘 선택 인디케이터 */}
+                              <div className={cn(
+                                'rounded-full p-1 shrink-0 transition-colors',
+                                selected === p.id
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-gray-100 text-gray-600'
+                              )}>
+                                {selected === p.id
+                                  ? <Check className="h-3 w-3" />
+                                  : <Package className="h-3 w-3" />}
+                              </div>
+                              {/* 텍스트 영역 */}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{p.model_name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  UDI: {p.udi_di}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 푸터 */}
+              <div className="text-xs text-muted-foreground text-center pt-2 border-t">
+                {Object.keys(grouped).length}개 제품군 · 총 {mockProducts.length}개 제품
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }
+
+      // collapsed 상태 (기본 - 실제 컴포넌트 사용)
       return (
         <div className="w-[450px]">
           <ProductSelector
@@ -1010,7 +1513,8 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
       );
     },
     variants: [
-      { id: 'default', name: '제품 있음', description: '제품 목록이 있는 상태 (아코디언 그룹핑)', props: {} },
+      { id: 'collapsed', name: '접힌 상태', description: '아코디언이 접힌 기본 상태', props: {} },
+      { id: 'expanded', name: '펼쳐진 상태', description: '아코디언이 펼쳐져 ModelCard 표시', props: {} },
       { id: 'empty', name: '제품 없음', description: '빈 제품 목록', props: {} },
     ],
     props: [
@@ -1217,18 +1721,343 @@ export const manufacturerComponentCatalog: Record<string, ComponentShowcaseConfi
       { name: 'canSelectLot', type: 'boolean', required: false, defaultValue: 'false', description: 'LOT 선택 가능 여부 (제조사만 true)' },
     ],
   },
+
+  'shipment-form-wrapper': {
+    id: 'shipment-form-wrapper',
+    name: 'ShipmentFormWrapper',
+    category: 'forms',
+    description: '출고 폼 클라이언트 래퍼 (Server Action을 클라이언트 호환 형태로 변환)',
+    storybookPath: 'forms-shared-shipmentformwrapper',
+    Component: function ShipmentFormWrapperDemo() {
+      return (
+        <Card className="w-[400px]">
+          <CardHeader>
+            <CardTitle className="text-sm">ShipmentFormWrapper</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Server Action을 SearchableCombobox 호환 형태로 변환하는 클라이언트 래퍼입니다.
+              내부적으로 ShipmentForm을 렌더링합니다.
+            </p>
+            <div className="mt-4 p-3 bg-gray-50 rounded border text-xs font-mono">
+              &lt;ShipmentFormWrapper<br />
+              &nbsp;&nbsp;organizationType=&quot;MANUFACTURER&quot;<br />
+              &nbsp;&nbsp;products=&#123;products&#125;<br />
+              &nbsp;&nbsp;searchTargetsAction=&#123;searchTargets&#125;<br />
+              &nbsp;&nbsp;onSubmit=&#123;handleSubmit&#125;<br />
+              /&gt;
+            </div>
+          </CardContent>
+        </Card>
+      );
+    },
+    variants: [
+      { id: 'default', name: '설명', description: '래퍼 역할 설명', props: {} },
+    ],
+    props: [
+      { name: 'organizationType', type: 'OrganizationType', required: true, description: '조직 유형' },
+      { name: 'products', type: 'ProductWithInventory[]', required: true, description: '제품 목록' },
+      { name: 'onSubmit', type: 'function', required: true, description: '제출 핸들러' },
+      { name: 'canSelectLot', type: 'boolean', required: false, description: 'Lot 선택 가능 여부' },
+      { name: 'searchTargetsAction', type: 'function', required: true, description: '조직 검색 Server Action' },
+    ],
+  },
+
+  'product-card': {
+    id: 'product-card',
+    name: 'ProductCard',
+    category: 'shared',
+    description: '제품 선택 카드 (출고/시술 시 제품 선택용)',
+    storybookPath: 'shared-product-productcard',
+    Component: function ProductCardDemo({ variant }: { variant?: ComponentVariant }) {
+      const isSelected = variant?.id === 'selected';
+      const isDisabled = variant?.id === 'disabled';
+      return (
+        <div className="w-[200px]">
+          <ProductCard
+            name="PDO Thread Alpha"
+            modelName="PDO-100"
+            additionalInfo="재고: 500개"
+            isSelected={isSelected}
+            disabled={isDisabled}
+          />
+        </div>
+      );
+    },
+    variants: [
+      { id: 'default', name: '기본', description: '선택 가능한 제품 카드', props: {} },
+      { id: 'selected', name: '선택됨', description: '선택된 상태의 카드', props: {} },
+      { id: 'disabled', name: '비활성', description: '재고 없음 등으로 비활성화된 카드', props: {} },
+    ],
+    props: [
+      { name: 'name', type: 'string', required: true, description: '제품명' },
+      { name: 'modelName', type: 'string', required: false, description: '모델명' },
+      { name: 'additionalInfo', type: 'string', required: false, description: '추가 정보 (재고 등)' },
+      { name: 'isSelected', type: 'boolean', required: false, description: '선택 상태' },
+      { name: 'onClick', type: 'function', required: false, description: '클릭 핸들러' },
+      { name: 'disabled', type: 'boolean', required: false, description: '비활성화 여부' },
+    ],
+  },
+
+  'quantity-input-panel': {
+    id: 'quantity-input-panel',
+    name: 'QuantityInputPanel',
+    category: 'shared',
+    description: '수량 입력 패널 (출고/시술/폐기 공통)',
+    storybookPath: 'shared-form-quantityinputpanel',
+    Component: function QuantityInputPanelDemo() {
+      return (
+        <div className="w-[300px]">
+          <QuantityInputPanel
+            selectedProduct={{ productId: 'prod-1', displayName: 'PDO Thread Alpha' }}
+            availableQuantity={500}
+            quantity="10"
+            onQuantityChange={() => {}}
+            onAddToCart={() => {}}
+          />
+        </div>
+      );
+    },
+    variants: [
+      { id: 'default', name: '기본', description: '제품 선택 후 수량 입력', props: {} },
+    ],
+    props: [
+      { name: 'selectedProduct', type: 'SelectedProductInfo | null', required: true, description: '선택된 제품 정보' },
+      { name: 'availableQuantity', type: 'number', required: true, description: '가용 수량' },
+      { name: 'quantity', type: 'string', required: true, description: '입력된 수량' },
+      { name: 'onQuantityChange', type: 'function', required: true, description: '수량 변경 핸들러' },
+      { name: 'onAddToCart', type: 'function', required: true, description: '장바구니 추가 핸들러' },
+      { name: 'lotSelector', type: 'ReactNode', required: false, description: 'Lot 선택 UI (ShipmentForm용)' },
+    ],
+  },
+
+  'history-page-wrapper': {
+    id: 'history-page-wrapper',
+    name: 'HistoryPageWrapper',
+    category: 'shared',
+    description: '거래 이력 페이지 래퍼 (필터 + 페이지네이션 + 테이블)',
+    storybookPath: 'shared-page-historypageworker',
+    Component: function HistoryPageWrapperDemo() {
+      return (
+        <Card className="w-[700px]">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              필터
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 필터 행 */}
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <Label className="text-xs">시작일</Label>
+                <Button variant="outline" className="w-full justify-start text-sm mt-1">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  2024.01.17
+                </Button>
+              </div>
+              <div>
+                <Label className="text-xs">종료일</Label>
+                <Button variant="outline" className="w-full justify-start text-sm mt-1">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  2024.01.20
+                </Button>
+              </div>
+              <div>
+                <Label className="text-xs">거래 유형</Label>
+                <div className="mt-1 border rounded-md">
+                  <div className="px-3 py-2 text-sm bg-gray-50 border-b flex items-center justify-between">
+                    전체
+                    <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer">전체</div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer">출고</div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer">생산</div>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">대상</Label>
+                <div className="mt-1 border rounded-md">
+                  <div className="px-3 py-2 text-sm bg-gray-50 border-b flex items-center justify-between">
+                    전체
+                    <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer">전체</div>
+                </div>
+              </div>
+            </div>
+            {/* 달력 펼침 상태 표시 */}
+            <div className="border rounded-md p-3 bg-white shadow-sm w-[220px]">
+              <div className="flex justify-between items-center mb-2">
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium">2024년 1월</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
+                  <div key={d} className="text-muted-foreground p-1">
+                    {d}
+                  </div>
+                ))}
+                {/* 1월 달력 (1일이 월요일) */}
+                <div className="p-1"></div>
+                {Array.from({ length: 31 }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`p-1 rounded text-xs ${
+                      i + 1 === 17
+                        ? 'bg-blue-500 text-white'
+                        : i + 1 === 20
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    },
+    variants: [
+      { id: 'filter-expanded', name: '필터 펼침', description: '필터와 달력이 펼쳐진 상태', props: {} },
+    ],
+    props: [
+      { name: 'currentOrgId', type: 'string', required: true, description: '현재 조직 ID' },
+      { name: 'fetchHistoryCursor', type: 'function', required: true, description: '커서 기반 조회 함수' },
+      { name: 'actionTypeOptions', type: 'ActionTypeOption[]', required: true, description: '액션 타입 옵션' },
+      { name: 'showReturnButton', type: 'boolean', required: false, description: '반품 버튼 표시 여부' },
+    ],
+  },
+
+  'inbox-table-wrapper': {
+    id: 'inbox-table-wrapper',
+    name: 'InboxTableWrapper',
+    category: 'shared',
+    description: '알림 보관함 테이블 래퍼 (필터 + 테이블)',
+    storybookPath: 'pages-manufacturer-inboxtablewrapper',
+    Component: function InboxTableWrapperDemo() {
+      return (
+        <Card className="w-[600px]">
+          <CardContent className="space-y-4 pt-4">
+            <div className="flex items-start gap-6">
+              {/* 상태 필터 - 펼쳐진 상태 */}
+              <div className="space-y-1">
+                <span className="text-sm text-muted-foreground">상태:</span>
+                <div className="w-[120px] border rounded-md shadow-sm">
+                  <div className="px-3 py-2 text-sm bg-gray-50 border-b flex items-center justify-between">
+                    전체
+                    <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 cursor-pointer">전체</div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">안읽음</div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">읽음</div>
+                </div>
+              </div>
+              {/* 유형 필터 - 펼쳐진 상태 */}
+              <div className="space-y-1">
+                <span className="text-sm text-muted-foreground">유형:</span>
+                <div className="w-[180px] border rounded-md shadow-sm">
+                  <div className="px-3 py-2 text-sm bg-gray-50 border-b flex items-center justify-between">
+                    전체
+                    <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 cursor-pointer">전체</div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">비활성 제품 사용</div>
+                  <div className="px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">시스템 알림</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    },
+    variants: [
+      { id: 'filter-expanded', name: '필터 펼침', description: '드롭다운이 펼쳐진 상태', props: {} },
+    ],
+    props: [
+      { name: 'page', type: 'number', required: true, description: '현재 페이지' },
+      { name: 'isRead', type: 'boolean', required: false, description: '읽음 필터' },
+      { name: 'alertType', type: 'string', required: false, description: '알림 유형 필터' },
+    ],
+  },
+
+  'organization-alert-table': {
+    id: 'organization-alert-table',
+    name: 'OrganizationAlertTable',
+    category: 'tables',
+    description: '조직 알림 테이블',
+    storybookPath: 'tables-shared-organizationalerttable',
+    Component: function OrganizationAlertTableDemo({ variant }: { variant?: ComponentVariant }) {
+      const isEmpty = variant?.id === 'empty';
+      const alerts = [
+        { type: 'INACTIVE_PRODUCT_USAGE', title: '비활성 제품 사용 알림', date: '2024.01.20 14:30', unread: true },
+        { type: 'SYSTEM_NOTICE', title: '시스템 점검 안내', date: '2024.01.19 09:00', unread: false },
+      ];
+      return (
+        <div className="w-[600px] border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[40px]"><Checkbox /></TableHead>
+                <TableHead className="w-[40px]"></TableHead>
+                <TableHead className="w-[120px]">유형</TableHead>
+                <TableHead>제목</TableHead>
+                <TableHead className="w-[160px]">일시</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isEmpty ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                    알림이 없습니다
+                  </TableCell>
+                </TableRow>
+              ) : (
+                alerts.map((alert, i) => (
+                  <TableRow key={i} className={alert.unread ? 'bg-blue-50/50' : ''}>
+                    <TableCell><Checkbox /></TableCell>
+                    <TableCell>{alert.unread && <Badge className="bg-blue-500 text-[10px]">NEW</Badge>}</TableCell>
+                    <TableCell><Badge variant="outline">{alert.type === 'INACTIVE_PRODUCT_USAGE' ? '비활성 제품' : '시스템'}</Badge></TableCell>
+                    <TableCell className={alert.unread ? 'font-semibold' : ''}>{alert.title}</TableCell>
+                    <TableCell className="text-muted-foreground">{alert.date}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    },
+    variants: [
+      { id: 'default', name: '알림 있음', description: '알림 목록 표시', props: {} },
+      { id: 'empty', name: '알림 없음', description: '빈 상태', props: {} },
+    ],
+    props: [
+      { name: 'data', type: 'PaginatedResponse<OrganizationAlert>', required: true, description: '페이지네이션된 알림 데이터' },
+      { name: 'isLoading', type: 'boolean', required: true, description: '로딩 상태' },
+      { name: 'onPageChange', type: 'function', required: true, description: '페이지 변경 핸들러' },
+      { name: 'onMarkAsRead', type: 'function', required: false, description: '읽음 처리 핸들러' },
+    ],
+  },
 };
 
 /**
  * 제조사 페이지별 컴포넌트 매핑
  */
 export const manufacturerPageComponents: Record<string, string[]> = {
-  dashboard: ['stat-card', 'card'],
-  products: ['products-table', 'product-form', 'product-deactivate-dialog', 'badge'],
-  production: ['lot-form', 'product-selector'],
-  shipment: ['shipment-form', 'cart-display', 'searchable-combobox'],
-  inventory: ['inventory-table', 'data-table'],
-  history: ['transaction-history-table', 'virtual-data-table'],
-  inbox: ['notification-list'],
-  settings: ['manufacturer-settings-form'],
+  dashboard: ['page-header', 'stat-card', 'card'],
+  products: ['page-header', 'products-table', 'product-form', 'product-deactivate-dialog', 'badge'],
+  production: ['page-header', 'lot-form', 'product-selector'],
+  shipment: ['page-header', 'shipment-form-wrapper', 'shipment-form', 'product-card', 'quantity-input-panel', 'cart-display', 'searchable-combobox'],
+  inventory: ['page-header', 'inventory-table'],
+  history: ['page-header', 'history-page-wrapper', 'transaction-history-table'],
+  inbox: ['page-header', 'inbox-table-wrapper', 'organization-alert-table'],
+  settings: ['page-header', 'manufacturer-settings-form'],
 };
