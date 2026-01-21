@@ -50,7 +50,7 @@ export async function registerAction(
   const headersList = await headers();
   const clientIP = getClientIP(headersList);
   const rateLimitKey = createRateLimitKey(clientIP, 'register');
-  const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.register);
+  const rateLimitResult = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.register);
 
   if (!rateLimitResult.success) {
     const retryAfter = formatRetryAfter(rateLimitResult.resetAt);
@@ -109,7 +109,7 @@ export async function loginAction(
   const headersList = await headers();
   const clientIP = getClientIP(headersList);
   const rateLimitKey = createRateLimitKey(clientIP, 'login');
-  const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.auth);
+  const rateLimitResult = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.auth);
 
   if (!rateLimitResult.success) {
     const retryAfter = formatRetryAfter(rateLimitResult.resetAt);
