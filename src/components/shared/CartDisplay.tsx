@@ -74,6 +74,7 @@ function CartItemRow({
             className="h-8 w-8"
             onClick={() => handleQuantityChange(item.quantity - 1)}
             disabled={item.quantity <= 1}
+            aria-label="수량 감소"
           >
             <Minus className="h-4 w-4" />
           </Button>
@@ -89,6 +90,7 @@ function CartItemRow({
             size="icon"
             className="h-8 w-8"
             onClick={() => handleQuantityChange(item.quantity + 1)}
+            aria-label="수량 증가"
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -100,6 +102,7 @@ function CartItemRow({
           size="icon"
           className="h-8 w-8 text-gray-500 hover:text-red-600"
           onClick={() => onRemove(item.productId, item.lotId)}
+          aria-label="항목 삭제"
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -181,7 +184,7 @@ export function CartDisplay({
               onClick={onConfirm}
               disabled={confirmDisabled || isLoading}
             >
-              {isLoading ? '처리 중...' : `${confirmText} (${totalItems}개)`}
+              {isLoading ? '처리 중…' : `${confirmText} (${totalItems}개)`}
             </Button>
           </CardFooter>
         </>

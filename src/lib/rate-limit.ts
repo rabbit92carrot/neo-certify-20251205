@@ -1,31 +1,20 @@
 /**
- * Rate Limiting 유틸리티
+ * Rate Limiting 유틸리티 (Upstash Redis 기반)
  *
- * 인메모리 슬라이딩 윈도우 방식의 Rate Limiting 구현.
- * 서버리스 환경에서는 인스턴스별로 독립적으로 동작합니다.
+ * 분산 환경에서 일관된 Rate Limiting을 제공합니다.
+ * Upstash 환경 변수가 없는 로컬 개발 환경에서는 인메모리 폴백을 사용합니다.
  *
  * 설계 원칙:
  * - 정상 사용자 경험 보호 (관대한 설정)
- * - 악의적 공격에 대한 기본 방어 레이어
+ * - 악의적 공격에 대한 방어 레이어
+ * - 분산 환경에서 일관된 Rate Limiting
  */
 
-/**
- * Rate Limit 설정 인터페이스
- */
-interface RateLimitConfig {
-  /** 시간 윈도우 (밀리초) */
-  windowMs: number;
-  /** 최대 요청 수 */
-  maxRequests: number;
-}
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
+import { createLogger } from '@/lib/logger';
 
-/**
- * Rate Limit 엔트리 (내부 저장용)
- */
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
+const logger = createLogger('rate-limit');
 
 /**
  * Rate Limit 체크 결과
@@ -39,68 +28,69 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
-// 인메모리 저장소 (서버리스 환경에서는 인스턴스별 독립)
-const store = new Map<string, RateLimitEntry>();
-
-// 만료된 엔트리 정리 (메모리 누수 방지)
-const CLEANUP_INTERVAL_MS = 60 * 1000; // 1분
-let lastCleanup = Date.now();
-
 /**
- * 만료된 Rate Limit 엔트리 정리
+ * Upstash 환경 변수 설정 여부 확인
  */
-function cleanup(): void {
-  const now = Date.now();
-  if (now - lastCleanup < CLEANUP_INTERVAL_MS) {
-    return;
-  }
-
-  lastCleanup = now;
-  for (const [key, entry] of store.entries()) {
-    if (entry.resetAt < now) {
-      store.delete(key);
-    }
-  }
+function isUpstashConfigured(): boolean {
+  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
 }
 
-/**
- * 관대한 Rate Limit 설정 (정상 사용자 친화적)
- *
- * 설정 근거:
- * - 로그인: 비밀번호 오타, 여러 계정 순차 로그인 등 정상 사용 패턴 수용
- * - 회원가입: 동일 IP에서 여러 조직 등록(지사 등) 시나리오 허용
- */
-export const RATE_LIMIT_CONFIGS = {
-  /** 로그인: 5분에 20회 */
+// Upstash Redis 인스턴스 (환경 변수 자동 로드)
+// 환경 변수가 없으면 null
+let redis: Redis | null = null;
+let authLimiter: Ratelimit | null = null;
+let registerLimiter: Ratelimit | null = null;
+
+// Upstash 설정이 있으면 Redis 및 Rate Limiter 초기화
+if (isUpstashConfigured()) {
+  redis = Redis.fromEnv();
+
+  // 로그인: 5분당 20회 (슬라이딩 윈도우)
+  authLimiter = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(20, '5 m'),
+    prefix: 'ratelimit:auth',
+    analytics: false,
+  });
+
+  // 회원가입: 30분당 10회 (슬라이딩 윈도우)
+  registerLimiter = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(10, '30 m'),
+    prefix: 'ratelimit:register',
+    analytics: false,
+  });
+}
+
+// ============================================================================
+// 로컬 개발용 인메모리 폴백
+// ============================================================================
+
+interface LocalRateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const localStore = new Map<string, LocalRateLimitEntry>();
+
+const LOCAL_CONFIGS = {
   auth: { windowMs: 5 * 60 * 1000, maxRequests: 20 },
-  /** 회원가입: 30분에 10회 (테스트 환경 고려) */
   register: { windowMs: 30 * 60 * 1000, maxRequests: 10 },
 } as const;
 
 /**
- * Rate Limit 체크
- *
- * @param key 고유 식별자 (예: "login:192.168.1.1")
- * @param config Rate Limit 설정
- * @returns Rate Limit 체크 결과
- *
- * @example
- * ```typescript
- * const result = checkRateLimit('login:192.168.1.1', RATE_LIMIT_CONFIGS.auth);
- * if (!result.success) {
- *   return createErrorResponse('RATE_LIMIT_EXCEEDED', '...');
- * }
- * ```
+ * 로컬 인메모리 Rate Limit 체크
  */
-export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitResult {
-  cleanup();
-
+function checkLocalRateLimit(
+  key: string,
+  config: { windowMs: number; maxRequests: number }
+): RateLimitResult {
   const now = Date.now();
-  const entry = store.get(key);
+  const entry = localStore.get(key);
 
   // 새로운 윈도우 시작
   if (!entry || entry.resetAt < now) {
-    store.set(key, {
+    localStore.set(key, {
       count: 1,
       resetAt: now + config.windowMs,
     });
@@ -111,7 +101,7 @@ export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitR
     };
   }
 
-  // 기존 윈도우 내 요청 - 제한 초과
+  // 제한 초과
   if (entry.count >= config.maxRequests) {
     return {
       success: false,
@@ -120,13 +110,114 @@ export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitR
     };
   }
 
-  // 기존 윈도우 내 요청 - 허용
+  // 허용
   entry.count++;
   return {
     success: true,
     remaining: config.maxRequests - entry.count,
     resetAt: entry.resetAt,
   };
+}
+
+// ============================================================================
+// Public API
+// ============================================================================
+
+/**
+ * 관대한 Rate Limit 설정 (정상 사용자 친화적)
+ *
+ * @deprecated Upstash Rate Limiter를 직접 사용하세요.
+ *             하위 호환성을 위해 유지됩니다.
+ */
+export const RATE_LIMIT_CONFIGS = {
+  /** 로그인: 5분에 20회 */
+  auth: { windowMs: 5 * 60 * 1000, maxRequests: 20 },
+  /** 회원가입: 30분에 10회 */
+  register: { windowMs: 30 * 60 * 1000, maxRequests: 10 },
+} as const;
+
+/**
+ * 로그인 Rate Limit 체크
+ *
+ * @param identifier 고유 식별자 (예: 클라이언트 IP)
+ * @returns Rate Limit 체크 결과
+ */
+export async function checkAuthRateLimit(identifier: string): Promise<RateLimitResult> {
+  // Upstash 사용 가능한 경우
+  if (authLimiter) {
+    try {
+      const result = await authLimiter.limit(identifier);
+      return {
+        success: result.success,
+        remaining: result.remaining,
+        resetAt: result.reset,
+      };
+    } catch (error) {
+      // Upstash 오류 시 허용 (fail-open)
+      logger.error('Rate limit error (auth):', error);
+      return { success: true, remaining: 20, resetAt: Date.now() + 5 * 60 * 1000 };
+    }
+  }
+
+  // 로컬 폴백
+  return checkLocalRateLimit(`auth:${identifier}`, LOCAL_CONFIGS.auth);
+}
+
+/**
+ * 회원가입 Rate Limit 체크
+ *
+ * @param identifier 고유 식별자 (예: 클라이언트 IP)
+ * @returns Rate Limit 체크 결과
+ */
+export async function checkRegisterRateLimit(identifier: string): Promise<RateLimitResult> {
+  // Upstash 사용 가능한 경우
+  if (registerLimiter) {
+    try {
+      const result = await registerLimiter.limit(identifier);
+      return {
+        success: result.success,
+        remaining: result.remaining,
+        resetAt: result.reset,
+      };
+    } catch (error) {
+      // Upstash 오류 시 허용 (fail-open)
+      logger.error('Rate limit error (register):', error);
+      return { success: true, remaining: 10, resetAt: Date.now() + 30 * 60 * 1000 };
+    }
+  }
+
+  // 로컬 폴백
+  return checkLocalRateLimit(`register:${identifier}`, LOCAL_CONFIGS.register);
+}
+
+/**
+ * Rate Limit 체크 (하위 호환성)
+ *
+ * @deprecated checkAuthRateLimit 또는 checkRegisterRateLimit를 사용하세요.
+ * @param key 고유 식별자 (예: "login:192.168.1.1")
+ * @param config Rate Limit 설정
+ * @returns Rate Limit 체크 결과
+ */
+export async function checkRateLimit(
+  key: string,
+  config: { windowMs: number; maxRequests: number }
+): Promise<RateLimitResult> {
+  // 키에서 액션 타입 추출
+  const isAuth = key.startsWith('login:') || key.startsWith('auth:');
+  const isRegister = key.startsWith('register:');
+
+  // 식별자 추출 (IP 부분)
+  const identifier = key.split(':')[1] || key;
+
+  if (isAuth) {
+    return checkAuthRateLimit(identifier);
+  }
+  if (isRegister) {
+    return checkRegisterRateLimit(identifier);
+  }
+
+  // 알 수 없는 타입은 로컬 폴백
+  return checkLocalRateLimit(key, config);
 }
 
 /**

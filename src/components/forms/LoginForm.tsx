@@ -12,6 +12,7 @@ import Link from 'next/link';
 
 import { loginSchema, type LoginFormData } from '@/lib/validations';
 import { loginAction } from '@/app/(auth)/actions';
+import { getSafeRedirectPath } from '@/lib/utils/redirect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -52,8 +53,8 @@ export function LoginForm(): React.ReactElement {
       const result = await loginAction(formData);
 
       if (result.success && result.data) {
-        // 리다이렉트 경로가 있으면 해당 경로로, 없으면 기본 경로로
-        const targetPath = redirectPath || result.data.redirect;
+        // 리다이렉트 경로 검증 (Open Redirect 방지)
+        const targetPath = getSafeRedirectPath(redirectPath, result.data.redirect);
         router.push(targetPath);
         router.refresh();
       } else {
@@ -124,7 +125,7 @@ export function LoginForm(): React.ReactElement {
           />
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? '로그인 중...' : '로그인'}
+            {isLoading ? '로그인 중…' : '로그인'}
           </Button>
         </form>
       </Form>

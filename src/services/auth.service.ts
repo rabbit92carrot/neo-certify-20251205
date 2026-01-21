@@ -38,24 +38,27 @@ export async function register(
   const supabase = await createClient();
   const adminClient = createAdminClient();
 
-  // 1. 사업자등록번호 중복 확인
+  // 1. 사업자등록번호 + 조직명 중복 확인 (병렬)
   const normalizedBN = normalizeBusinessNumber(data.businessNumber);
-  const { data: existing } = await adminClient
-    .from('organizations')
-    .select('id')
-    .eq('business_number', normalizedBN)
-    .single();
+  const [existingResult, existingNameResult] = await Promise.all([
+    adminClient
+      .from('organizations')
+      .select('id')
+      .eq('business_number', normalizedBN)
+      .single(),
+    adminClient
+      .from('organizations')
+      .select('id')
+      .eq('name', data.name)
+      .single(),
+  ]);
+
+  const { data: existing } = existingResult;
+  const { data: existingName } = existingNameResult;
 
   if (existing) {
     return createErrorResponse('DUPLICATE_BUSINESS_NUMBER', ERROR_MESSAGES.ORGANIZATION.DUPLICATE_BUSINESS_NUMBER);
   }
-
-  // 1-2. 조직명 중복 확인
-  const { data: existingName } = await adminClient
-    .from('organizations')
-    .select('id')
-    .eq('name', data.name)
-    .single();
 
   if (existingName) {
     return createErrorResponse('DUPLICATE_ORGANIZATION_NAME', ERROR_MESSAGES.ORGANIZATION.DUPLICATE_NAME);

@@ -22,6 +22,7 @@ import type { AdminOrganizationQueryData } from '@/lib/validations/admin';
 import { ORGANIZATION_STATUSES } from '@/constants/organization';
 import { CONFIG } from '@/constants/config';
 import { OrgStatusCountRowSchema, OrgCodeCountRowSchema } from '@/lib/validations/rpc-schemas';
+import { buildIlikeFilter } from '@/lib/utils/db';
 
 const logger = createLogger('admin.organization.service');
 
@@ -132,7 +133,7 @@ export async function getOrganizations(
 
   // 검색 필터 (조직명, 이메일)
   if (search) {
-    queryBuilder = queryBuilder.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
+    queryBuilder = queryBuilder.or(buildIlikeFilter(['name', 'email'], search));
   }
 
   const { data: organizations, count, error } = await queryBuilder.range(

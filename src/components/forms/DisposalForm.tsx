@@ -387,7 +387,7 @@ export function DisposalForm({
                   {isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      처리 중...
+                      처리 중…
                     </>
                   ) : (
                     '폐기 등록'

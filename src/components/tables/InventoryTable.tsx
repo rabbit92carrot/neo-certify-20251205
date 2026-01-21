@@ -86,12 +86,28 @@ function ProductInventoryCard({
   return (
     <Card>
       <CardHeader
-        className="cursor-pointer hover:bg-gray-50"
+        className="cursor-pointer hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={handleExpand}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleExpand();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-expanded={isExpanded}
       >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 flex-shrink-0"
+              aria-label={isExpanded ? '접기' : '펼치기'}
+              aria-hidden="true"
+              tabIndex={-1}
+            >
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
@@ -128,7 +144,7 @@ function ProductInventoryCard({
           <div className="border-t pt-4">
             {isLoading ? (
               <div className="text-center py-4 text-muted-foreground">
-                로딩 중...
+                로딩 중…
               </div>
             ) : detail && detail.byLot.length > 0 ? (
               <Table>
