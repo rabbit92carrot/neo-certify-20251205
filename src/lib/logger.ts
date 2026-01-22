@@ -28,6 +28,15 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
+// 민감한 키 목록 (O(1) 탐색을 위한 Set)
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'token',
+  'secret',
+  'apikey',
+  'authorization',
+]);
+
 /**
  * 민감한 정보 제거 (프로덕션용)
  */
@@ -91,7 +100,7 @@ function sanitizeForProduction(data: unknown): unknown {
     const sanitizedObj: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
       // 민감한 키는 제외
-      if (['password', 'token', 'secret', 'apiKey', 'authorization'].includes(key.toLowerCase())) {
+      if (SENSITIVE_KEYS.has(key.toLowerCase())) {
         sanitizedObj[key] = '[REDACTED]';
       } else {
         sanitizedObj[key] = sanitizeForProduction(value);

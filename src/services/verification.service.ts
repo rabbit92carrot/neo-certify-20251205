@@ -80,26 +80,44 @@ export async function getVerificationData(
   try {
     const supabase = createAdminClient();
 
-    // 1. 먼저 회수 여부 확인 (RECALL 메시지가 있는지)
-    const { data: recallMessage } = await supabase
-      .from('notification_messages')
-      .select('created_at, metadata')
-      .eq('treatment_id', treatmentId)
-      .eq('type', 'RECALL')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    // 1-3. 모든 쿼리를 병렬로 실행 (3 RTT → 1 RTT)
+    const [recallResult, treatmentResult, detailsResult] = await Promise.all([
+      // 회수 여부 확인 (RECALL 메시지가 있는지)
+      supabase
+        .from('notification_messages')
+        .select('created_at, metadata')
+        .eq('treatment_id', treatmentId)
+        .eq('type', 'RECALL')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single(),
+      // 시술 기록 조회 (병원 정보 포함)
+      supabase
+        .from('treatment_records')
+        .select(`
+          id,
+          treatment_date,
+          hospital:organizations!treatment_records_hospital_id_fkey(name)
+        `)
+        .eq('id', treatmentId)
+        .single(),
+      // 시술에 연결된 가상 코드 조회 (제품 정보 포함)
+      supabase
+        .from('treatment_details')
+        .select(`
+          virtual_code:virtual_codes!inner(
+            code,
+            lot:lots!inner(
+              product:products!inner(name, model_name)
+            )
+          )
+        `)
+        .eq('treatment_id', treatmentId),
+    ]);
 
-    // 2. 시술 기록 조회 (병원 정보 포함)
-    const { data: treatment, error: treatmentError } = await supabase
-      .from('treatment_records')
-      .select(`
-        id,
-        treatment_date,
-        hospital:organizations!treatment_records_hospital_id_fkey(name)
-      `)
-      .eq('id', treatmentId)
-      .single();
+    const recallMessage = recallResult.data;
+    const { data: treatment, error: treatmentError } = treatmentResult;
+    const { data: details, error: detailsError } = detailsResult;
 
     // 시술 기록이 없는 경우 (삭제됨)
     if (treatmentError || !treatment) {
@@ -127,19 +145,6 @@ export async function getVerificationData(
         '시술 기록을 찾을 수 없습니다.'
       );
     }
-
-    // 3. 시술에 연결된 가상 코드 조회 (제품 정보 포함)
-    const { data: details, error: detailsError } = await supabase
-      .from('treatment_details')
-      .select(`
-        virtual_code:virtual_codes!inner(
-          code,
-          lot:lots!inner(
-            product:products!inner(name, model_name)
-          )
-        )
-      `)
-      .eq('treatment_id', treatmentId);
 
     if (detailsError) {
       logger.error('인증 상세 정보 조회 실패', detailsError);
