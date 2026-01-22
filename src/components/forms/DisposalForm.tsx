@@ -10,7 +10,7 @@
  * - 폐기 후 취소 불가 (즉시 확정)
  */
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Package, Calendar, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -81,6 +81,20 @@ export function DisposalForm({
     clearCart,
     totalItems,
   } = useCart();
+
+  // O(1) 조회를 위한 Map 캐시 (Vercel React Best Practices)
+  const productMap = useMemo(() => {
+    return new Map(products.map((p) => [p.productId, p]));
+  }, [products]);
+
+  const itemMap = useMemo(() => {
+    const map = new Map<string, { quantity: number }>();
+    for (const item of items) {
+      // 폐기는 lotId 없이 productId만 사용
+      map.set(item.productId, { quantity: item.quantity });
+    }
+    return map;
+  }, [items]);
 
   // 선택된 제품의 현재 가용 수량 계산 (장바구니에 담긴 수량 제외)
   const getAvailableQuantity = (product: ProductForTreatment): number => {
@@ -313,11 +327,11 @@ export function DisposalForm({
           <CartDisplay
             items={items}
             onUpdateQuantity={(productId, qty, lotId) => {
-              // 재고 확인
-              const product = products.find((p) => p.productId === productId);
+              // O(1) Map 조회로 재고 확인
+              const product = productMap.get(productId);
               if (product) {
                 const availableQty = getAvailableQuantity(product);
-                const currentItem = items.find((item) => item.productId === productId && item.lotId === lotId);
+                const currentItem = itemMap.get(productId);
                 const currentQty = currentItem?.quantity || 0;
                 const maxQty = availableQty + currentQty;
 

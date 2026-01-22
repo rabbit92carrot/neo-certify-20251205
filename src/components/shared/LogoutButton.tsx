@@ -4,7 +4,7 @@
  * 로그아웃 버튼 컴포넌트
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -24,7 +24,8 @@ export function LogoutButton({
 }: LogoutButtonProps): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
+  // useMemo로 Supabase 클라이언트 인스턴스 캐싱 (매 렌더마다 재생성 방지)
+  const supabase = useMemo(() => createClient(), []);
 
   const handleLogout = async () => {
     setIsLoading(true);

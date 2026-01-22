@@ -5,7 +5,7 @@
  * 모바일에서만 표시되는 고정 하단 네비게이션 바입니다.
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MoreHorizontal } from 'lucide-react';
@@ -41,18 +41,23 @@ export function BottomNav({
   const [sheetOpen, setSheetOpen] = useState(false);
   const pathname = usePathname();
 
-  const allItems = getNavigationItems(organizationType);
-  const primaryIndices = PRIMARY_INDICES[organizationType];
+  // 네비게이션 아이템 메모이제이션 (Vercel React Best Practices)
+  // Set 기반 O(1) 조회로 .includes() O(n) 조회 대체
+  const { primaryItems, secondaryItems } = useMemo(() => {
+    const allItems = getNavigationItems(organizationType);
+    const primaryIndices = PRIMARY_INDICES[organizationType];
+    const primaryIndexSet = new Set(primaryIndices);
 
-  // Primary 4개 항목
-  const primaryItems = primaryIndices
-    .map((i) => allItems[i])
-    .filter((item): item is NavigationItem => item !== undefined);
+    // Primary 4개 항목
+    const primary = primaryIndices
+      .map((i) => allItems[i])
+      .filter((item): item is NavigationItem => item !== undefined);
 
-  // 나머지 항목 (더보기에 표시)
-  const secondaryItems = allItems.filter(
-    (_, i) => !primaryIndices.includes(i)
-  );
+    // 나머지 항목 (더보기에 표시) - O(1) Set 조회
+    const secondary = allItems.filter((_, i) => !primaryIndexSet.has(i));
+
+    return { primaryItems: primary, secondaryItems: secondary };
+  }, [organizationType]);
 
   // 더보기에 표시할 항목이 있는지 확인
   const hasSecondaryItems = secondaryItems.length > 0;

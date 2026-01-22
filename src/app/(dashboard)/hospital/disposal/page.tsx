@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getActiveProductsForTreatment } from '@/services/hospital-product.service';
 import { PageHeader } from '@/components/shared';
-import { DisposalForm } from '@/components/forms/DisposalForm';
+import { LazyDisposalForm } from '@/components/forms/lazy';
 import { createDisposalAction } from '../actions';
 
 export const metadata = {
@@ -32,7 +32,7 @@ export default async function HospitalDisposalPage(): Promise<React.ReactElement
         description="손실, 만료, 불량 등의 이유로 제품을 폐기합니다. 폐기 등록 후에는 취소가 불가능합니다."
       />
 
-      <DisposalForm
+      <LazyDisposalForm
         products={products}
         onSubmit={createDisposalAction}
       />
