@@ -90,14 +90,31 @@ export function useCart(): UseCartReturn {
   const [items, setItems] = useState<CartItem[]>([]);
 
   /**
+   * O(1) 조회를 위한 Map 캐시 (items 변경 시 재생성)
+   */
+  const itemsMap = useMemo(() => {
+    const map = new Map<string, CartItem>();
+    for (const item of items) {
+      const key = getItemKey(item.productId, item.lotId);
+      map.set(key, item);
+    }
+    return map;
+  }, [items]);
+
+  /**
    * 아이템 추가 (같은 제품은 수량 합산)
    */
   const addItem = useCallback((newItem: CartItem) => {
     setItems((prev) => {
       const key = getItemKey(newItem.productId, newItem.lotId);
-      const existingIndex = prev.findIndex(
-        (item) => getItemKey(item.productId, item.lotId) === key
-      );
+      // 기존 아이템 검색을 위한 인덱스 맵 생성
+      let existingIndex = -1;
+      for (let i = 0; i < prev.length; i++) {
+        if (getItemKey(prev[i]!.productId, prev[i]!.lotId) === key) {
+          existingIndex = i;
+          break;
+        }
+      }
 
       if (existingIndex >= 0) {
         // 기존 아이템 수량 합산
@@ -155,25 +172,25 @@ export function useCart(): UseCartReturn {
   }, []);
 
   /**
-   * 아이템 존재 여부 확인
+   * 아이템 존재 여부 확인 (O(1) Map 조회)
    */
   const hasItem = useCallback(
     (productId: string, lotId?: string): boolean => {
       const key = getItemKey(productId, lotId);
-      return items.some((item) => getItemKey(item.productId, item.lotId) === key);
+      return itemsMap.has(key);
     },
-    [items]
+    [itemsMap]
   );
 
   /**
-   * 특정 아이템 가져오기
+   * 특정 아이템 가져오기 (O(1) Map 조회)
    */
   const getItem = useCallback(
     (productId: string, lotId?: string): CartItem | undefined => {
       const key = getItemKey(productId, lotId);
-      return items.find((item) => getItemKey(item.productId, item.lotId) === key);
+      return itemsMap.get(key);
     },
-    [items]
+    [itemsMap]
   );
 
   /**

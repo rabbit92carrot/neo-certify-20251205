@@ -38,6 +38,33 @@ import { CONFIG } from '@/constants/config';
 
 const logger = createLogger('history.service');
 
+// ============================================================================
+// Action Type Sets (모듈 레벨 - O(1) 조회 성능 최적화)
+// ============================================================================
+
+const MANUFACTURER_ACTION_TYPES = new Set<HistoryActionType>([
+  'PRODUCED',
+  'SHIPPED',
+  'RECALLED',
+  'RETURN_RECEIVED',
+]);
+
+const DISTRIBUTOR_ACTION_TYPES = new Set<HistoryActionType>([
+  'RECEIVED',
+  'SHIPPED',
+  'RECALLED',
+  'RETURN_SENT',
+  'RETURN_RECEIVED',
+]);
+
+const HOSPITAL_ACTION_TYPES = new Set<HistoryActionType>([
+  'RECEIVED',
+  'TREATED',
+  'RECALLED',
+  'RETURN_SENT',
+  'DISPOSED',
+]);
+
 // ProductSummaryItem 타입은 HistorySummaryRowSchema에서 추론됨
 // codes 필드는 20251219100000_restore_codes_in_history_summary.sql에서 복원됨
 
@@ -308,17 +335,15 @@ export async function getManufacturerHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
-  const manufacturerActionTypes: HistoryActionType[] = ['PRODUCED', 'SHIPPED', 'RECALLED', 'RETURN_RECEIVED'];
-
   // 필터가 없으면 제조사 기본 액션 타입 적용
   const filteredQuery = {
     ...query,
     actionTypes:
       query.actionTypes && query.actionTypes.length > 0
         ? query.actionTypes.filter((t) =>
-            manufacturerActionTypes.includes(t as HistoryActionType)
+            MANUFACTURER_ACTION_TYPES.has(t as HistoryActionType)
           )
-        : manufacturerActionTypes,
+        : [...MANUFACTURER_ACTION_TYPES],
   };
 
   return getTransactionHistory(organizationId, filteredQuery as TransactionHistoryQueryData);
@@ -332,16 +357,14 @@ export async function getDistributorHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
-  const distributorActionTypes: HistoryActionType[] = ['RECEIVED', 'SHIPPED', 'RECALLED', 'RETURN_SENT', 'RETURN_RECEIVED'];
-
   const filteredQuery = {
     ...query,
     actionTypes:
       query.actionTypes && query.actionTypes.length > 0
         ? query.actionTypes.filter((t) =>
-            distributorActionTypes.includes(t as HistoryActionType)
+            DISTRIBUTOR_ACTION_TYPES.has(t as HistoryActionType)
           )
-        : distributorActionTypes,
+        : [...DISTRIBUTOR_ACTION_TYPES],
   };
 
   return getTransactionHistory(organizationId, filteredQuery as TransactionHistoryQueryData);
@@ -355,16 +378,14 @@ export async function getHospitalHistory(
   organizationId: string,
   query: TransactionHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TransactionHistorySummary>>> {
-  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURN_SENT', 'DISPOSED'];
-
   const filteredQuery = {
     ...query,
     actionTypes:
       query.actionTypes && query.actionTypes.length > 0
         ? query.actionTypes.filter((t) =>
-            hospitalActionTypes.includes(t as HistoryActionType)
+            HOSPITAL_ACTION_TYPES.has(t as HistoryActionType)
           )
-        : hospitalActionTypes,
+        : [...HOSPITAL_ACTION_TYPES],
   };
 
   return getTransactionHistory(organizationId, filteredQuery as TransactionHistoryQueryData);
@@ -501,16 +522,14 @@ export async function getManufacturerHistoryCursor(
   organizationId: string,
   query: HistoryCursorQuery
 ): Promise<ApiResponse<CursorPaginatedHistory>> {
-  const manufacturerActionTypes: HistoryActionType[] = ['PRODUCED', 'SHIPPED', 'RECALLED', 'RETURN_RECEIVED'];
-
   const filteredQuery = {
     ...query,
     actionTypes:
       query.actionTypes?.length
         ? query.actionTypes.filter((t) =>
-            manufacturerActionTypes.includes(t as HistoryActionType)
+            MANUFACTURER_ACTION_TYPES.has(t as HistoryActionType)
           )
-        : manufacturerActionTypes,
+        : [...MANUFACTURER_ACTION_TYPES],
   };
 
   return getTransactionHistoryCursor(organizationId, filteredQuery);
@@ -524,16 +543,14 @@ export async function getDistributorHistoryCursor(
   organizationId: string,
   query: HistoryCursorQuery
 ): Promise<ApiResponse<CursorPaginatedHistory>> {
-  const distributorActionTypes: HistoryActionType[] = ['RECEIVED', 'SHIPPED', 'RECALLED', 'RETURN_SENT', 'RETURN_RECEIVED'];
-
   const filteredQuery = {
     ...query,
     actionTypes:
       query.actionTypes?.length
         ? query.actionTypes.filter((t) =>
-            distributorActionTypes.includes(t as HistoryActionType)
+            DISTRIBUTOR_ACTION_TYPES.has(t as HistoryActionType)
           )
-        : distributorActionTypes,
+        : [...DISTRIBUTOR_ACTION_TYPES],
   };
 
   return getTransactionHistoryCursor(organizationId, filteredQuery);
@@ -547,16 +564,14 @@ export async function getHospitalHistoryCursor(
   organizationId: string,
   query: HistoryCursorQuery
 ): Promise<ApiResponse<CursorPaginatedHistory>> {
-  const hospitalActionTypes: HistoryActionType[] = ['RECEIVED', 'TREATED', 'RECALLED', 'RETURN_SENT', 'DISPOSED'];
-
   const filteredQuery = {
     ...query,
     actionTypes:
       query.actionTypes?.length
         ? query.actionTypes.filter((t) =>
-            hospitalActionTypes.includes(t as HistoryActionType)
+            HOSPITAL_ACTION_TYPES.has(t as HistoryActionType)
           )
-        : hospitalActionTypes,
+        : [...HOSPITAL_ACTION_TYPES],
   };
 
   return getTransactionHistoryCursor(organizationId, filteredQuery);

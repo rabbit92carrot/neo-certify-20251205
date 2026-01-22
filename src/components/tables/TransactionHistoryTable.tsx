@@ -11,7 +11,7 @@
  * - 출고 반품 기능 (수신자 주도, 시간 제한 없음)
  */
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
@@ -273,6 +273,16 @@ function TransactionHistoryCard({
   const [returnableInfo, setReturnableInfo] = useState<ReturnableProductInfo[] | null>(null);
   const [isLoadingReturnableInfo, setIsLoadingReturnableInfo] = useState(false);
 
+  // O(1) 조회를 위한 Map 캐시
+  const returnableInfoMap = useMemo(() => {
+    if (!returnableInfo) return null;
+    const map = new Map<string, ReturnableProductInfo>();
+    for (const info of returnableInfo) {
+      map.set(info.productId, info);
+    }
+    return map;
+  }, [returnableInfo]);
+
   // 내가 보낸 것인지, 받은 것인지
   const isOutgoing = history.fromOwner?.id === currentOrgId;
   // 내가 받은 것인지 (수신자)
@@ -316,8 +326,8 @@ function TransactionHistoryCard({
   // 부분 반품 수량 업데이트 (보유 수량 기준으로 max 제한)
   const updateQuantity = (productId: string, value: string): void => {
     const numValue = parseInt(value) || 0;
-    // returnableInfo가 있으면 보유 수량, 없으면 원래 수량 사용
-    const info = returnableInfo?.find((r) => r.productId === productId);
+    // O(1) Map 조회: returnableInfoMap이 있으면 보유 수량, 없으면 원래 수량 사용
+    const info = returnableInfoMap?.get(productId);
     const maxQty = info?.ownedQuantity ?? history.items.find((item) => item.productId === productId)?.quantity ?? 0;
     const clampedValue = Math.max(0, Math.min(numValue, maxQty));
     setProductQuantities((prev) => ({
@@ -666,8 +676,8 @@ function TransactionHistoryCard({
                   const aliasInfo = productAliasMap?.[item.productId];
                   const displayName = aliasInfo?.alias || item.productName;
                   const currentQty = productQuantities[item.productId] ?? 0;
-                  // returnableInfo에서 보유 수량 가져오기
-                  const info = returnableInfo?.find((r) => r.productId === item.productId);
+                  // O(1) Map 조회로 보유 수량 가져오기
+                  const info = returnableInfoMap?.get(item.productId);
                   const ownedQty = info?.ownedQuantity ?? item.quantity;
                   const originalQty = info?.originalQuantity ?? item.quantity;
 

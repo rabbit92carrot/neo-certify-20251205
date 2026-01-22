@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getActiveProductsForTreatment } from '@/services/hospital-product.service';
 import { PageHeader } from '@/components/shared';
-import { TreatmentForm } from '@/components/forms/TreatmentForm';
+import { LazyTreatmentForm } from '@/components/forms/lazy';
 import { createTreatmentAction } from '../actions';
 
 export const metadata = {
@@ -31,7 +31,7 @@ export default async function HospitalTreatmentPage(): Promise<React.ReactElemen
         description="환자에게 시술한 제품을 등록합니다. 시술 등록 시 환자에게 정품 인증 알림이 발송됩니다."
       />
 
-      <TreatmentForm
+      <LazyTreatmentForm
         products={products}
         onSubmit={createTreatmentAction}
       />

@@ -76,7 +76,11 @@ export function OrganizationAlertTable({
   // 전체 선택/해제
   const toggleSelectAll = () => {
     if (!data) {return;}
-    const unreadIds = data.items.filter((a) => !a.isRead).map((a) => a.id);
+    // 단일 루프로 filter/map 통합 (성능 최적화)
+    const unreadIds: string[] = [];
+    for (const a of data.items) {
+      if (!a.isRead) unreadIds.push(a.id);
+    }
     if (selectedIds.size === unreadIds.length && unreadIds.length > 0) {
       setSelectedIds(new Set());
     } else {
