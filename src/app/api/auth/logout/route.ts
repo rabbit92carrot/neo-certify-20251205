@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/types/database.types';
@@ -91,8 +92,10 @@ export async function POST(request: NextRequest) {
     await supabase.auth.signOut();
   }
 
-  // 캐시 무효화
-  revalidatePath('/', 'layout');
+  // 비차단 캐시 무효화 (응답 후 실행)
+  after(() => {
+    revalidatePath('/', 'layout');
+  });
 
   return response;
 }

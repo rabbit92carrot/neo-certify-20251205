@@ -5,7 +5,7 @@
  * Lot 번호 생성 규칙 및 사용기한 설정
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -66,14 +66,19 @@ export function ManufacturerSettingsForm({
     },
   });
 
-  // Lot 번호 미리보기 생성
-  const watchedValues = form.watch();
-  const getLotPreview = () => {
-    const prefix = watchedValues.lotPrefix || 'ND';
-    const modelPart = 'X'.repeat(watchedValues.lotModelDigits || 5);
+  // Lot 번호 미리보기 생성 (필요한 필드만 구독하여 불필요한 리렌더 방지)
+  const [lotPrefix, lotModelDigits, lotDateFormat] = form.watch([
+    'lotPrefix',
+    'lotModelDigits',
+    'lotDateFormat',
+  ]);
+
+  const lotPreview = useMemo(() => {
+    const prefix = lotPrefix || 'ND';
+    const modelPart = 'X'.repeat(lotModelDigits || 5);
     let datePart = '';
 
-    switch (watchedValues.lotDateFormat) {
+    switch (lotDateFormat) {
       case 'yymmdd':
         datePart = '241209';
         break;
@@ -88,7 +93,7 @@ export function ManufacturerSettingsForm({
     }
 
     return `${prefix}${modelPart}${datePart}`;
-  };
+  }, [lotPrefix, lotModelDigits, lotDateFormat]);
 
   async function onSubmit(data: ManufacturerSettingsData) {
     setIsLoading(true);
@@ -222,7 +227,7 @@ export function ManufacturerSettingsForm({
               <div className="p-4 bg-gray-50 rounded-lg border">
                 <p className="text-sm text-gray-500 mb-1">Lot 번호 미리보기</p>
                 <p className="text-lg font-mono font-semibold text-gray-900">
-                  {getLotPreview()}
+                  {lotPreview}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   실제 Lot 번호는 모델명과 생산일자에 따라 생성됩니다.

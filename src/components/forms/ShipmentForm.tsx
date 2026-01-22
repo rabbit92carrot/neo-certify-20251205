@@ -160,6 +160,24 @@ export function ShipmentForm({
     });
   };
 
+  // O(1) 조회를 위한 Map 캐시
+  const productMap = useMemo(() => {
+    const map = new Map<string, ProductWithInventory>();
+    for (const product of products) {
+      map.set(product.id, product);
+    }
+    return map;
+  }, [products]);
+
+  const itemMap = useMemo(() => {
+    const map = new Map<string, { item: typeof items[number]; quantity: number }>();
+    for (const item of items) {
+      const key = item.lotId ? `${item.productId}-${item.lotId}` : item.productId;
+      map.set(key, { item, quantity: item.quantity });
+    }
+    return map;
+  }, [items]);
+
   // Lot 옵션 생성
   const lotOptions: ComboboxOption[] = useMemo(() => {
     if (!selectedProduct?.lots) {return [];}
@@ -283,13 +301,12 @@ export function ShipmentForm({
           <CartDisplay
             items={items}
             onUpdateQuantity={(productId, qty, lotId) => {
-              // 재고 확인
-              const product = products.find((p) => p.id === productId);
+              // O(1) Map 조회로 재고 확인
+              const product = productMap.get(productId);
               if (product) {
                 const availableQty = getAvailableQuantity(product, lotId);
-                const currentItem = items.find(
-                  (item) => item.productId === productId && item.lotId === lotId
-                );
+                const itemKey = lotId ? `${productId}-${lotId}` : productId;
+                const currentItem = itemMap.get(itemKey);
                 const currentQty = currentItem?.quantity || 0;
                 const maxQty = availableQty + currentQty;
 
