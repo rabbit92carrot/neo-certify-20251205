@@ -16,6 +16,14 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock('next/server', async () => {
+  const actual = await vi.importActual('next/server');
+  return {
+    ...actual,
+    after: vi.fn((fn) => fn()), // after 함수를 즉시 실행하도록 모킹
+  };
+});
+
 vi.mock('@supabase/ssr', () => ({
   createServerClient: vi.fn(() => ({
     auth: {
@@ -41,6 +49,9 @@ describe('POST /api/auth/logout', () => {
 
     const request = new NextRequest('http://localhost:3000/api/auth/logout', {
       method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+      },
     });
 
     const response = await POST(request);
@@ -71,6 +82,9 @@ describe('POST /api/auth/logout', () => {
 
     const request = new NextRequest('http://localhost:3000/api/auth/logout', {
       method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+      },
     });
 
     await POST(request);
@@ -86,6 +100,7 @@ describe('POST /api/auth/logout', () => {
     const request = new NextRequest('http://localhost:3000/api/auth/logout', {
       method: 'POST',
       headers: {
+        origin: 'http://localhost:3000',
         // 로그인 직후의 쿠키 상태 시뮬레이션
         cookie: 'sb-access-token=valid-token; sb-refresh-token=valid-refresh',
       },
@@ -101,8 +116,11 @@ describe('POST /api/auth/logout', () => {
   it('should return correct redirect URL with request origin', async () => {
     const POST = await importPOST();
 
-    const request = new NextRequest('https://example.com/api/auth/logout', {
+    const request = new NextRequest('http://localhost:3000/api/auth/logout', {
       method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+      },
     });
 
     const response = await POST(request);
@@ -121,6 +139,9 @@ describe('POST /api/auth/logout', () => {
 
     const request = new NextRequest('http://localhost:3000/api/auth/logout', {
       method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+      },
     });
 
     const response = await POST(request);
@@ -139,6 +160,9 @@ describe('Logout API Integration Scenarios', () => {
     const formData = new FormData();
     const request = new NextRequest('http://localhost:3000/api/auth/logout', {
       method: 'POST',
+      headers: {
+        origin: 'http://localhost:3000',
+      },
       body: formData,
     });
 
