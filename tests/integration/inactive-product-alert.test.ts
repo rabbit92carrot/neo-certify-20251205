@@ -22,8 +22,10 @@ import {
 describe('비활성 제품 알림 통합 테스트', () => {
   const adminClient = createTestAdminClient();
 
+  // Seed 데이터의 ADMIN 조직 ID (DB 함수가 이 조직에 알림 생성)
+  const SEED_ADMIN_ORG_ID = 'a0000000-0000-0000-0000-000000000001';
+
   // 테스트 데이터
-  let adminOrg: Awaited<ReturnType<typeof createTestOrganization>>;
   let manufacturerOrg: Awaited<ReturnType<typeof createTestOrganization>>;
   let distributorOrg: Awaited<ReturnType<typeof createTestOrganization>>;
   let hospitalOrg: Awaited<ReturnType<typeof createTestOrganization>>;
@@ -60,16 +62,15 @@ describe('비활성 제품 알림 통합 테스트', () => {
       .eq('alert_type', 'INACTIVE_PRODUCT_USAGE')
       .not('recipient_org_id', 'in', `(SELECT id FROM organizations)`);
 
-    // 테스트 조직 생성
-    adminOrg = await createTestOrganization({ type: 'ADMIN', status: 'ACTIVE' });
+    // 테스트 조직 생성 (ADMIN은 seed 데이터 사용)
     manufacturerOrg = await createTestOrganization({ type: 'MANUFACTURER', status: 'ACTIVE' });
     distributorOrg = await createTestOrganization({ type: 'DISTRIBUTOR', status: 'ACTIVE' });
     hospitalOrg = await createTestOrganization({ type: 'HOSPITAL', status: 'ACTIVE' });
   });
 
   afterEach(async () => {
-    // 테스트 데이터 정리
-    const orgIds = [adminOrg?.id, manufacturerOrg?.id, distributorOrg?.id, hospitalOrg?.id].filter(Boolean);
+    // 테스트 데이터 정리 (seed ADMIN 조직의 알림도 정리)
+    const orgIds = [SEED_ADMIN_ORG_ID, manufacturerOrg?.id, distributorOrg?.id, hospitalOrg?.id].filter(Boolean);
     await cleanupOrganizationAlerts(orgIds);
     await cleanupAllTestData();
   });
@@ -130,7 +131,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
       });
 
       // 관리자 알림 확인 (productId로 해당 알림 찾기)
-      const adminAlerts = await getOrganizationAlerts(adminOrg.id, {
+      const adminAlerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
@@ -216,7 +217,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
         p_quantity: 1,
       });
 
-      const alerts = await getOrganizationAlerts(adminOrg.id, {
+      const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
@@ -241,7 +242,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
         p_quantity: 1,
       });
 
-      const alerts = await getOrganizationAlerts(adminOrg.id, {
+      const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
@@ -266,7 +267,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
         p_quantity: 1,
       });
 
-      const alerts = await getOrganizationAlerts(adminOrg.id, {
+      const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
@@ -306,7 +307,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
       expect(logs[0].organization_id).toBe(hospitalOrg.id);
 
       // 관리자 알림 확인
-      const adminAlerts = await getOrganizationAlerts(adminOrg.id, {
+      const adminAlerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
@@ -335,7 +336,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
         p_quantity: 10,
       });
 
-      const alerts = await getOrganizationAlerts(adminOrg.id, {
+      const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
@@ -407,7 +408,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
       expect(logs2.length).toBeGreaterThanOrEqual(1);
 
       // 관리자 알림 개수 확인
-      const adminAlerts = await getOrganizationAlerts(adminOrg.id, {
+      const adminAlerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 

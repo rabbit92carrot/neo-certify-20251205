@@ -275,7 +275,9 @@ function TransactionHistoryCard({
 
   // O(1) 조회를 위한 Map 캐시
   const returnableInfoMap = useMemo(() => {
-    if (!returnableInfo) return null;
+    if (!returnableInfo) {
+      return null;
+    }
     const map = new Map<string, ReturnableProductInfo>();
     for (const info of returnableInfo) {
       map.set(info.productId, info);

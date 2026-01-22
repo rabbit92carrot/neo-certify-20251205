@@ -7,7 +7,7 @@
  * - 로그아웃 후 세션 클리어 및 리다이렉트
  * - 로그인 페이지에 민감 정보 노출 없음
  */
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { TEST_ACCOUNTS, login, hideNextJsDevOverlay } from './fixtures/auth';
 
 test.describe('Security E2E Tests', () => {

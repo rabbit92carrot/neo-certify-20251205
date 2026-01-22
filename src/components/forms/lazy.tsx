@@ -5,7 +5,7 @@
  * next/dynamic을 사용하여 초기 번들 크기를 줄입니다.
  *
  * 사용 예:
- * import { LazyShipmentForm } from '@/components/forms/lazy';
+ * import { LazyTreatmentForm } from '@/components/forms/lazy';
  *
  * @see https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading
  */
@@ -50,18 +50,6 @@ function FormSkeleton(): React.ReactElement {
     </div>
   );
 }
-
-/**
- * Lazy-loaded ShipmentForm
- * 출고 폼 (제조사/유통사용)
- *
- * Note: ssr: false 제거 - Server Component에서 사용 가능하도록 변경
- * 코드 분할 효과는 그대로 유지됩니다.
- */
-export const LazyShipmentForm = dynamic(
-  () => import('./ShipmentForm').then((mod) => ({ default: mod.ShipmentForm })),
-  { loading: () => <FormSkeleton /> }
-);
 
 /**
  * Lazy-loaded TreatmentForm
