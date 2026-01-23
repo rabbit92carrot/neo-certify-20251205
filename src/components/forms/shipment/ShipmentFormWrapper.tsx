@@ -3,12 +3,59 @@
 /**
  * ShipmentForm 클라이언트 래퍼
  * Server Action을 SearchableCombobox 호환 형태로 변환합니다.
+ *
+ * 성능 최적화:
+ * - ShipmentForm을 dynamic import로 lazy loading (12KB 지연 로드)
  */
 
 import { useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Hospital, Building2 } from 'lucide-react';
-import { ShipmentForm } from '@/components/forms/ShipmentForm';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import type { SearchableComboboxOption } from '@/components/ui/searchable-combobox';
+
+/**
+ * 폼 로딩 스켈레톤
+ */
+function FormLoadingSkeleton(): React.ReactElement {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-6">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="lg:col-span-1">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-24" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-48 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Lazy-loaded ShipmentForm (12KB 지연 로드)
+ */
+const ShipmentForm = dynamic(
+  () => import('@/components/forms/ShipmentForm').then((mod) => mod.ShipmentForm),
+  { loading: () => <FormLoadingSkeleton /> }
+);
 import type { Product, Organization, OrganizationType, InventoryByLot, ApiResponse } from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
 
