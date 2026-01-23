@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { StatCard } from '@/components/shared';
+import { StatCard } from '@/components/shared/StatCard';
 import {
   Building2,
   UserCheck,

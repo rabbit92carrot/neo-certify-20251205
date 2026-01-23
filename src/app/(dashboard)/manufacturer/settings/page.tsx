@@ -1,6 +1,6 @@
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getManufacturerSettings } from '@/services/manufacturer-settings.service';
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { ManufacturerSettingsForm } from '@/components/forms/ManufacturerSettingsForm';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

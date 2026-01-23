@@ -1,6 +1,6 @@
 'use client';
 
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { InventoryTable } from '@/components/tables/InventoryTable';
 import type { InventorySummary, ProductInventoryDetail } from '@/types/api.types';
 

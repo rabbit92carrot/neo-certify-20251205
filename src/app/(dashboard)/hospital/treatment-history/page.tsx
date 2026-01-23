@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getTreatmentHistory } from '@/services/treatment.service';
 import { getHospitalKnownProducts } from '@/services/hospital-product.service';
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { TreatmentHistoryTable } from '@/components/tables/TreatmentHistoryTable';
 import { recallTreatmentAction } from '../actions';
 

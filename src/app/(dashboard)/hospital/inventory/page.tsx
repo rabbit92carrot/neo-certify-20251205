@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getInventorySummary, getProductInventoryDetail } from '@/services/inventory.service';
 import { getHospitalKnownProducts } from '@/services/hospital-product.service';
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { InventoryTable } from '@/components/tables/InventoryTable';
 import type { InventorySummaryWithAlias } from '@/types/api.types';
 

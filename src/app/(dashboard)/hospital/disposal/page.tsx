@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getActiveProductsForTreatment } from '@/services/hospital-product.service';
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { LazyDisposalForm } from '@/components/forms/lazy';
 import { createDisposalAction } from '../actions';
 

@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard } from '@/components/shared';
+import { StatCard } from '@/components/shared/StatCard';
 import { Package, Factory, Truck, Boxes } from 'lucide-react';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getManufacturerDashboardStatsOptimized } from '@/services/dashboard.service';

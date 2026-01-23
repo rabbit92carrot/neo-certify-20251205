@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { DbExplorerClient } from './db-explorer-client';
 import { getDbStructureAction, getSampleHistoriesAction } from './actions';
 

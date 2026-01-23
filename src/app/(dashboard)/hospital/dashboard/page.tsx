@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getHospitalDashboardStatsOptimized } from '@/services/dashboard.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard } from '@/components/shared';
+import { StatCard } from '@/components/shared/StatCard';
 import { Package, Stethoscope, Users } from 'lucide-react';
 
 export const metadata = {

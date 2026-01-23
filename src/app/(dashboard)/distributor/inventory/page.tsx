@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getInventorySummary, getProductInventoryDetail } from '@/services/inventory.service';
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { InventoryTable } from '@/components/tables/InventoryTable';
 
 export const metadata = {
