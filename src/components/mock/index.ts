@@ -5,3 +5,4 @@
 
 export { KakaoMessageCard } from './KakaoMessageCard';
 export { KakaoMessageList } from './KakaoMessageList';
+export { AlimtalkTemplatePreview } from './AlimtalkTemplatePreview';
