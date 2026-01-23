@@ -6,6 +6,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { getCurrentUser } from '@/services/auth.service';
 import * as treatmentService from '@/services/treatment.service';
 import * as disposalService from '@/services/disposal.service';
@@ -364,8 +365,10 @@ export async function updateHospitalProductSettingsAction(
   );
 
   if (result.success) {
-    revalidatePath('/hospital/settings');
-    revalidatePath('/hospital/treatment');
+    after(() => {
+      revalidatePath('/hospital/settings');
+      revalidatePath('/hospital/treatment');
+    });
   }
 
   return result;

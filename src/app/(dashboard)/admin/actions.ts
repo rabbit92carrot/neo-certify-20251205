@@ -6,6 +6,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { getCurrentUser } from '@/services/auth.service';
 import * as adminService from '@/services/admin.service';
 import * as alertService from '@/services/alert.service';
@@ -637,7 +638,9 @@ export async function acknowledgeUsageLogAction(logId: string) {
   const result = await adminService.acknowledgeUsageLog(logId, adminId);
 
   if (result.success) {
-    revalidatePath('/admin/alerts');
+    after(() => {
+      revalidatePath('/admin/alerts');
+    });
   }
 
   return result;
@@ -661,7 +664,9 @@ export async function acknowledgeUsageLogsAction(logIds: string[]) {
   const result = await adminService.acknowledgeUsageLogs(logIds, adminId);
 
   if (result.success) {
-    revalidatePath('/admin/alerts');
+    after(() => {
+      revalidatePath('/admin/alerts');
+    });
   }
 
   return result;
@@ -735,7 +740,9 @@ export async function markAlertAsReadAction(alertId: string) {
   const result = await alertService.markAlertAsRead(adminId, alertId);
 
   if (result.success) {
-    revalidatePath('/admin/inbox');
+    after(() => {
+      revalidatePath('/admin/inbox');
+    });
   }
 
   return result;
@@ -759,7 +766,9 @@ export async function markAlertsAsReadAction(alertIds: string[]) {
   const result = await alertService.markAlertsAsRead(adminId, alertIds);
 
   if (result.success) {
-    revalidatePath('/admin/inbox');
+    after(() => {
+      revalidatePath('/admin/inbox');
+    });
   }
 
   return result;
@@ -783,7 +792,9 @@ export async function markAllAlertsAsReadAction() {
   const result = await alertService.markAllAlertsAsRead(adminId);
 
   if (result.success) {
-    revalidatePath('/admin/inbox');
+    after(() => {
+      revalidatePath('/admin/inbox');
+    });
   }
 
   return result;
