@@ -72,3 +72,21 @@ export const LazyDisposalForm = dynamic(
   () => import('./DisposalForm').then((mod) => ({ default: mod.DisposalForm })),
   { loading: () => <FormSkeleton /> }
 );
+
+/**
+ * Lazy-loaded LotForm
+ * Lot 생산 등록 폼 (제조사용)
+ */
+export const LazyLotForm = dynamic(
+  () => import('./LotForm').then((mod) => ({ default: mod.LotForm })),
+  { loading: () => <FormSkeleton /> }
+);
+
+/**
+ * Lazy-loaded ShipmentFormWrapper
+ * 출고 폼 (제조사/유통사용)
+ */
+export const LazyShipmentFormWrapper = dynamic(
+  () => import('./shipment/ShipmentFormWrapper').then((mod) => ({ default: mod.ShipmentFormWrapper })),
+  { loading: () => <FormSkeleton /> }
+);

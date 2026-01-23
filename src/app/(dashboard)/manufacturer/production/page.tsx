@@ -1,7 +1,7 @@
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getActiveProducts } from '@/services/product.service';
-import { PageHeader } from '@/components/shared';
-import { LotForm } from '@/components/forms/LotForm';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { LazyLotForm } from '@/components/forms/lazy';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ export default async function ProductionPage(): Promise<React.ReactElement> {
         }
       />
 
-      <LotForm products={products} settings={user.manufacturerSettings} />
+      <LazyLotForm products={products} settings={user.manufacturerSettings} />
     </div>
   );
 }

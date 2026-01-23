@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getProductsWithLotsForShipment } from '@/services/inventory.service';
-import { PageHeader } from '@/components/shared';
-import { ShipmentFormWrapper } from '@/components/forms/shipment/ShipmentFormWrapper';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { LazyShipmentFormWrapper } from '@/components/forms/lazy';
 import { createShipmentAction, searchShipmentTargetsAction } from '../actions';
 
 export const metadata = {
@@ -37,7 +37,7 @@ export default async function ManufacturerShipmentPage(): Promise<React.ReactEle
         description="유통사 또는 병원으로 제품을 출고합니다. FIFO 방식으로 자동 출고되며, 특정 Lot을 선택할 수도 있습니다."
       />
 
-      <ShipmentFormWrapper
+      <LazyShipmentFormWrapper
         organizationType={orgType}
         products={productsWithLots}
         onSubmit={createShipmentAction}
