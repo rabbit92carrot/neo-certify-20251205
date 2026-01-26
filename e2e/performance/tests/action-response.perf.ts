@@ -47,7 +47,9 @@ test.describe.serial('동작 응답 시간 측정', () => {
         const pagePath = pagePathMap.get(actionConfig.pageId);
         const pageLoadSelector = pageLoadSelectorMap.get(actionConfig.pageId);
 
-        if (!pagePath || !pageLoadSelector) continue;
+        if (!pagePath || !pageLoadSelector) {
+          continue;
+        }
 
         test(`[${actionConfig.name}] 응답 시간 측정 (${MEASUREMENT_COUNT}회)`, async ({ page }) => {
           console.log(`\n📊 측정 시작: ${actionConfig.name}`);
@@ -141,7 +143,9 @@ function groupActionsByRole(): Record<string, ActionConfig[]> {
 
   for (const action of ACTIONS) {
     const role = pageRoleMap.get(action.pageId);
-    if (!role) continue;
+    if (!role) {
+      continue;
+    }
 
     if (!result[role]) {
       result[role] = [];

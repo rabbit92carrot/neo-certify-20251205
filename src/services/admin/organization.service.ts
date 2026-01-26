@@ -147,29 +147,44 @@ export async function getOrganizations(
   }
 
   // 모든 조직의 보유 코드 수를 한 번에 조회 (N+1 최적화)
-  // DB 함수 get_organization_code_counts 사용
+  // Materialized View 기반 get_organization_code_counts_fast 사용 (성능 최적화)
   const countByOrgId = new Map<string, number>();
 
   if (organizations && organizations.length > 0) {
     const orgIds = organizations.map((org) => org.id);
 
+    // MV 기반 빠른 조회 사용 (1,800ms → ~10ms)
     const { data: countResults, error: countError } = await supabase.rpc(
-      'get_organization_code_counts',
+      'get_organization_code_counts_fast',
       { p_org_ids: orgIds }
     );
 
     if (!countError && countResults) {
       // Zod 검증으로 결과 파싱
-      const parsed = parseRpcArray(OrgCodeCountRowSchema, countResults, 'get_organization_code_counts');
+      const parsed = parseRpcArray(OrgCodeCountRowSchema, countResults, 'get_organization_code_counts_fast');
       if (parsed.success) {
         for (const row of parsed.data) {
           countByOrgId.set(row.org_id, Number(row.code_count));
         }
       } else {
-        logger.error('get_organization_code_counts 검증 실패:', parsed.error);
+        logger.error('get_organization_code_counts_fast 검증 실패:', parsed.error);
       }
     } else if (countError) {
-      logger.error('조직 코드 수 bulk 조회 실패:', countError);
+      // MV가 없거나 에러 시 기존 함수로 폴백
+      logger.warn('MV 조회 실패, 기존 함수로 폴백:', countError.message);
+      const { data: fallbackResults, error: fallbackError } = await supabase.rpc(
+        'get_organization_code_counts',
+        { p_org_ids: orgIds }
+      );
+
+      if (!fallbackError && fallbackResults) {
+        const parsed = parseRpcArray(OrgCodeCountRowSchema, fallbackResults, 'get_organization_code_counts');
+        if (parsed.success) {
+          for (const row of parsed.data) {
+            countByOrgId.set(row.org_id, Number(row.code_count));
+          }
+        }
+      }
     }
   }
 

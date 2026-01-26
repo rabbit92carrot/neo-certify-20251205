@@ -426,8 +426,10 @@ export const AdminEventSummaryCursorRowSchema = z.object({
   action_type: z.string(),
   from_owner_type: z.string().nullable(),
   from_owner_id: z.string().nullable(),
+  from_owner_name: z.string().nullable(), // 조직명 (RPC에서 직접 조회)
   to_owner_type: z.string().nullable(),
   to_owner_id: z.string().nullable(),
+  to_owner_name: z.string().nullable(), // 조직명 (RPC에서 직접 조회)
   is_recall: z.boolean(),
   recall_reason: z.string().nullable(),
   total_quantity: z.number(),

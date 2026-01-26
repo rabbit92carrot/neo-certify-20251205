@@ -5,12 +5,36 @@
  * 조직 관리, 승인 처리, 알림 관리
  */
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, unstable_cache } from 'next/cache';
 import { after } from 'next/server';
 import { getCurrentUser } from '@/services/auth.service';
 import * as adminService from '@/services/admin.service';
 import * as alertService from '@/services/alert.service';
 import type { ApiResponse, OrganizationAlertType } from '@/types/api.types';
+
+// ============================================================================
+// 캐시된 서비스 함수 (필터 데이터용)
+// ============================================================================
+
+/**
+ * 전체 조직 목록 캐싱 (5분)
+ * 조직 목록은 자주 변경되지 않으므로 5분 캐싱
+ */
+const getCachedOrganizationsForSelect = unstable_cache(
+  async () => adminService.getAllOrganizationsForSelect(),
+  ['admin-organizations-select'],
+  { revalidate: 300, tags: ['organizations'] }
+);
+
+/**
+ * 전체 제품 목록 캐싱 (5분)
+ * 제품 목록은 자주 변경되지 않으므로 5분 캐싱
+ */
+const getCachedProductsForSelect = unstable_cache(
+  async () => adminService.getAllProductsForSelect(),
+  ['admin-products-select'],
+  { revalidate: 300, tags: ['products'] }
+);
 
 // ============================================================================
 // 헬퍼 함수
@@ -357,6 +381,7 @@ export async function getAdminHistoryAction(query: {
 
 /**
  * 전체 조직 목록 조회 Action (셀렉트용)
+ * 5분 캐싱 적용 - 필터 데이터 최적화
  */
 export async function getAllOrganizationsForSelectAction() {
   const adminId = await getAdminOrganizationId();
@@ -370,11 +395,13 @@ export async function getAllOrganizationsForSelectAction() {
     };
   }
 
-  return adminService.getAllOrganizationsForSelect();
+  // 캐싱된 서비스 함수 사용
+  return getCachedOrganizationsForSelect();
 }
 
 /**
  * 전체 제품 목록 조회 Action (셀렉트용)
+ * 5분 캐싱 적용 - 필터 데이터 최적화
  */
 export async function getAllProductsForSelectAction() {
   const adminId = await getAdminOrganizationId();
@@ -388,7 +415,8 @@ export async function getAllProductsForSelectAction() {
     };
   }
 
-  return adminService.getAllProductsForSelect();
+  // 캐싱된 서비스 함수 사용
+  return getCachedProductsForSelect();
 }
 
 /**
