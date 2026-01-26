@@ -21,6 +21,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
+    "test:perf": "playwright test --config=e2e/playwright.perf.config.ts",
+    "test:perf:page-load": "playwright test --config=e2e/playwright.perf.config.ts page-load",
+    "test:perf:actions": "playwright test --config=e2e/playwright.perf.config.ts action-response",
     "type-check": "tsc --noEmit",
     "gen:types": "npx supabase gen types typescript --local > src/types/database-generated.types.ts"
   },
