@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Factory, Building2, Hospital, CheckCircle, XCircle, Clock, Trash2 } from 'lucide-react';
+import { Search, Factory, Building2, Hospital, CheckCircle, XCircle, Clock, Trash2, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { OrganizationsTable } from '@/components/tables/OrganizationsTable';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
@@ -24,6 +25,7 @@ import {
   deleteOrganizationAction,
   getOrganizationsAction,
   getOrganizationStatusCountsAction,
+  refreshOrgCodeCountsAction,
 } from '../actions';
 import type { OrganizationWithStats, PaginationMeta } from '@/types/api.types';
 import {
@@ -64,6 +66,7 @@ export function OrganizationsTableWrapper({
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState(search ?? '');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -104,6 +107,22 @@ export function OrganizationsTableWrapper({
 
   const refreshData = (): void => {
     setRefreshKey((prev) => prev + 1);
+  };
+
+  /**
+   * MV 수동 갱신 핸들러
+   * 조직별 코드 카운트 Materialized View를 즉시 갱신하고 테이블 새로고침
+   */
+  const handleManualRefresh = async (): Promise<void> => {
+    setIsRefreshing(true);
+    try {
+      const result = await refreshOrgCodeCountsAction();
+      if (result.success) {
+        refreshData();
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const updateUrl = useCallback((params: { status?: string; type?: string; search?: string; page?: number }): void => {
@@ -311,6 +330,16 @@ export function OrganizationsTableWrapper({
             searchPlaceholder="유형 검색..."
           />
         </div>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleManualRefresh}
+          disabled={isRefreshing || loading}
+          title="코드 수 통계 새로고침 (MV 갱신)"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
       {/* 테이블 */}

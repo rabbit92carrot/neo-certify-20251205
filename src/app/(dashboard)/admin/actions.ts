@@ -192,6 +192,33 @@ export async function deleteOrganizationAction(
   return result;
 }
 
+/**
+ * 조직 코드 카운트 Materialized View 수동 갱신 Action
+ *
+ * MV는 pg_cron으로 매일 야간 자동 갱신되지만,
+ * 관리자가 즉시 최신 데이터가 필요할 때 수동으로 갱신할 수 있음
+ */
+export async function refreshOrgCodeCountsAction(): Promise<ApiResponse<void>> {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await adminService.refreshOrgCodeCounts();
+
+  if (result.success) {
+    revalidatePath('/admin/organizations');
+  }
+
+  return result;
+}
+
 // ============================================================================
 // 조직 조회 Actions
 // ============================================================================

@@ -326,3 +326,25 @@ export async function updateOrganizationStatus(
 
   return createSuccessResponse(undefined);
 }
+
+/**
+ * 조직 코드 카운트 Materialized View 수동 갱신 (관리자 전용)
+ *
+ * MV는 자동 갱신되지 않으므로, 관리자가 최신 데이터가 필요할 때 수동으로 갱신할 수 있음
+ * pg_cron으로 매일 야간 자동 갱신되지만, 즉시 반영이 필요한 경우 사용
+ *
+ * @returns 성공 여부
+ */
+export async function refreshOrgCodeCounts(): Promise<ApiResponse<void>> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc('refresh_org_code_counts');
+
+  if (error) {
+    logger.error('MV refresh 실패:', error);
+    return createErrorResponse('RPC_ERROR', error.message);
+  }
+
+  logger.info('mv_org_code_counts MV 수동 갱신 완료');
+  return createSuccessResponse(undefined);
+}
