@@ -199,13 +199,15 @@ describe('Dashboard Service Integration Tests', () => {
       const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
       const product = await createTestProduct({ organizationId: manufacturer.id });
 
-      await createTestLot({ productId: product.id, quantity: 20 });
+      const lot = await createTestLot({ productId: product.id, quantity: 20 });
 
+      // 특정 lot 스코프로 한정하여 다른 테스트 파일의 잔여 데이터 간섭 방지
       const { count } = await adminClient
         .from('virtual_codes')
-        .select('id', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true })
+        .eq('lot_id', lot.id);
 
-      expect(count).toBeGreaterThanOrEqual(20);
+      expect(count).toBe(20);
     });
   });
 });
