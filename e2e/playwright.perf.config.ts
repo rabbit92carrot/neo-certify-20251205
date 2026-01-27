@@ -7,6 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './performance/tests',
   testMatch: '**/*.perf.ts', // .perf.ts 파일 매칭
+  globalSetup: './performance/global-setup.ts', // 인증 파일 사전 생성
   fullyParallel: false, // 순차 실행 (측정 일관성 보장)
   forbidOnly: !!process.env.CI,
   retries: 0, // 성능 측정은 재시도 없음
@@ -53,6 +54,11 @@ export default defineConfig({
         url: 'http://localhost:3000',
         reuseExistingServer: true,
         timeout: 120000,
+        // E2E 테스트 환경 변수 설정 (rate limit 비활성화)
+        env: {
+          ...process.env,
+          E2E_TEST: 'true',
+        },
       },
 
   // 타임아웃 설정 (성능 측정은 더 긴 시간 허용)

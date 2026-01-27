@@ -11,10 +11,14 @@ export interface Statistics {
   max: number;
   /** 평균값 */
   avg: number;
+  /** 절사 평균 (상/하위 제외) - 이상치 영향 최소화 */
+  trimmedAvg: number;
   /** 중앙값 */
   median: number;
   /** 원본 측정값들 */
   measurements: number[];
+  /** 이상치 여부 (max/min 비율이 2배 이상) */
+  hasOutlier: boolean;
 }
 
 export interface NavigationTimingStatistics {
@@ -57,8 +61,10 @@ export function calculateStatistics(values: number[]): Statistics {
       min: 0,
       max: 0,
       avg: 0,
+      trimmedAvg: 0,
       median: 0,
       measurements: [],
+      hasOutlier: false,
     };
   }
 
@@ -76,12 +82,28 @@ export function calculateStatistics(values: number[]): Statistics {
       ? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2
       : (sorted[mid] ?? 0);
 
+  // 절사 평균 계산 (Trimmed Mean)
+  // 상/하위 각 1개씩 제외 (최소 3개 이상일 때만 적용)
+  let trimmedAvg: number;
+  if (sorted.length >= 3) {
+    const trimmed = sorted.slice(1, -1); // 첫 번째(최소)와 마지막(최대) 제외
+    trimmedAvg = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+  } else {
+    // 측정값이 2개 이하면 일반 평균 사용
+    trimmedAvg = avg;
+  }
+
+  // 이상치 여부 판단 (최대/최소 비율이 2배 이상이면 이상치 존재로 판단)
+  const hasOutlier = min > 0 && max / min >= 2;
+
   return {
     min,
     max,
     avg: Math.round(avg * 100) / 100, // 소수점 2자리
+    trimmedAvg: Math.round(trimmedAvg * 100) / 100,
     median: Math.round(median * 100) / 100,
     measurements: values,
+    hasOutlier,
   };
 }
 

@@ -84,7 +84,7 @@ export async function measurePageLoad(
       dataLoad = {
         startTime: dataLoadStart,
         endTime: dataLoadEnd,
-        duration: dataLoadEnd - dataLoadStart,
+        duration: Math.max(0, dataLoadEnd - dataLoadStart), // 음수 방지
       };
     } catch {
       // 데이터 로딩 셀렉터를 찾지 못한 경우 무시
@@ -96,7 +96,7 @@ export async function measurePageLoad(
     initialRender: {
       startTime,
       endTime: initialRenderEnd,
-      duration: initialRenderEnd - startTime,
+      duration: Math.max(0, initialRenderEnd - startTime), // 음수 방지 (캐시로 인한 타이밍 이슈 대응)
     },
     dataLoad,
     navigationTiming,

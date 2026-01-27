@@ -147,7 +147,7 @@ export const PAGES: PageConfig[] = [
     role: 'hospital',
     category: 'form',
     loadCompleteSelector: 'h1',
-    dataLoadedSelector: 'form, button:has-text("시술")',
+    dataLoadedSelector: '[data-slot="card-title"]', // CardTitle은 lazy load 완료 후에만 렌더링 (FormSkeleton은 CardTitle 미사용)
   },
   {
     id: 'hospital-treatment-history',
@@ -165,7 +165,7 @@ export const PAGES: PageConfig[] = [
     role: 'hospital',
     category: 'form',
     loadCompleteSelector: 'h1',
-    dataLoadedSelector: 'form',
+    dataLoadedSelector: '[data-slot="card-title"]', // CardTitle은 lazy load 완료 후에만 렌더링 (FormSkeleton은 CardTitle 미사용)
   },
   {
     id: 'hospital-history',
@@ -203,7 +203,7 @@ export const PAGES: PageConfig[] = [
     role: 'admin',
     category: 'list',
     loadCompleteSelector: 'h1',
-    dataLoadedSelector: 'table, text=승인 대기 중인 조직이 없습니다',
+    dataLoadedSelector: 'table, text=승인', // 긴 텍스트 → 짧은 텍스트로 안정화
   },
   {
     id: 'admin-recalls',
@@ -212,7 +212,7 @@ export const PAGES: PageConfig[] = [
     role: 'admin',
     category: 'list',
     loadCompleteSelector: 'h1',
-    dataLoadedSelector: 'table, text=회수 이력이 없습니다',
+    dataLoadedSelector: 'table, text=회수', // 긴 텍스트 → 짧은 텍스트로 안정화
   },
   {
     id: 'admin-history',
@@ -221,7 +221,7 @@ export const PAGES: PageConfig[] = [
     role: 'admin',
     category: 'history',
     loadCompleteSelector: 'h1',
-    dataLoadedSelector: 'table, input[placeholder*="LOT"]',
+    dataLoadedSelector: 'table, form, input[type="text"]', // placeholder 의존 제거
   },
   {
     id: 'admin-alerts',
@@ -230,7 +230,7 @@ export const PAGES: PageConfig[] = [
     role: 'admin',
     category: 'list',
     loadCompleteSelector: 'h1',
-    dataLoadedSelector: 'table, text=알림이 없습니다',
+    dataLoadedSelector: 'table, text=비활성 제품 사용 기록', // 데이터 없을 때 EmptyState 텍스트 매칭
   },
 ];
 

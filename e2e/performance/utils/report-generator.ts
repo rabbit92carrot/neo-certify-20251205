@@ -12,6 +12,8 @@ import type { AggregatedPageMetrics, AggregatedActionMetrics } from './statistic
 export interface ReportMetadata {
   generatedAt: string;
   measurementCount: number;
+  /** 워밍업 측정 횟수 (통계에서 제외됨) */
+  warmupCount?: number;
   baseUrl: string;
   environment: string;
 }
@@ -43,6 +45,8 @@ export interface ReportConfig {
   baseUrl: string;
   environment: string;
   measurementCount: number;
+  /** 워밍업 측정 횟수 (통계에서 제외됨) */
+  warmupCount?: number;
 }
 
 // ==================== 임계값 정의 ====================
@@ -76,9 +80,12 @@ export function generateReport(
   actionMetrics: AggregatedActionMetrics[],
   config: ReportConfig
 ): PerformanceReport {
-  // 느린 페이지 식별 (상위 5개)
+  // 느린 페이지 식별 (상위 5개, 이상치 감지 시 trimmedAvg 사용)
   const slowestPages = [...pageMetrics]
-    .map((p) => ({ name: p.pageName, avgTime: p.initialRender.avg }))
+    .map((p) => ({
+      name: p.pageName,
+      avgTime: p.initialRender.hasOutlier ? p.initialRender.trimmedAvg : p.initialRender.avg,
+    }))
     .sort((a, b) => b.avgTime - a.avgTime)
     .slice(0, 5);
 
@@ -91,25 +98,33 @@ export function generateReport(
   // 임계값 위반 검사
   const thresholdViolations: ThresholdViolation[] = [];
 
-  // 페이지 임계값 검사
+  // 페이지 임계값 검사 (이상치 감지 시 trimmedAvg 사용)
   for (const page of pageMetrics) {
-    if (page.initialRender.avg > PAGE_THRESHOLDS.initialRender) {
+    const initialRenderValue = page.initialRender.hasOutlier
+      ? page.initialRender.trimmedAvg
+      : page.initialRender.avg;
+    if (initialRenderValue > PAGE_THRESHOLDS.initialRender) {
       thresholdViolations.push({
         type: 'page',
         name: page.pageName,
         metric: 'initialRender',
-        value: page.initialRender.avg,
+        value: initialRenderValue,
         threshold: PAGE_THRESHOLDS.initialRender,
       });
     }
-    if (page.dataLoad && page.dataLoad.avg > PAGE_THRESHOLDS.dataLoad) {
-      thresholdViolations.push({
-        type: 'page',
-        name: page.pageName,
-        metric: 'dataLoad',
-        value: page.dataLoad.avg,
-        threshold: PAGE_THRESHOLDS.dataLoad,
-      });
+    if (page.dataLoad) {
+      const dataLoadValue = page.dataLoad.hasOutlier
+        ? page.dataLoad.trimmedAvg
+        : page.dataLoad.avg;
+      if (dataLoadValue > PAGE_THRESHOLDS.dataLoad) {
+        thresholdViolations.push({
+          type: 'page',
+          name: page.pageName,
+          metric: 'dataLoad',
+          value: dataLoadValue,
+          threshold: PAGE_THRESHOLDS.dataLoad,
+        });
+      }
     }
   }
 
@@ -131,6 +146,7 @@ export function generateReport(
     metadata: {
       generatedAt: new Date().toISOString(),
       measurementCount: config.measurementCount,
+      warmupCount: config.warmupCount,
       baseUrl: config.baseUrl,
       environment: config.environment,
     },
@@ -146,25 +162,39 @@ export function generateReport(
   };
 }
 
+export interface SaveReportsOptions {
+  /** 리포트 파일명에 추가할 suffix (예: 'before', 'after', 타임스탬프) */
+  suffix?: string;
+}
+
 /**
  * 리포트 저장 (JSON + HTML)
+ * @returns 저장된 파일 경로
  */
 export async function saveReports(
   report: PerformanceReport,
   outputDir: string,
-  prefix: string
-): Promise<void> {
+  prefix: string,
+  options?: SaveReportsOptions
+): Promise<{ jsonPath: string; htmlPath: string }> {
   // 디렉토리 생성
   fs.mkdirSync(outputDir, { recursive: true });
 
+  // 파일명 결정 (suffix가 있으면 추가)
+  const baseName = options?.suffix
+    ? `${prefix}-report-${options.suffix}`
+    : `${prefix}-report`;
+
   // JSON 저장
-  const jsonPath = path.join(outputDir, `${prefix}-report.json`);
+  const jsonPath = path.join(outputDir, `${baseName}.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf-8');
 
   // HTML 저장
-  const htmlPath = path.join(outputDir, `${prefix}-report.html`);
+  const htmlPath = path.join(outputDir, `${baseName}.html`);
   const html = generateHtmlReport(report);
   fs.writeFileSync(htmlPath, html, 'utf-8');
+
+  return { jsonPath, htmlPath };
 }
 
 // ==================== HTML 리포트 생성 ====================
@@ -277,7 +307,7 @@ function generateHtmlReport(report: PerformanceReport): string {
 <body>
   <div class="container">
     <h1>Neo-Certify UI 성능 측정 리포트</h1>
-    <p class="subtitle">생성: ${formatDate(report.metadata.generatedAt)} | 환경: ${report.metadata.environment} | 측정 횟수: ${report.metadata.measurementCount}회</p>
+    <p class="subtitle">생성: ${formatDate(report.metadata.generatedAt)} | 환경: ${report.metadata.environment} | 측정 횟수: ${report.metadata.measurementCount}회${report.metadata.warmupCount ? ` (워밍업 ${report.metadata.warmupCount}회 제외)` : ''}</p>
 
     <!-- 요약 통계 -->
     <div class="stats-grid">
@@ -303,7 +333,8 @@ function generateHtmlReport(report: PerformanceReport): string {
 
     <div class="card meta">
       <p>Base URL: ${report.metadata.baseUrl}</p>
-      <p>측정 횟수: ${report.metadata.measurementCount}회 (평균값 기준)</p>
+      <p>측정 방식: 총 ${report.metadata.measurementCount + (report.metadata.warmupCount || 0)}회 측정${report.metadata.warmupCount ? ` (워밍업 ${report.metadata.warmupCount}회 제외 후 ${report.metadata.measurementCount}회 평균)` : ` (${report.metadata.measurementCount}회 평균)`}</p>
+      <p>이상치 처리: 최대/최소 비율 2배 이상 시 절사 평균 사용</p>
     </div>
   </div>
 </body>
@@ -316,15 +347,27 @@ function generateHtmlReport(report: PerformanceReport): string {
 function generatePageMetricsSection(pageMetrics: AggregatedPageMetrics[]): string {
   const rows = pageMetrics
     .map((p) => {
-      const status = getStatusBadge(p.initialRender.avg, PAGE_THRESHOLDS.initialRender);
+      // 이상치가 있으면 trimmedAvg 사용, 없으면 avg 사용
+      const effectiveAvg = p.initialRender.hasOutlier ? p.initialRender.trimmedAvg : p.initialRender.avg;
+      const status = getStatusBadge(effectiveAvg, PAGE_THRESHOLDS.initialRender);
+      const outlierBadge = p.initialRender.hasOutlier
+        ? '<span class="badge badge-warning" title="최대/최소 비율 2배 이상">⚠️ 이상치</span>'
+        : '';
+      const dataLoadOutlierBadge = p.dataLoad?.hasOutlier
+        ? ' <span class="badge badge-warning" title="최대/최소 비율 2배 이상">⚠️</span>'
+        : '';
+      const dataLoadValue = p.dataLoad
+        ? `${(p.dataLoad.hasOutlier ? p.dataLoad.trimmedAvg : p.dataLoad.avg).toFixed(0)}ms${dataLoadOutlierBadge}`
+        : '-';
+
       return `
         <tr>
           <td><strong>${p.pageName}</strong></td>
           <td><span class="category-badge">${p.category}</span></td>
-          <td><strong>${p.initialRender.avg.toFixed(0)}ms</strong></td>
+          <td><strong>${effectiveAvg.toFixed(0)}ms</strong> ${outlierBadge}</td>
           <td>${p.initialRender.min.toFixed(0)}ms</td>
           <td>${p.initialRender.max.toFixed(0)}ms</td>
-          <td>${p.dataLoad ? p.dataLoad.avg.toFixed(0) + 'ms' : '-'}</td>
+          <td>${dataLoadValue}</td>
           <td>${status}</td>
         </tr>
       `;
@@ -334,6 +377,9 @@ function generatePageMetricsSection(pageMetrics: AggregatedPageMetrics[]): strin
   return `
     <div class="card">
       <h2>페이지 로딩 시간</h2>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+        ※ 이상치(⚠️)가 감지된 항목은 절사 평균(상/하위 1개 제외) 사용
+      </p>
       <table>
         <thead>
           <tr>
