@@ -14,14 +14,16 @@ import type { ApiResponse, OrganizationAlertType } from '@/types/api.types';
 
 // ============================================================================
 // 캐시된 서비스 함수 (필터 데이터용)
+// cookies()를 사용하지 않는 Cacheable 버전 사용 (Next.js 15+ 호환)
 // ============================================================================
 
 /**
  * 전체 조직 목록 캐싱 (5분)
  * 조직 목록은 자주 변경되지 않으므로 5분 캐싱
+ * Note: Admin Client를 사용하는 Cacheable 버전 사용 (unstable_cache 호환)
  */
 const getCachedOrganizationsForSelect = unstable_cache(
-  async () => adminService.getAllOrganizationsForSelect(),
+  async () => adminService.getAllOrganizationsForSelectCacheable(),
   ['admin-organizations-select'],
   { revalidate: 300, tags: ['organizations'] }
 );
@@ -29,9 +31,10 @@ const getCachedOrganizationsForSelect = unstable_cache(
 /**
  * 전체 제품 목록 캐싱 (5분)
  * 제품 목록은 자주 변경되지 않으므로 5분 캐싱
+ * Note: Admin Client를 사용하는 Cacheable 버전 사용 (unstable_cache 호환)
  */
 const getCachedProductsForSelect = unstable_cache(
-  async () => adminService.getAllProductsForSelect(),
+  async () => adminService.getAllProductsForSelectCacheable(),
   ['admin-products-select'],
   { revalidate: 300, tags: ['products'] }
 );

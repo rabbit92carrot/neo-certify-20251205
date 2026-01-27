@@ -19,8 +19,6 @@ import { Button } from '@/components/ui/button';
 import { generateCsvString, downloadCsv, formatDateTimeKorea } from '@/lib/utils';
 import {
   getAdminEventSummaryCursorAction,
-  getAllOrganizationsForSelectAction,
-  getAllProductsForSelectAction,
   exportEventSummaryCsvAction,
 } from '../actions';
 import type { AdminEventSummary, OrganizationType } from '@/types/api.types';
@@ -52,6 +50,9 @@ interface HistoryTableWrapperProps {
   organizationId?: string;
   productId?: string;
   includeRecalled?: boolean;
+  // Server Component에서 미리 로드된 필터 데이터 (Phase 1A 최적화)
+  initialOrganizations?: { id: string; name: string; type: OrganizationType }[];
+  initialProducts?: { id: string; name: string; modelName: string; manufacturerName: string }[];
 }
 
 // 페이지 사이즈 상수
@@ -65,6 +66,8 @@ export function HistoryTableWrapper({
   organizationId,
   productId,
   includeRecalled = true,
+  initialOrganizations = [],
+  initialProducts = [],
 }: HistoryTableWrapperProps): React.ReactElement {
   // 이벤트 데이터 상태
   const [events, setEvents] = useState<AdminEventSummary[]>([]);
@@ -75,22 +78,15 @@ export function HistoryTableWrapper({
   const [currentPage, setCurrentPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(true);
 
-  // 필터 데이터 (캐싱됨)
-  const [organizations, setOrganizations] = useState<
-    { id: string; name: string; type: OrganizationType }[]
-  >([]);
-  const [products, setProducts] = useState<
-    { id: string; name: string; modelName: string; manufacturerName: string }[]
-  >([]);
+  // 필터 데이터 (Server Component에서 미리 로드됨)
+  const organizations = initialOrganizations;
+  const products = initialProducts;
 
   // CSV 로딩 상태
   const [csvLoading, setCsvLoading] = useState(false);
 
   // 페이지별 커서 캐시 (이전 페이지로 돌아갈 때 사용)
   const pageCursorsRef = useRef<Map<number, PageCursor>>(new Map());
-
-  // 필터 데이터 캐시 (마운트 간 유지)
-  const filterDataLoadedRef = useRef(false);
 
   // actionTypes 문자열을 배열로 변환
   const actionTypesArray = actionTypes ? actionTypes.split(',').filter(Boolean) : undefined;
@@ -105,29 +101,6 @@ export function HistoryTableWrapper({
     productId,
     includeRecalled,
   ].join('|');
-
-  /**
-   * 필터 데이터 로드 (조직/제품 목록) - 캐싱 적용
-   */
-  const loadFilterData = useCallback(async () => {
-    if (filterDataLoadedRef.current) {
-      return;
-    }
-
-    const [orgsResult, productsResult] = await Promise.all([
-      getAllOrganizationsForSelectAction(),
-      getAllProductsForSelectAction(),
-    ]);
-
-    if (orgsResult.success && orgsResult.data) {
-      setOrganizations(orgsResult.data);
-    }
-    if (productsResult.success && productsResult.data) {
-      setProducts(productsResult.data);
-    }
-
-    filterDataLoadedRef.current = true;
-  }, []);
 
   /**
    * 특정 페이지 로드
@@ -185,7 +158,6 @@ export function HistoryTableWrapper({
   useEffect(() => {
     pageCursorsRef.current.clear();
     setCurrentPage(1);
-    void loadFilterData();
     void loadPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey]);

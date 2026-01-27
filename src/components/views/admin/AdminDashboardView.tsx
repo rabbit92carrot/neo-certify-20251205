@@ -71,9 +71,9 @@ export function AdminDashboardView({
         </CardContent>
       </Card>
 
-      {/* 통계 카드 */}
+      {/* 통계 카드 (Phase 2C: prefetch=false로 초기 로드 부하 감소) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/admin/organizations">
+        <Link href="/admin/organizations" prefetch={false}>
           <StatCard
             title="총 조직 수"
             value={stats.totalOrganizations}
@@ -81,7 +81,7 @@ export function AdminDashboardView({
             description="등록된 조직 수"
           />
         </Link>
-        <Link href="/admin/approvals">
+        <Link href="/admin/approvals" prefetch={false}>
           <StatCard
             title="승인 대기"
             value={stats.pendingApprovals}
@@ -89,7 +89,7 @@ export function AdminDashboardView({
             description="승인 대기 중인 조직"
           />
         </Link>
-        <Link href="/admin/recalls">
+        <Link href="/admin/recalls" prefetch={false}>
           <StatCard
             title="오늘 회수 건수"
             value={stats.todayRecalls}
@@ -97,7 +97,7 @@ export function AdminDashboardView({
             description="오늘 발생한 회수"
           />
         </Link>
-        <Link href="/admin/history">
+        <Link href="/admin/history" prefetch={false}>
           <StatCard
             title="총 가상 코드"
             value={stats.totalVirtualCodes}
@@ -114,7 +114,7 @@ export function AdminDashboardView({
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base font-medium">최근 승인 대기</CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/admin/approvals">
+              <Link href="/admin/approvals" prefetch={false}>
                 전체 보기
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Link>
@@ -132,25 +132,25 @@ export function AdminDashboardView({
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
             <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/admin/organizations">
+              <Link href="/admin/organizations" prefetch={false}>
                 <Building2 className="h-5 w-5" />
                 <span>조직 관리</span>
               </Link>
             </Button>
             <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/admin/approvals">
+              <Link href="/admin/approvals" prefetch={false}>
                 <UserCheck className="h-5 w-5" />
                 <span>가입 승인</span>
               </Link>
             </Button>
             <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/admin/history">
+              <Link href="/admin/history" prefetch={false}>
                 <QrCode className="h-5 w-5" />
                 <span>전체 이력</span>
               </Link>
             </Button>
             <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/admin/recalls">
+              <Link href="/admin/recalls" prefetch={false}>
                 <AlertCircle className="h-5 w-5" />
                 <span>회수 이력</span>
               </Link>
