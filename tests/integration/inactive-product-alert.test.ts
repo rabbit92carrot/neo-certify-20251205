@@ -17,6 +17,7 @@ import {
   cleanupOrganizationAlerts,
   cleanupInactiveProductUsageLogs,
   generateTestUUID,
+  rpcWithRetry,
 } from '../helpers';
 
 describe('비활성 제품 알림 통합 테스트', () => {
@@ -90,7 +91,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
 
       // log_inactive_product_usage 호출
       const fakeShipmentId = generateTestUUID();
-      const { error } = await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct.id,
@@ -122,13 +123,15 @@ describe('비활성 제품 알림 통합 테스트', () => {
 
       // log_inactive_product_usage 호출
       const fakeShipmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct.id,
         p_organization_id: distributorOrg.id,
         p_quantity: 3,
       });
+
+      expect(error).toBeNull();
 
       // 관리자 알림 확인 (productId로 해당 알림 찾기)
       const adminAlerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
@@ -154,7 +157,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
 
       // log_inactive_product_usage 호출
       const fakeShipmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct.id,
@@ -162,16 +165,19 @@ describe('비활성 제품 알림 통합 테스트', () => {
         p_quantity: 2,
       });
 
-      // 제조사 알림 확인
+      expect(error).toBeNull();
+
+      // 제조사 알림 확인 (metadata 기반 필터링으로 다른 테스트 데이터 간섭 방지)
       const manufacturerAlerts = await getOrganizationAlerts(manufacturerOrg.id, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
       });
 
-      expect(manufacturerAlerts.length).toBeGreaterThanOrEqual(1);
-
-      const alert = manufacturerAlerts[0];
-      expect(alert.alert_type).toBe('INACTIVE_PRODUCT_USAGE');
-      expect(alert.recipient_org_id).toBe(manufacturerOrg.id);
+      const alert = manufacturerAlerts.find(a =>
+        (a.metadata as { productId?: string })?.productId === inactiveProduct.id
+      );
+      expect(alert).toBeDefined();
+      expect(alert?.alert_type).toBe('INACTIVE_PRODUCT_USAGE');
+      expect(alert?.recipient_org_id).toBe(manufacturerOrg.id);
     });
 
     it('활성 제품 사용 시 로그가 기록되지 않아야 한다', async () => {
@@ -187,7 +193,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
 
       // log_inactive_product_usage 호출
       const fakeShipmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: activeProduct.id,
@@ -209,13 +215,15 @@ describe('비활성 제품 알림 통합 테스트', () => {
       });
 
       const fakeShipmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct.id,
         p_organization_id: distributorOrg.id,
         p_quantity: 1,
       });
+
+      expect(error).toBeNull();
 
       const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
@@ -234,13 +242,15 @@ describe('비활성 제품 알림 통합 테스트', () => {
       });
 
       const fakeShipmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct.id,
         p_organization_id: distributorOrg.id,
         p_quantity: 1,
       });
+
+      expect(error).toBeNull();
 
       const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
@@ -259,13 +269,15 @@ describe('비활성 제품 알림 통합 테스트', () => {
       });
 
       const fakeShipmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct.id,
         p_organization_id: distributorOrg.id,
         p_quantity: 1,
       });
+
+      expect(error).toBeNull();
 
       const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
@@ -288,13 +300,15 @@ describe('비활성 제품 알림 통합 테스트', () => {
 
       // log_inactive_product_usage 호출 (시술)
       const fakeTreatmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'TREATMENT',
         p_usage_id: fakeTreatmentId,
         p_product_id: inactiveProduct.id,
         p_organization_id: hospitalOrg.id,
         p_quantity: 2,
       });
+
+      expect(error).toBeNull();
 
       // 로그 확인
       const logs = await getInactiveProductUsageLogs({
@@ -328,13 +342,15 @@ describe('비활성 제품 알림 통합 테스트', () => {
       });
 
       const fakeShipmentId = generateTestUUID();
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct.id,
         p_organization_id: distributorOrg.id,
         p_quantity: 10,
       });
+
+      expect(error).toBeNull();
 
       const alerts = await getOrganizationAlerts(SEED_ADMIN_ORG_ID, {
         alertType: 'INACTIVE_PRODUCT_USAGE',
@@ -384,7 +400,7 @@ describe('비활성 제품 알림 통합 테스트', () => {
       const fakeShipmentId = generateTestUUID();
 
       // 두 제품 각각 로그 생성
-      await adminClient.rpc('log_inactive_product_usage', {
+      const { error: error1 } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct1.id,
@@ -392,13 +408,17 @@ describe('비활성 제품 알림 통합 테스트', () => {
         p_quantity: 5,
       });
 
-      await adminClient.rpc('log_inactive_product_usage', {
+      expect(error1).toBeNull();
+
+      const { error: error2 } = await rpcWithRetry(adminClient, 'log_inactive_product_usage', {
         p_usage_type: 'SHIPMENT',
         p_usage_id: fakeShipmentId,
         p_product_id: inactiveProduct2.id,
         p_organization_id: distributorOrg.id,
         p_quantity: 3,
       });
+
+      expect(error2).toBeNull();
 
       // 로그 확인
       const logs1 = await getInactiveProductUsageLogs({ productId: inactiveProduct1.id });

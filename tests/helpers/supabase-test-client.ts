@@ -85,6 +85,28 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 }
 
 /**
+ * RPC 호출을 timeout 재시도와 함께 실행합니다.
+ * DB 부하 시 statement_timeout(8s)에 걸리는 경우 1회 재시도합니다.
+ */
+export async function rpcWithRetry<T>(
+  client: SupabaseClient<Database>,
+  fnName: string,
+  params: Record<string, unknown>,
+  maxRetries = 2
+): Promise<{ data: T | null; error: { code: string; message: string } | null }> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const { data, error } = await client.rpc(fnName as never, params as never);
+    if (!error || error.code !== '57014' || attempt === maxRetries) {
+      return { data: data as T | null, error };
+    }
+    // timeout 시 점진적 대기 후 재시도 (2s, 4s, 6s...)
+    await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+  }
+  // unreachable
+  return { data: null, error: { code: 'RETRY_EXHAUSTED', message: 'Max retries exceeded' } };
+}
+
+/**
  * 테스트 환경 정보를 반환합니다.
  * 환경 변수가 로드된 후 호출해야 합니다.
  */
