@@ -77,11 +77,11 @@ function parseArgs(): Args {
         break;
       case '--pairs':
       case '-n':
-        args.pairs = parseInt(argv[++i], 10);
+        args.pairs = parseInt(argv[++i] ?? '0', 10);
         break;
       case '--cooldown':
       case '-c':
-        args.cooldown = parseInt(argv[++i], 10);
+        args.cooldown = parseInt(argv[++i] ?? '0', 10);
         break;
       case '--list':
       case '-l':
