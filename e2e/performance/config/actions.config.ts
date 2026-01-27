@@ -101,7 +101,7 @@ export const ACTIONS: ActionConfig[] = [
     pageId: 'admin-history',
     type: 'table-load',
     steps: [],
-    completeSelector: 'table, input[placeholder*="LOT"]',
+    completeSelector: 'table, form, input[type="text"]',
     prerequisiteSelector: 'h1',
   },
 
