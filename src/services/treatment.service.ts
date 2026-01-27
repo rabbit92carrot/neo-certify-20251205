@@ -31,7 +31,6 @@ import {
 import {
   TreatmentAtomicResultSchema,
   RecallTreatmentResultSchema,
-  TreatmentSummaryRowSchema,
   TreatmentHistoryConsolidatedRowSchema,
   HospitalPatientRowSchema,
 } from '@/lib/validations/rpc-schemas';
@@ -354,95 +353,6 @@ export async function getTreatmentHistory(
       hasMore: (page - 1) * pageSize + pageSize < total,
     },
   });
-}
-
-/**
- * 여러 시술의 아이템 요약을 한 번에 조회 (N+1 최적화)
- * DB 함수 get_treatment_summaries 사용
- *
- * @deprecated Phase 8 최적화로 get_treatment_history_consolidated RPC로 대체됨
- * getTreatmentHistory() 함수에서 더 이상 사용하지 않음
- */
-async function _getTreatmentSummariesBulk(
-  treatmentIds: string[]
-): Promise<Map<string, { itemSummary: TreatmentItemSummary[]; totalQuantity: number }>> {
-  const result = new Map<string, { itemSummary: TreatmentItemSummary[]; totalQuantity: number }>();
-
-  if (treatmentIds.length === 0) {
-    return result;
-  }
-
-  const supabase = await createClient();
-
-  // [PERF-LOG] RPC 호출 시간 측정
-  const rpcStartTime = performance.now();
-
-  // DB 함수 호출로 모든 시술의 요약을 한 번에 조회
-  const { data, error } = await supabase.rpc('get_treatment_summaries', {
-    p_treatment_ids: treatmentIds,
-  });
-
-  const rpcDuration = performance.now() - rpcStartTime;
-
-  if (error || !data) {
-    logger.error('시술 요약 bulk 조회 실패', { error, rpcDuration_ms: Math.round(rpcDuration) });
-    // 에러 시 빈 결과 반환
-    return result;
-  }
-
-  // [PERF-LOG] 느린 RPC 호출 로깅 (1초 이상)
-  if (rpcDuration > 1000) {
-    logger.warn('[PERF] get_treatment_summaries RPC 느림', {
-      treatmentCount: treatmentIds.length,
-      rpcDuration_ms: Math.round(rpcDuration),
-      rowCount: Array.isArray(data) ? data.length : 0,
-    });
-  }
-
-  // Zod 검증으로 결과 파싱
-  const parsed = parseRpcArray(TreatmentSummaryRowSchema, data, 'get_treatment_summaries');
-  if (!parsed.success) {
-    logger.error('get_treatment_summaries 검증 실패', { error: parsed.error });
-    return result;
-  }
-
-  const rows = parsed.data;
-
-  // 시술별로 그룹화
-  const treatmentMap = new Map<string, Map<string, { name: string; quantity: number }>>();
-
-  for (const row of rows) {
-    if (!treatmentMap.has(row.treatment_id)) {
-      treatmentMap.set(row.treatment_id, new Map());
-    }
-    const productMap = treatmentMap.get(row.treatment_id)!;
-
-    // 같은 제품의 수량 합산
-    const existing = productMap.get(row.product_id);
-    if (existing) {
-      existing.quantity += Number(row.quantity);
-    } else {
-      productMap.set(row.product_id, { name: row.product_name, quantity: Number(row.quantity) });
-    }
-  }
-
-  // 결과 변환
-  for (const treatmentId of treatmentIds) {
-    const productMap = treatmentMap.get(treatmentId);
-    if (productMap) {
-      const itemSummary = Array.from(productMap.entries()).map(([productId, { name, quantity }]) => ({
-        productId,
-        productName: name,
-        quantity,
-      }));
-      const totalQuantity = itemSummary.reduce((sum, item) => sum + item.quantity, 0);
-      result.set(treatmentId, { itemSummary, totalQuantity });
-    } else {
-      result.set(treatmentId, { itemSummary: [], totalQuantity: 0 });
-    }
-  }
-
-  return result;
 }
 
 // ============================================================================
