@@ -64,14 +64,14 @@ export function calculateDescriptiveStats(values: number[]): DescriptiveStats {
   const standardDeviation = Math.sqrt(variance);
 
   const median =
-    n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
+    n % 2 === 0 ? (sorted[n / 2 - 1]! + sorted[n / 2]!) / 2 : sorted[Math.floor(n / 2)]!;
 
   return {
     mean,
     standardDeviation,
     variance,
-    min: sorted[0],
-    max: sorted[n - 1],
+    min: sorted[0]!,
+    max: sorted[n - 1]!,
     median,
     count: n,
   };
@@ -102,7 +102,7 @@ export function pairedTTest(
   }
 
   // 차이 계산 (B - A, 양수면 B가 더 큼 = A가 더 빠름)
-  const differences = sampleA.map((a, i) => sampleB[i] - a);
+  const differences = sampleA.map((a, i) => sampleB[i]! - a);
 
   // 차이의 평균과 표준편차
   const meanDiff = differences.reduce((sum, d) => sum + d, 0) / n;
@@ -340,21 +340,21 @@ function normalQuantile(p: number): number {
   if (p < pLow) {
     q = Math.sqrt(-2 * Math.log(p));
     return (
-      (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+      (((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1)
     );
   } else if (p <= pHigh) {
     q = p - 0.5;
     r = q * q;
     return (
-      ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
-      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+      ((((((a[0]! * r + a[1]!) * r + a[2]!) * r + a[3]!) * r + a[4]!) * r + a[5]!) * q) /
+      (((((b[0]! * r + b[1]!) * r + b[2]!) * r + b[3]!) * r + b[4]!) * r + 1)
     );
   } else {
     q = Math.sqrt(-2 * Math.log(1 - p));
     return (
-      -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+      -(((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1)
     );
   }
 }
@@ -375,9 +375,9 @@ function gamma(z: number): number {
     1.5056327351493116e-7,
   ];
 
-  let x = c[0];
+  let x = c[0]!;
   for (let i = 1; i < g + 2; i++) {
-    x += c[i] / (z + i);
+    x += c[i]! / (z + i);
   }
 
   const t = z + g + 0.5;
