@@ -32,6 +32,7 @@ import {
   TreatmentAtomicResultSchema,
   RecallTreatmentResultSchema,
   TreatmentSummaryRowSchema,
+  TreatmentHistoryConsolidatedRowSchema,
   HospitalPatientRowSchema,
 } from '@/lib/validations/rpc-schemas';
 
@@ -243,7 +244,11 @@ export async function createTreatment(
 // ============================================================================
 
 /**
- * 시술 이력 조회
+ * 시술 이력 조회 (통합 RPC 사용)
+ *
+ * Phase 8 최적화: 2-stage 쿼리를 단일 RPC로 통합하여 네트워크 왕복 감소
+ * - 기존: treatment_records 조회 → get_treatment_summaries RPC
+ * - 개선: get_treatment_history_consolidated RPC 단일 호출
  *
  * @param hospitalId 병원 ID
  * @param query 조회 옵션
@@ -253,61 +258,91 @@ export async function getTreatmentHistory(
   hospitalId: string,
   query: TreatmentHistoryQueryData
 ): Promise<ApiResponse<PaginatedResponse<TreatmentRecordSummary>>> {
+  const functionStartTime = performance.now();
   const supabase = await createClient();
   const { page = 1, pageSize = 20, startDate, endDate, patientPhone } = query;
-  const offset = (page - 1) * pageSize;
 
-  // 기본 쿼리
-  let queryBuilder = supabase
-    .from('treatment_records')
-    .select(
-      `
-      *,
-      hospital:organizations!treatment_records_hospital_id_fkey(id, name, type)
-    `,
-      { count: 'exact' }
-    )
-    .eq('hospital_id', hospitalId)
-    .order('treatment_date', { ascending: false })
-    .order('created_at', { ascending: false });
+  // 날짜 필터 변환 (KST 기준 종료일 포함)
+  const normalizedPhone = patientPhone ? normalizePhoneNumber(patientPhone) : undefined;
+  const endDateKST = endDate ? toEndOfDayKST(endDate) : undefined;
 
-  // 필터 적용 (KST 기준으로 날짜 범위 변환하여 종료일 포함)
-  if (startDate) {
-    queryBuilder = queryBuilder.gte('treatment_date', startDate);
-  }
-  if (endDate) {
-    queryBuilder = queryBuilder.lte('treatment_date', toEndOfDayKST(endDate));
-  }
-  if (patientPhone) {
-    const normalizedPhone = normalizePhoneNumber(patientPhone);
-    queryBuilder = queryBuilder.eq('patient_phone', normalizedPhone);
-  }
-
-  const { data: treatments, count, error } = await queryBuilder.range(offset, offset + pageSize - 1);
+  // [PERF-LOG] 단일 RPC 호출
+  const rpcStartTime = performance.now();
+  const { data, error } = await supabase.rpc('get_treatment_history_consolidated', {
+    p_hospital_id: hospitalId,
+    p_page: page,
+    p_page_size: pageSize,
+    p_start_date: startDate ?? null,
+    p_end_date: endDateKST ?? null,
+    p_patient_phone: normalizedPhone ?? null,
+  });
+  const rpcDuration = performance.now() - rpcStartTime;
 
   if (error) {
-    logger.error('시술 이력 조회 실패', error);
+    logger.error('시술 이력 조회 실패 (통합 RPC)', error);
     return createErrorResponse('QUERY_ERROR', error.message);
   }
 
-  // 모든 시술의 요약 정보를 한 번에 조회 (N+1 최적화)
-  const treatmentIds = (treatments ?? []).map((t) => t.id);
-  const summariesMap = await getTreatmentSummariesBulk(treatmentIds);
+  // RPC 결과 검증
+  const parsed = parseRpcArray(
+    TreatmentHistoryConsolidatedRowSchema,
+    data,
+    'get_treatment_history_consolidated'
+  );
 
-  const treatmentSummaries: TreatmentRecordSummary[] = (treatments ?? []).map((treatment) => {
-    const summary = summariesMap.get(treatment.id) ?? { itemSummary: [], totalQuantity: 0 };
-    const hoursDiff = getHoursDifference(treatment.created_at);
+  if (!parsed.success) {
+    logger.error('get_treatment_history_consolidated 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const rows = parsed.data;
+  const total = rows[0]?.total_count ?? 0;
+
+  // 결과 변환
+  const treatmentSummaries: TreatmentRecordSummary[] = rows.map((row) => {
+    const hoursDiff = getHoursDifference(row.created_at);
 
     return {
-      ...treatment,
-      hospital: treatment.hospital as Pick<Organization, 'id' | 'name' | 'type'>,
-      itemSummary: summary.itemSummary,
-      totalQuantity: summary.totalQuantity,
+      id: row.id,
+      hospital_id: row.hospital_id,
+      patient_phone: row.patient_phone,
+      treatment_date: row.treatment_date,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      hospital: {
+        id: row.hospital_id,
+        name: row.hospital_name,
+        type: row.hospital_type,
+      },
+      itemSummary: row.item_summary.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+      })),
+      totalQuantity: row.total_quantity,
       isRecallable: hoursDiff <= 24,
     };
   });
 
-  const total = count ?? 0;
+  // [PERF-LOG] 전체 성능 로그 출력
+  const totalDuration = performance.now() - functionStartTime;
+  const isSlowRequest = rpcDuration > 1000 || totalDuration > 2000;
+
+  // 느린 요청 또는 개발 환경에서 로그 출력
+  if (isSlowRequest || process.env.NODE_ENV === 'development') {
+    logger.info('[PERF] getTreatmentHistory 성능 측정 (통합 RPC)', {
+      hospitalId,
+      page,
+      pageSize,
+      treatmentCount: rows.length,
+      totalRecords: total,
+      timing: {
+        rpc_ms: Math.round(rpcDuration),
+        total_ms: Math.round(totalDuration),
+      },
+      isSlow: isSlowRequest,
+    });
+  }
 
   return createSuccessResponse({
     items: treatmentSummaries,
@@ -316,7 +351,7 @@ export async function getTreatmentHistory(
       pageSize,
       total,
       totalPages: Math.ceil(total / pageSize),
-      hasMore: offset + pageSize < total,
+      hasMore: (page - 1) * pageSize + pageSize < total,
     },
   });
 }
@@ -324,8 +359,11 @@ export async function getTreatmentHistory(
 /**
  * 여러 시술의 아이템 요약을 한 번에 조회 (N+1 최적화)
  * DB 함수 get_treatment_summaries 사용
+ *
+ * @deprecated Phase 8 최적화로 get_treatment_history_consolidated RPC로 대체됨
+ * getTreatmentHistory() 함수에서 더 이상 사용하지 않음
  */
-async function getTreatmentSummariesBulk(
+async function _getTreatmentSummariesBulk(
   treatmentIds: string[]
 ): Promise<Map<string, { itemSummary: TreatmentItemSummary[]; totalQuantity: number }>> {
   const result = new Map<string, { itemSummary: TreatmentItemSummary[]; totalQuantity: number }>();
@@ -336,15 +374,29 @@ async function getTreatmentSummariesBulk(
 
   const supabase = await createClient();
 
+  // [PERF-LOG] RPC 호출 시간 측정
+  const rpcStartTime = performance.now();
+
   // DB 함수 호출로 모든 시술의 요약을 한 번에 조회
   const { data, error } = await supabase.rpc('get_treatment_summaries', {
     p_treatment_ids: treatmentIds,
   });
 
+  const rpcDuration = performance.now() - rpcStartTime;
+
   if (error || !data) {
-    logger.error('시술 요약 bulk 조회 실패', error);
+    logger.error('시술 요약 bulk 조회 실패', { error, rpcDuration_ms: Math.round(rpcDuration) });
     // 에러 시 빈 결과 반환
     return result;
+  }
+
+  // [PERF-LOG] 느린 RPC 호출 로깅 (1초 이상)
+  if (rpcDuration > 1000) {
+    logger.warn('[PERF] get_treatment_summaries RPC 느림', {
+      treatmentCount: treatmentIds.length,
+      rpcDuration_ms: Math.round(rpcDuration),
+      rowCount: Array.isArray(data) ? data.length : 0,
+    });
   }
 
   // Zod 검증으로 결과 파싱

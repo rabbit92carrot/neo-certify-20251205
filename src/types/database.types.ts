@@ -193,6 +193,36 @@ type CustomFunctions = {
     Args: Record<string, never>;
     Returns: undefined;
   };
+
+  /**
+   * Consolidated treatment history query
+   * Phase 8 optimization: 2-stage query → single RPC
+   * RPC: get_treatment_history_consolidated
+   * Migration: 20260127000004_treatment_history_consolidated_rpc.sql
+   */
+  get_treatment_history_consolidated: {
+    Args: {
+      p_hospital_id: string;
+      p_page?: number;
+      p_page_size?: number;
+      p_start_date?: string | null;
+      p_end_date?: string | null;
+      p_patient_phone?: string | null;
+    };
+    Returns: {
+      id: string;
+      hospital_id: string;
+      patient_phone: string;
+      treatment_date: string;
+      created_at: string;
+      updated_at: string | null;
+      hospital_name: string;
+      hospital_type: 'MANUFACTURER' | 'DISTRIBUTOR' | 'HOSPITAL';
+      item_summary: Json;
+      total_quantity: number;
+      total_count: number;
+    }[];
+  };
 };
 
 /**
