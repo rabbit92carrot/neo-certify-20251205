@@ -66,8 +66,8 @@ export async function login(page: Page, email: string, password: string): Promis
   // 로그인 버튼 클릭
   await page.locator('button[type="submit"]').click();
 
-  // 대시보드로 리다이렉트 대기
-  await page.waitForURL(/\/dashboard/, { timeout: 15000 });
+  // 대시보드로 리다이렉트 대기 (성능 테스트 시 연속 로그인으로 인한 지연 대응)
+  await page.waitForURL(/\/dashboard/, { timeout: 30000 });
 }
 
 /**
