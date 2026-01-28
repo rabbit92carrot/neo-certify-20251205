@@ -153,6 +153,12 @@ export function TreatmentForm({
 
       if (result.success) {
         toast.success(`${totalItems}개 제품 시술이 등록되었습니다.`);
+
+        // mock 알림톡 미리보기 새 창 열기 (개발/테스트 환경)
+        if (process.env.NODE_ENV !== 'production') {
+          window.open('/mock/kakao', 'mock-kakao', 'width=430,height=930,noopener,noreferrer');
+        }
+
         clearCart();
         resetPatientSearch();
         setSelectedProduct(null);

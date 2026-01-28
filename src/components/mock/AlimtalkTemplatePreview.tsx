@@ -34,7 +34,7 @@ interface AlimtalkTemplate {
  */
 const TEMPLATES: AlimtalkTemplate[] = [
   {
-    code: 'CERT-001',
+    code: 'ND-CERT-001',
     name: '정품 인증 완료',
     messageType: 'BA',
     emphasizeType: 'TEXT',
@@ -64,7 +64,7 @@ const TEMPLATES: AlimtalkTemplate[] = [
     ],
   },
   {
-    code: 'CERT-002',
+    code: 'ND-CERT-002',
     name: '정품 인증 회수',
     messageType: 'BA',
     emphasizeType: 'TEXT',
@@ -123,7 +123,7 @@ function AlimtalkMessageCard({
   variableValues: Record<string, string>;
 }): React.ReactElement {
   const content = replaceVariables(template.content, variableValues);
-  const isCertification = template.code === 'CERT-001';
+  const isCertification = template.code === 'ND-CERT-001';
 
   return (
     <div className="flex gap-2 px-4 py-2">
@@ -290,10 +290,31 @@ function TemplateInfoPanel({ template }: { template: AlimtalkTemplate }): React.
 }
 
 /**
+ * 발송 시뮬레이션 결과
+ */
+interface SimulationResult {
+  success: boolean;
+  notificationId?: string;
+  error?: string;
+}
+
+/**
  * 알림톡 템플릿 미리보기 컴포넌트
  */
-export function AlimtalkTemplatePreview(): React.ReactElement {
+export function AlimtalkTemplatePreview({
+  onSimulateSend,
+}: {
+  onSimulateSend?: (params: {
+    templateCode: string;
+    recipientPhone: string;
+    message: string;
+    type: 'CERTIFICATION' | 'RECALL';
+    buttons?: { name: string; url: string }[];
+  }) => Promise<{ success: boolean; notificationId?: string; error?: string }>;
+}): React.ReactElement {
   const [selectedTemplateIndex, setSelectedTemplateIndex] = useState(0);
+  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [variableValues, setVariableValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const v of TEMPLATES[0]?.variables ?? []) {
@@ -319,6 +340,38 @@ export function AlimtalkTemplatePreview(): React.ReactElement {
 
   const handleVariableChange = (name: string, value: string) => {
     setVariableValues((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSimulateSend = async () => {
+    if (!onSimulateSend || !selectedTemplate) return;
+
+    setIsSimulating(true);
+    setSimulationResult(null);
+
+    const renderedMessage = replaceVariables(selectedTemplate.content, variableValues);
+    const renderedButtons = selectedTemplate.buttons
+      .filter((b) => b.url)
+      .map((b) => ({
+        name: b.name,
+        url: replaceVariables(b.url ?? '', variableValues),
+      }));
+
+    const type = selectedTemplate.code === 'ND-CERT-001' ? 'CERTIFICATION' as const : 'RECALL' as const;
+
+    try {
+      const result = await onSimulateSend({
+        templateCode: selectedTemplate.code,
+        recipientPhone: '01000005678', // 시뮬레이션용 기본 번호
+        message: renderedMessage,
+        type,
+        buttons: renderedButtons,
+      });
+      setSimulationResult(result);
+    } catch {
+      setSimulationResult({ success: false, error: '시뮬레이션 중 오류가 발생했습니다.' });
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   if (!selectedTemplate) {
@@ -517,6 +570,50 @@ export function AlimtalkTemplatePreview(): React.ReactElement {
               >
                 기본값으로 초기화
               </Button>
+
+              {/* 발송 시뮬레이션 */}
+              {onSimulateSend && (
+                <div className="mt-4 border-t pt-4">
+                  <Button
+                    className="w-full bg-[#FEE500] text-[#3C1E1E] hover:bg-[#FDD835]"
+                    onClick={handleSimulateSend}
+                    disabled={isSimulating}
+                  >
+                    {isSimulating ? '발송 중...' : '발송 시뮬레이션'}
+                  </Button>
+                  <p className="mt-2 text-center text-xs text-gray-500">
+                    현재 변수값으로 mock 메시지를 저장합니다
+                  </p>
+
+                  {simulationResult && (
+                    <div
+                      className={cn(
+                        'mt-3 rounded-lg p-3 text-sm',
+                        simulationResult.success
+                          ? 'bg-green-50 text-green-800'
+                          : 'bg-red-50 text-red-800'
+                      )}
+                    >
+                      {simulationResult.success ? (
+                        <>
+                          <div className="font-medium">저장 완료</div>
+                          <div className="mt-1 text-xs">
+                            ID: {simulationResult.notificationId}
+                          </div>
+                          <a
+                            href="/mock/kakao"
+                            className="mt-2 inline-block text-xs font-medium text-blue-600 underline"
+                          >
+                            메시지 목록에서 확인 →
+                          </a>
+                        </>
+                      ) : (
+                        <div>{simulationResult.error}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 버튼 정보 */}
