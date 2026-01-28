@@ -36,6 +36,7 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     // 순차 실행 (DB 상태 충돌 방지)
+    fileParallelism: false,
     pool: 'forks',
     poolOptions: {
       forks: {
