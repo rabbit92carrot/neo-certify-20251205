@@ -364,8 +364,8 @@ export const TreatmentSummaryRowSchema = z.object({
  * - Phase 8 성능 최적화: 2-stage 쿼리 → 단일 RPC
  */
 export const TreatmentHistoryConsolidatedRowSchema = z.object({
-  id: z.string().uuid(),
-  hospital_id: z.string().uuid(),
+  id: z.string(),
+  hospital_id: z.string(),
   patient_phone: z.string(),
   treatment_date: z.string(),
   created_at: z.string(),
@@ -374,7 +374,7 @@ export const TreatmentHistoryConsolidatedRowSchema = z.object({
   hospital_type: z.enum(['MANUFACTURER', 'DISTRIBUTOR', 'HOSPITAL']),
   item_summary: z.array(
     z.object({
-      productId: z.string().uuid(),
+      productId: z.string(),
       productName: z.string(),
       quantity: z.number(),
     })
