@@ -47,7 +47,7 @@ type CustomFunctions = {
   /**
    * Cursor-based pagination for admin event summary
    * RPC: get_admin_event_summary_cursor
-   * Migration: 20251219000003_add_cursor_pagination_support.sql
+   * Migration: 20260126000003_add_org_names_to_admin_event_cursor.sql
    */
   get_admin_event_summary_cursor: {
     Args: {
@@ -68,8 +68,10 @@ type CustomFunctions = {
       action_type: string;
       from_owner_type: string | null;
       from_owner_id: string | null;
+      from_owner_name: string | null; // 추가: 조직명 (ORGANIZATION인 경우)
       to_owner_type: string | null;
       to_owner_id: string | null;
+      to_owner_name: string | null; // 추가: 조직명 (ORGANIZATION인 경우)
       is_recall: boolean;
       recall_reason: string | null;
       total_quantity: number;
@@ -164,6 +166,61 @@ type CustomFunctions = {
       original_quantity: number;
       owned_quantity: number;
       codes: string[] | null;
+    }[];
+  };
+
+  /**
+   * Fast organization code counts using Materialized View
+   * RPC: get_organization_code_counts_fast
+   * Migration: 20260126000002_create_org_code_counts_mv.sql
+   */
+  get_organization_code_counts_fast: {
+    Args: {
+      p_org_ids: string[];
+    };
+    Returns: {
+      org_id: string;
+      code_count: number;
+    }[];
+  };
+
+  /**
+   * Refresh organization code counts Materialized View
+   * RPC: refresh_org_code_counts
+   * Migration: 20260126000002_create_org_code_counts_mv.sql
+   */
+  refresh_org_code_counts: {
+    Args: Record<string, never>;
+    Returns: undefined;
+  };
+
+  /**
+   * Consolidated treatment history query
+   * Phase 8 optimization: 2-stage query → single RPC
+   * RPC: get_treatment_history_consolidated
+   * Migration: 20260127000004_treatment_history_consolidated_rpc.sql
+   */
+  get_treatment_history_consolidated: {
+    Args: {
+      p_hospital_id: string;
+      p_page?: number;
+      p_page_size?: number;
+      p_start_date?: string | null;
+      p_end_date?: string | null;
+      p_patient_phone?: string | null;
+    };
+    Returns: {
+      id: string;
+      hospital_id: string;
+      patient_phone: string;
+      treatment_date: string;
+      created_at: string;
+      updated_at: string | null;
+      hospital_name: string;
+      hospital_type: 'MANUFACTURER' | 'DISTRIBUTOR' | 'HOSPITAL';
+      item_summary: Json;
+      total_quantity: number;
+      total_count: number;
     }[];
   };
 };

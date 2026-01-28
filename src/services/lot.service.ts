@@ -20,6 +20,12 @@ import {
 } from './common.service';
 import { LotNumberResultSchema, UpsertLotResultSchema } from '@/lib/validations/rpc-schemas';
 
+/**
+ * upsert_lot 배치 분할 기준 수량
+ * Cloud Supabase statement_timeout(~8s) 내에서 안정적으로 처리 가능한 최대 수량
+ */
+const UPSERT_LOT_BATCH_SIZE = 5000;
+
 const logger = createLogger('lot.service');
 
 /**
@@ -78,35 +84,59 @@ export async function createLot(
   const expiryDate = data.expiryDate || (await calculateExpiryDate(organizationId, data.manufactureDate));
 
   // upsert_lot DB 함수 호출 (동일 Lot 존재 시 수량 추가, 없으면 새로 생성)
-  const { data: upsertResult, error: upsertError } = await supabase.rpc('upsert_lot', {
-    p_product_id: data.productId,
-    p_lot_number: lotNumber,
-    p_quantity: data.quantity,
-    p_manufacture_date: data.manufactureDate,
-    p_expiry_date: expiryDate,
-  });
+  // Cloud Supabase statement_timeout 대응: 대량 수량은 배치 분할 처리
+  const batches = splitIntoBatches(data.quantity, UPSERT_LOT_BATCH_SIZE);
 
-  if (upsertError) {
-    // 최대 수량 초과 에러 처리
-    if (upsertError.message?.includes('exceeds maximum limit')) {
-      return createErrorResponse('QUANTITY_LIMIT_EXCEEDED', '총 수량이 최대 한도(100,000개)를 초과합니다.');
+  let lastResult: { lot_id: string; lot_number: string; is_new: boolean; total_quantity: number } | undefined;
+  let isFirstBatch = true;
+
+  for (const batchQuantity of batches) {
+    const { data: upsertResult, error: upsertError } = await supabase.rpc('upsert_lot', {
+      p_product_id: data.productId,
+      p_lot_number: lotNumber,
+      p_quantity: batchQuantity,
+      p_manufacture_date: data.manufactureDate,
+      p_expiry_date: expiryDate,
+    });
+
+    if (upsertError) {
+      if (upsertError.message?.includes('exceeds maximum limit')) {
+        return createErrorResponse('QUANTITY_LIMIT_EXCEEDED', '총 수량이 최대 한도(100,000개)를 초과합니다.');
+      }
+
+      logger.error('Lot 생성/업데이트 실패', { error: upsertError, batchQuantity, isFirstBatch });
+      return createErrorResponse('CREATE_FAILED', 'Lot 생성에 실패했습니다.');
     }
 
-    logger.error('Lot 생성/업데이트 실패', upsertError);
-    return createErrorResponse('CREATE_FAILED', 'Lot 생성에 실패했습니다.');
+    const upsertParsed = parseRpcArray(UpsertLotResultSchema, upsertResult, 'upsert_lot');
+    if (!upsertParsed.success) {
+      logger.error('upsert_lot 검증 실패', { error: upsertParsed.error });
+      return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, upsertParsed.error);
+    }
+
+    const batchResult = upsertParsed.data[0];
+    if (!batchResult) {
+      return createErrorResponse('CREATE_FAILED', 'Lot 생성 결과를 확인할 수 없습니다.');
+    }
+
+    // 첫 배치의 is_new 값을 보존하고, 이후 배치에서는 lot_id/total_quantity만 갱신
+    if (isFirstBatch) {
+      lastResult = batchResult;
+      isFirstBatch = false;
+    } else {
+      lastResult = { ...batchResult, is_new: lastResult!.is_new };
+    }
+
+    if (batches.length > 1) {
+      logger.info('배치 upsert_lot 완료', {
+        batchQuantity,
+        totalSoFar: batchResult.total_quantity,
+        lotId: batchResult.lot_id,
+      });
+    }
   }
 
-  // Zod 검증으로 결과 파싱 (upsert_lot은 배열 반환)
-  const upsertParsed = parseRpcArray(UpsertLotResultSchema, upsertResult, 'upsert_lot');
-  if (!upsertParsed.success) {
-    logger.error('upsert_lot 검증 실패', { error: upsertParsed.error });
-    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, upsertParsed.error);
-  }
-
-  const result = upsertParsed.data[0];
-  if (!result) {
-    return createErrorResponse('CREATE_FAILED', 'Lot 생성 결과를 확인할 수 없습니다.');
-  }
+  const result = lastResult!;
 
   // 생성/업데이트된 Lot 정보 조회
   const { data: lot, error: fetchError } = await supabase
@@ -260,4 +290,23 @@ export async function getTodayProduction(organizationId: string): Promise<number
   }
 
   return data.reduce((sum, lot) => sum + lot.quantity, 0);
+}
+
+/**
+ * 수량을 배치 크기로 분할
+ * 예: splitIntoBatches(12000, 5000) → [5000, 5000, 2000]
+ */
+function splitIntoBatches(total: number, batchSize: number): number[] {
+  if (total <= batchSize) {
+    return [total];
+  }
+
+  const batches: number[] = [];
+  let remaining = total;
+  while (remaining > 0) {
+    const batch = Math.min(remaining, batchSize);
+    batches.push(batch);
+    remaining -= batch;
+  }
+  return batches;
 }

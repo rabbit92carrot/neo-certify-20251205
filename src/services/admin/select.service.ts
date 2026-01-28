@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -124,6 +125,76 @@ export async function getAllProductsForSelect(): Promise<
   ApiResponse<{ id: string; name: string; modelName: string; manufacturerName: string }[]>
 > {
   const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('products')
+    .select(
+      `
+      id,
+      name,
+      model_name,
+      organization:organizations!inner(name)
+    `
+    )
+    .eq('is_active', true)
+    .order('model_name');
+
+  if (error) {
+    return createErrorResponse('QUERY_ERROR', error.message);
+  }
+
+  return createSuccessResponse(
+    (data || []).map((product) => ({
+      id: product.id,
+      name: product.name,
+      modelName: product.model_name,
+      manufacturerName: (product.organization as { name: string }).name,
+    }))
+  );
+}
+
+// ============================================================================
+// unstable_cache() 호환 함수 (Admin Client 사용)
+// cookies()를 사용하지 않아 unstable_cache() 내에서 사용 가능
+// ============================================================================
+
+/**
+ * 모든 조직 목록 조회 (캐시용)
+ * Admin Client를 사용하여 unstable_cache()와 호환
+ */
+export async function getAllOrganizationsForSelectCacheable(): Promise<
+  ApiResponse<{ id: string; name: string; type: OrganizationType }[]>
+> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name, type')
+    .eq('status', 'ACTIVE')
+    .neq('type', 'ADMIN')
+    .order('name');
+
+  if (error) {
+    return createErrorResponse('QUERY_ERROR', error.message);
+  }
+
+  return createSuccessResponse(
+    (data || []).map((org) => ({
+      id: org.id,
+      name: org.name,
+      type: org.type as OrganizationType,
+    }))
+  );
+}
+
+/**
+ * 모든 제품 목록 조회 (캐시용)
+ * Admin Client를 사용하여 unstable_cache()와 호환
+ */
+export async function getAllProductsForSelectCacheable(): Promise<
+  ApiResponse<{ id: string; name: string; modelName: string; manufacturerName: string }[]>
+> {
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from('products')

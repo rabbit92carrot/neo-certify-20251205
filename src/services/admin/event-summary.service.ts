@@ -459,30 +459,7 @@ export async function getAdminEventSummaryCursor(
   // hasMore 플래그 추출 (첫 번째 행에서)
   const hasMore = validatedData.length > 0 ? validatedData[0]?.has_more ?? false : false;
 
-  // 조직 이름 일괄 조회
-  const orgIds = new Set<string>();
-  for (const row of validatedData) {
-    if (row.from_owner_id && row.from_owner_type === 'ORGANIZATION') {
-      orgIds.add(row.from_owner_id);
-    }
-    if (row.to_owner_id && row.to_owner_type === 'ORGANIZATION') {
-      orgIds.add(row.to_owner_id);
-    }
-  }
-
-  const orgNameMap = new Map<string, string>();
-  if (orgIds.size > 0) {
-    const { data: orgData } = await supabase
-      .from('organizations')
-      .select('id, name')
-      .in('id', [...orgIds]);
-
-    for (const org of orgData ?? []) {
-      orgNameMap.set(org.id, org.name);
-    }
-  }
-
-  // 결과 매핑
+  // 결과 매핑 (조직명은 RPC에서 직접 조회되어 별도 쿼리 불필요)
   const summaries: AdminEventSummary[] = validatedData.map((row) => {
     const fromOwner = row.from_owner_id
       ? {
@@ -491,7 +468,7 @@ export async function getAdminEventSummaryCursor(
           name:
             row.from_owner_type === 'PATIENT'
               ? maskPhoneNumber(row.from_owner_id)
-              : orgNameMap.get(row.from_owner_id) || '알 수 없음',
+              : row.from_owner_name || '알 수 없음', // RPC에서 직접 조회된 조직명 사용
         }
       : null;
 
@@ -502,7 +479,7 @@ export async function getAdminEventSummaryCursor(
           name:
             row.to_owner_type === 'PATIENT'
               ? maskPhoneNumber(row.to_owner_id)
-              : orgNameMap.get(row.to_owner_id) || '알 수 없음',
+              : row.to_owner_name || '알 수 없음', // RPC에서 직접 조회된 조직명 사용
         }
       : null;
 

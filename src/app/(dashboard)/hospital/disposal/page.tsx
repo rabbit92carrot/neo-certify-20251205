@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
+import { unstable_cache } from 'next/cache';
 import { getCachedCurrentUser } from '@/services/auth.service';
-import { getActiveProductsForTreatment } from '@/services/hospital-product.service';
-import { PageHeader } from '@/components/shared';
+import { getActiveProductsForTreatmentCacheable } from '@/services/hospital-product.service';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { LazyDisposalForm } from '@/components/forms/lazy';
 import { createDisposalAction } from '../actions';
 
@@ -9,6 +10,18 @@ export const metadata = {
   title: '폐기 등록 | 병원',
   description: '제품 폐기 등록',
 };
+
+/**
+ * Issue #001: hospital-disposal 성능 최적화
+ * 활성 제품 목록 캐싱 (30초)
+ * 재고 정보가 포함되어 있어 짧은 캐시 주기 사용
+ */
+const getCachedActiveProducts = (hospitalId: string) =>
+  unstable_cache(
+    async () => getActiveProductsForTreatmentCacheable(hospitalId),
+    [`hospital-active-products-${hospitalId}`],
+    { revalidate: 30, tags: ['hospital-products', `hospital-${hospitalId}`] }
+  )();
 
 /**
  * 병원 폐기 등록 페이지
@@ -22,7 +35,8 @@ export default async function HospitalDisposalPage(): Promise<React.ReactElement
   }
 
   // 폐기 가능한 제품 목록 조회 (활성화된 제품 + 재고가 있는 제품)
-  const productsResult = await getActiveProductsForTreatment(user.organization.id);
+  // Issue #001: unstable_cache로 30초 캐싱 (11초 이상치 해결)
+  const productsResult = await getCachedActiveProducts(user.organization.id);
   const products = productsResult.success ? productsResult.data! : [];
 
   return (

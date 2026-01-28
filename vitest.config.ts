@@ -13,9 +13,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     exclude: ['node_modules', '.next', 'out', 'build'],
-    // 통합 테스트 타임아웃 (Supabase 연결 시간 고려)
     testTimeout: 30000,
     hookTimeout: 30000,
     coverage: {
@@ -30,18 +28,38 @@ export default defineConfig({
         'src/**/*.d.ts',
         'node_modules/**',
       ],
-      // 통합 테스트가 실제 Supabase DB를 사용하므로 커버리지 측정이 어려움
-      // 비즈니스 로직은 통합 테스트로 검증됨
     },
     clearMocks: true,
     restoreMocks: true,
-    // 순차 실행 (DB 상태 충돌 방지)
-    pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
+    // Unit: 병렬, Integration: 병렬 (데이터 격리 완료) + maxWorkers 제한 (Cloud DB 부하 방지)
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: [
+            'tests/unit/**/*.test.ts',
+            'tests/unit/**/*.test.tsx',
+            'src/**/*.test.ts',
+            'src/**/*.test.tsx',
+          ],
+          sequence: { groupOrder: 1 },
+        },
       },
-    },
+      {
+        extends: true,
+        test: {
+          name: 'integration',
+          include: [
+            'tests/integration/**/*.test.ts',
+            'tests/integration/**/*.test.tsx',
+          ],
+          fileParallelism: true,
+          maxWorkers: 4,
+          sequence: { groupOrder: 2 },
+        },
+      },
+    ],
   },
   resolve: {
     alias: {

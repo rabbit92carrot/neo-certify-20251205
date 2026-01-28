@@ -7,6 +7,13 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
+/** 최신 값을 ref에 동기화하는 헬퍼 */
+function useLatestRef<T>(value: T): React.RefObject<T> {
+  const ref = useRef(value);
+  ref.current = value;
+  return ref;
+}
+
 interface UseInfiniteScrollOptions {
   /** 로딩 상태 */
   isLoading?: boolean;
@@ -71,14 +78,19 @@ export function useInfiniteScroll({
 }: UseInfiniteScrollOptions = {}): UseInfiniteScrollReturn {
   const observerRef = useRef<HTMLDivElement | null>(null);
 
+  // ref로 최신 값을 유지하여 IntersectionObserver 재생성 방지
+  const onLoadMoreRef = useLatestRef(onLoadMore);
+  const hasMoreRef = useLatestRef(hasMore);
+  const isLoadingRef = useLatestRef(isLoading);
+
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       const target = entries[0];
-      if (target && target.isIntersecting && hasMore && !isLoading && onLoadMore) {
-        onLoadMore();
+      if (target && target.isIntersecting && hasMoreRef.current && !isLoadingRef.current && onLoadMoreRef.current) {
+        onLoadMoreRef.current();
       }
     },
-    [hasMore, isLoading, onLoadMore]
+    [hasMoreRef, isLoadingRef, onLoadMoreRef]
   );
 
   useEffect(() => {

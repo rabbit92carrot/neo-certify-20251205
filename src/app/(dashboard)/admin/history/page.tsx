@@ -2,6 +2,10 @@ import { Suspense } from 'react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { HistoryTableWrapper } from './HistoryTableWrapper';
+import {
+  getAllOrganizationsForSelectAction,
+  getAllProductsForSelectAction,
+} from '../actions';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -26,6 +30,12 @@ export default async function AdminHistoryPage({
 }: PageProps): Promise<React.ReactElement> {
   const params = await searchParams;
 
+  // Server Component에서 필터 데이터 병렬 로드 (Phase 1A 최적화)
+  const [orgsResult, productsResult] = await Promise.all([
+    getAllOrganizationsForSelectAction(),
+    getAllProductsForSelectAction(),
+  ]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -42,6 +52,8 @@ export default async function AdminHistoryPage({
           organizationId={params.organizationId}
           productId={params.productId}
           includeRecalled={params.includeRecalled !== 'false'}
+          initialOrganizations={orgsResult.success ? orgsResult.data : []}
+          initialProducts={productsResult.success ? productsResult.data : []}
         />
       </Suspense>
     </div>

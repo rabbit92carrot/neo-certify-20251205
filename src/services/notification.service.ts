@@ -195,7 +195,7 @@ export async function getNotificationStats(): Promise<
     // 전체 카운트
     const { count: totalCount, error: totalError } = await supabase
       .from('notification_messages')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     if (totalError) {
       return createErrorResponse(ERROR_CODES.SERVER_ERROR, '통계 조회 오류');
@@ -204,7 +204,7 @@ export async function getNotificationStats(): Promise<
     // 인증 카운트
     const { count: certificationCount, error: certError } = await supabase
       .from('notification_messages')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('type', 'CERTIFICATION');
 
     if (certError) {
@@ -214,7 +214,7 @@ export async function getNotificationStats(): Promise<
     // 회수 카운트
     const { count: recallCount, error: recallError } = await supabase
       .from('notification_messages')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('type', 'RECALL');
 
     if (recallError) {
@@ -224,7 +224,7 @@ export async function getNotificationStats(): Promise<
     // 발송 완료 카운트
     const { count: sentCount, error: sentError } = await supabase
       .from('notification_messages')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('is_sent', true);
 
     if (sentError) {

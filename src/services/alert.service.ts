@@ -183,7 +183,7 @@ export async function getUnreadAlertCount(
 
   const { count, error } = await supabase
     .from('organization_alerts')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('recipient_org_id', organizationId)
     .eq('is_read', false);
 

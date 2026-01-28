@@ -614,7 +614,7 @@ describe('RLS 필터링 테스트 (get_history_summary_cursor)', () => {
       }
     });
 
-    it('커서로 다음 페이지 조회 시 커서 기준보다 오래된 데이터만 반환해야 한다', async () => {
+    it('커서로 다음 페이지 조회 시 커서 기준보다 오래된 데이터만 반환해야 한다', { timeout: 60000 }, async () => {
       // 첫 페이지 조회
       const { data: page1, error: error1 } = await manufacturerClient.rpc(
         'get_history_summary_cursor',

@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
 import type { ApiResponse, HospitalKnownProduct, ProductForTreatment } from '@/types/api.types';
 import {
@@ -276,4 +277,56 @@ export function getProductDisplayName(
   // 별칭이 없으면 제품명 (모델명) 형태
   const primary = modelName ? `${productName} (${modelName})` : productName;
   return { primary, secondary: null };
+}
+
+// ============================================================================
+// unstable_cache() 호환 함수 (Admin Client 사용)
+// Issue #001: hospital-disposal 페이지 성능 최적화
+// cookies()를 사용하지 않아 unstable_cache() 내에서 사용 가능
+// ============================================================================
+
+/**
+ * 시술 등록용 활성 제품 목록 조회 (캐시용)
+ * Admin Client를 사용하여 unstable_cache()와 호환
+ *
+ * @param hospitalId - 병원 조직 ID
+ * @returns 시술 등록 가능한 제품 목록
+ */
+export async function getActiveProductsForTreatmentCacheable(
+  hospitalId: string
+): Promise<ApiResponse<ProductForTreatment[]>> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase.rpc('get_active_products_for_treatment', {
+    p_hospital_id: hospitalId,
+  });
+
+  if (error) {
+    logger.error('getActiveProductsForTreatmentCacheable 실패', error);
+    return createErrorResponse('RPC_ERROR', '제품 목록 조회에 실패했습니다.');
+  }
+
+  // RPC 결과 검증
+  const parsed = parseRpcArray(
+    ActiveProductForTreatmentRowSchema,
+    data,
+    'get_active_products_for_treatment'
+  );
+
+  if (!parsed.success) {
+    logger.error('get_active_products_for_treatment 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  // 결과 변환
+  const products: ProductForTreatment[] = parsed.data.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name ?? '',
+    udiDi: row.udi_di ?? '',
+    alias: row.alias,
+    availableQuantity: row.available_quantity,
+  }));
+
+  return createSuccessResponse(products);
 }

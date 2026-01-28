@@ -6,6 +6,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { getCurrentUser } from '@/services/auth.service';
 import * as treatmentService from '@/services/treatment.service';
 import * as disposalService from '@/services/disposal.service';
@@ -37,6 +38,14 @@ async function getHospitalOrganizationId(): Promise<string | null> {
     return null;
   }
   return user.organization.id;
+}
+
+async function getHospitalInfo(): Promise<{ id: string; name: string } | null> {
+  const user = await getCurrentUser();
+  if (user?.organization.type !== 'HOSPITAL') {
+    return null;
+  }
+  return { id: user.organization.id, name: user.organization.name };
 }
 
 /**
@@ -88,8 +97,8 @@ export async function createTreatmentAction(
   treatmentDate: string,
   items: TreatmentItemData[]
 ): Promise<ApiResponse<{ treatmentId: string; totalQuantity: number }>> {
-  const organizationId = await getHospitalOrganizationId();
-  if (!organizationId) {
+  const hospital = await getHospitalInfo();
+  if (!hospital) {
     return {
       success: false,
       error: {
@@ -115,7 +124,7 @@ export async function createTreatmentAction(
     patientPhone: normalizePhoneNumber(validation.data.patientPhone),
   };
 
-  const result = await treatmentService.createTreatment(normalizedData);
+  const result = await treatmentService.createTreatment(normalizedData, hospital.name);
 
   if (result.success) {
     revalidatePath('/hospital/treatment');
@@ -364,8 +373,10 @@ export async function updateHospitalProductSettingsAction(
   );
 
   if (result.success) {
-    revalidatePath('/hospital/settings');
-    revalidatePath('/hospital/treatment');
+    after(() => {
+      revalidatePath('/hospital/settings');
+      revalidatePath('/hospital/treatment');
+    });
   }
 
   return result;

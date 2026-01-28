@@ -6,6 +6,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { getCurrentUser } from '@/services/auth.service';
 import * as productService from '@/services/product.service';
 import * as lotService from '@/services/lot.service';
@@ -289,8 +290,10 @@ export async function updateManufacturerSettingsAction(
   );
 
   if (result.success) {
-    revalidatePath('/manufacturer/settings');
-    revalidatePath('/manufacturer/production');
+    after(() => {
+      revalidatePath('/manufacturer/settings');
+      revalidatePath('/manufacturer/production');
+    });
     return { success: true };
   }
 
@@ -455,7 +458,9 @@ export async function markAlertAsReadAction(alertId: string) {
   const result = await alertService.markAlertAsRead(organizationId, alertId);
 
   if (result.success) {
-    revalidatePath('/manufacturer/inbox');
+    after(() => {
+      revalidatePath('/manufacturer/inbox');
+    });
   }
 
   return result;
@@ -479,7 +484,9 @@ export async function markAlertsAsReadAction(alertIds: string[]) {
   const result = await alertService.markAlertsAsRead(organizationId, alertIds);
 
   if (result.success) {
-    revalidatePath('/manufacturer/inbox');
+    after(() => {
+      revalidatePath('/manufacturer/inbox');
+    });
   }
 
   return result;
@@ -503,7 +510,9 @@ export async function markAllAlertsAsReadAction() {
   const result = await alertService.markAllAlertsAsRead(organizationId);
 
   if (result.success) {
-    revalidatePath('/manufacturer/inbox');
+    after(() => {
+      revalidatePath('/manufacturer/inbox');
+    });
   }
 
   return result;

@@ -77,3 +77,13 @@ export {
   DISPOSAL_REASON_OPTIONS,
   type DisposalReasonType,
 } from './disposal';
+
+// 알림톡 템플릿
+export {
+  ALIMTALK_TEMPLATES,
+  replaceTemplateVariables,
+  renderTemplate,
+  type AlimtalkTemplate,
+  type AlimtalkTemplateVariable,
+  type AlimtalkTemplateButton,
+} from './alimtalk-templates';

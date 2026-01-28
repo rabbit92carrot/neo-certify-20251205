@@ -5,7 +5,19 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FrameMapCanvas } from '@/components/design-system/PageMapCanvas';
+import dynamic from 'next/dynamic';
+
+const FrameMapCanvas = dynamic(
+  () => import('@/components/design-system/PageMapCanvas').then((m) => ({ default: m.FrameMapCanvas })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-gray-500">캔버스 로딩 중...</p>
+      </div>
+    ),
+  }
+);
 import { PageMapSidebar } from '@/components/design-system/PageMapSidebar';
 import { DetailPanel } from '@/components/design-system/DetailPanel';
 import {

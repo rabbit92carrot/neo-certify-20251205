@@ -1,8 +1,10 @@
 /**
  * 통계 카드 컴포넌트
  * 대시보드에서 주요 통계를 표시합니다.
+ * Phase 2B 최적화: memo로 리렌더 방지
  */
 
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -28,9 +30,9 @@ interface StatCardProps {
 }
 
 /**
- * 통계 카드 컴포넌트
+ * 통계 카드 컴포넌트 (메모이제이션 적용)
  */
-export function StatCard({
+export const StatCard = memo(function StatCard({
   title,
   value,
   icon: Icon,
@@ -99,4 +101,4 @@ export function StatCard({
       </CardContent>
     </Card>
   );
-}
+});

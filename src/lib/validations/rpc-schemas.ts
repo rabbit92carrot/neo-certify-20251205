@@ -356,6 +356,34 @@ export const TreatmentSummaryRowSchema = z.object({
 });
 
 /**
+ * 통합 시술 이력 조회 스키마 (단일 행)
+ * RPC: get_treatment_history_consolidated
+ *
+ * DB 함수 반환 구조 (20260127000004_treatment_history_consolidated_rpc.sql):
+ * - 시술 기록 + 병원 정보 + 제품 요약을 단일 호출로 반환
+ * - Phase 8 성능 최적화: 2-stage 쿼리 → 단일 RPC
+ */
+export const TreatmentHistoryConsolidatedRowSchema = z.object({
+  id: z.string(),
+  hospital_id: z.string(),
+  patient_phone: z.string(),
+  treatment_date: z.string(),
+  created_at: z.string(),
+  updated_at: z.string().nullable(),
+  hospital_name: z.string(),
+  hospital_type: z.enum(['MANUFACTURER', 'DISTRIBUTOR', 'HOSPITAL']),
+  item_summary: z.array(
+    z.object({
+      productId: z.string(),
+      productName: z.string(),
+      quantity: z.number(),
+    })
+  ),
+  total_quantity: z.number(),
+  total_count: z.number(),
+});
+
+/**
  * 병원 환자 목록 스키마 (단일 행)
  * RPC: get_hospital_patients
  */
@@ -404,6 +432,7 @@ export type AdminEventSummaryRow = z.infer<typeof AdminEventSummaryRowSchema>;
 export type AllRecallsRow = z.infer<typeof AllRecallsRowSchema>;
 export type UpsertLotResult = z.infer<typeof UpsertLotResultSchema>;
 export type TreatmentSummaryRow = z.infer<typeof TreatmentSummaryRowSchema>;
+export type TreatmentHistoryConsolidatedRow = z.infer<typeof TreatmentHistoryConsolidatedRowSchema>;
 export type HospitalPatientRow = z.infer<typeof HospitalPatientRowSchema>;
 export type ShipmentBatchSummaryRow = z.infer<typeof ShipmentBatchSummaryRowSchema>;
 
@@ -426,8 +455,10 @@ export const AdminEventSummaryCursorRowSchema = z.object({
   action_type: z.string(),
   from_owner_type: z.string().nullable(),
   from_owner_id: z.string().nullable(),
+  from_owner_name: z.string().nullable(), // 조직명 (RPC에서 직접 조회)
   to_owner_type: z.string().nullable(),
   to_owner_id: z.string().nullable(),
+  to_owner_name: z.string().nullable(), // 조직명 (RPC에서 직접 조회)
   is_recall: z.boolean(),
   recall_reason: z.string().nullable(),
   total_quantity: z.number(),

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
-import { PageHeader, HistoryPageWrapper } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { HistoryPageWrapper } from '@/components/shared/HistoryPageWrapper';
 import { getHospitalHistoryCursorAction, returnShipmentAction, getReturnableCodesAction } from '../actions';
 import { getHospitalKnownProducts } from '@/services/hospital-product.service';
 

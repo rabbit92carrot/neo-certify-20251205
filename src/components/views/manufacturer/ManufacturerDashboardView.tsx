@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard } from '@/components/shared';
+import { StatCard } from '@/components/shared/StatCard';
 import { Package, Factory, Truck, Boxes } from 'lucide-react';
 
 /**

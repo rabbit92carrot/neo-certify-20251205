@@ -1,6 +1,6 @@
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getProducts } from '@/services/product.service';
-import { PageHeader } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { ProductsTable } from '@/components/tables/ProductsTable';
 import { ProductFormTrigger } from './ProductFormTrigger';
 import { redirect } from 'next/navigation';

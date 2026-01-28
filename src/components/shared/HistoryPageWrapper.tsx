@@ -203,7 +203,7 @@ export function HistoryPageWrapper({
         }
       }
     },
-    [appliedFilters, fetchHistoryCursor]
+    [appliedFilters.startDate, appliedFilters.endDate, appliedFilters.actionType, fetchHistoryCursor]
   );
 
   /**
@@ -234,7 +234,7 @@ export function HistoryPageWrapper({
     }
   }, [hasNextPage, currentPage, loadPage]);
 
-  const applyFilters = (): void => {
+  const applyFilters = useCallback((): void => {
     setAppliedFilters({
       startDate: startDate ? format(startDate, 'yyyy-MM-dd') : format(subDays(new Date(), 3), 'yyyy-MM-dd'),
       endDate: endDate ? format(endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
@@ -242,10 +242,10 @@ export function HistoryPageWrapper({
     });
     // 필터 조건 변경 여부와 관계없이 항상 새로고침 트리거
     setRefreshTrigger((prev) => prev + 1);
-  };
+  }, [startDate, endDate, actionType]);
 
   // 필터 초기화 (기본값: 3일 전~오늘로 리셋)
-  const resetFilters = (): void => {
+  const resetFilters = useCallback((): void => {
     const defaultStartDate = subDays(new Date(), 3);
     const defaultEndDate = new Date();
     setStartDate(defaultStartDate);
@@ -256,7 +256,7 @@ export function HistoryPageWrapper({
       endDate: format(defaultEndDate, 'yyyy-MM-dd'),
       actionType: defaultActionType,
     });
-  };
+  }, [defaultActionType]);
 
   // 새로고침
   const handleRefresh = useCallback(() => {

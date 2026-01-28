@@ -79,6 +79,14 @@ const LOCAL_CONFIGS = {
 } as const;
 
 /**
+ * E2E 테스트 환경인지 확인
+ * Playwright 테스트 시 rate limit 비활성화
+ */
+function isE2ETestEnvironment(): boolean {
+  return process.env.PLAYWRIGHT_TEST === 'true' || process.env.E2E_TEST === 'true';
+}
+
+/**
  * 로컬 인메모리 Rate Limit 체크
  */
 function checkLocalRateLimit(
@@ -143,6 +151,11 @@ export const RATE_LIMIT_CONFIGS = {
  * @returns Rate Limit 체크 결과
  */
 export async function checkAuthRateLimit(identifier: string): Promise<RateLimitResult> {
+  // E2E 테스트 환경에서는 rate limit 비활성화
+  if (isE2ETestEnvironment()) {
+    return { success: true, remaining: 999, resetAt: Date.now() + 5 * 60 * 1000 };
+  }
+
   // Upstash 사용 가능한 경우
   if (authLimiter) {
     try {
@@ -170,6 +183,11 @@ export async function checkAuthRateLimit(identifier: string): Promise<RateLimitR
  * @returns Rate Limit 체크 결과
  */
 export async function checkRegisterRateLimit(identifier: string): Promise<RateLimitResult> {
+  // E2E 테스트 환경에서는 rate limit 비활성화
+  if (isE2ETestEnvironment()) {
+    return { success: true, remaining: 999, resetAt: Date.now() + 30 * 60 * 1000 };
+  }
+
   // Upstash 사용 가능한 경우
   if (registerLimiter) {
     try {

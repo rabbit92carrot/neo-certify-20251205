@@ -9,6 +9,7 @@ export {
   createAuthenticatedTestClient,
   checkSupabaseConnection,
   getTestEnv,
+  rpcWithRetry,
 } from './supabase-test-client';
 
 // 테스트 데이터 팩토리

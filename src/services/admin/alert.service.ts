@@ -160,7 +160,7 @@ export async function getUnacknowledgedUsageLogCount(): Promise<ApiResponse<numb
 
   const { count, error } = await supabase
     .from('inactive_product_usage_logs')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .is('acknowledged_at', null);
 
   if (error) {

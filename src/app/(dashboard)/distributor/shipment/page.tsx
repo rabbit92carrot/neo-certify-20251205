@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getAvailableProductsForShipment } from '@/services/inventory.service';
-import { PageHeader } from '@/components/shared';
-import { ShipmentFormWrapper } from '@/components/forms/shipment/ShipmentFormWrapper';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { LazyShipmentFormWrapper } from '@/components/forms/lazy';
 import { createShipmentAction, searchShipmentTargetsAction } from '../actions';
 
 export const metadata = {
@@ -36,7 +36,7 @@ export default async function DistributorShipmentPage(): Promise<React.ReactElem
         description="유통사 또는 병원으로 제품을 출고합니다. FIFO 방식으로 자동 출고됩니다."
       />
 
-      <ShipmentFormWrapper
+      <LazyShipmentFormWrapper
         organizationType={orgType}
         products={products}
         onSubmit={createShipmentAction}

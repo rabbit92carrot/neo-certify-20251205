@@ -34,6 +34,11 @@ export default defineConfig({
         url: 'http://localhost:3000',
         reuseExistingServer: true,
         timeout: 120000,
+        // E2E 테스트 환경 변수 설정 (rate limit 비활성화)
+        env: {
+          ...process.env,
+          E2E_TEST: 'true',
+        },
       },
 
   // 테스트 타임아웃

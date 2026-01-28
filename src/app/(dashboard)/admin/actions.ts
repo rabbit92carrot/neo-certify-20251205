@@ -5,11 +5,39 @@
  * 조직 관리, 승인 처리, 알림 관리
  */
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, unstable_cache } from 'next/cache';
+import { after } from 'next/server';
 import { getCurrentUser } from '@/services/auth.service';
 import * as adminService from '@/services/admin.service';
 import * as alertService from '@/services/alert.service';
 import type { ApiResponse, OrganizationAlertType } from '@/types/api.types';
+
+// ============================================================================
+// 캐시된 서비스 함수 (필터 데이터용)
+// cookies()를 사용하지 않는 Cacheable 버전 사용 (Next.js 15+ 호환)
+// ============================================================================
+
+/**
+ * 전체 조직 목록 캐싱 (5분)
+ * 조직 목록은 자주 변경되지 않으므로 5분 캐싱
+ * Note: Admin Client를 사용하는 Cacheable 버전 사용 (unstable_cache 호환)
+ */
+const getCachedOrganizationsForSelect = unstable_cache(
+  async () => adminService.getAllOrganizationsForSelectCacheable(),
+  ['admin-organizations-select'],
+  { revalidate: 300, tags: ['organizations'] }
+);
+
+/**
+ * 전체 제품 목록 캐싱 (5분)
+ * 제품 목록은 자주 변경되지 않으므로 5분 캐싱
+ * Note: Admin Client를 사용하는 Cacheable 버전 사용 (unstable_cache 호환)
+ */
+const getCachedProductsForSelect = unstable_cache(
+  async () => adminService.getAllProductsForSelectCacheable(),
+  ['admin-products-select'],
+  { revalidate: 300, tags: ['products'] }
+);
 
 // ============================================================================
 // 헬퍼 함수
@@ -162,6 +190,33 @@ export async function deleteOrganizationAction(
   if (result.success) {
     revalidatePath('/admin/organizations');
     revalidatePath('/admin/dashboard');
+  }
+
+  return result;
+}
+
+/**
+ * 조직 코드 카운트 Materialized View 수동 갱신 Action
+ *
+ * MV는 pg_cron으로 매일 야간 자동 갱신되지만,
+ * 관리자가 즉시 최신 데이터가 필요할 때 수동으로 갱신할 수 있음
+ */
+export async function refreshOrgCodeCountsAction(): Promise<ApiResponse<void>> {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const result = await adminService.refreshOrgCodeCounts();
+
+  if (result.success) {
+    revalidatePath('/admin/organizations');
   }
 
   return result;
@@ -356,6 +411,7 @@ export async function getAdminHistoryAction(query: {
 
 /**
  * 전체 조직 목록 조회 Action (셀렉트용)
+ * 5분 캐싱 적용 - 필터 데이터 최적화
  */
 export async function getAllOrganizationsForSelectAction() {
   const adminId = await getAdminOrganizationId();
@@ -369,11 +425,13 @@ export async function getAllOrganizationsForSelectAction() {
     };
   }
 
-  return adminService.getAllOrganizationsForSelect();
+  // 캐싱된 서비스 함수 사용
+  return getCachedOrganizationsForSelect();
 }
 
 /**
  * 전체 제품 목록 조회 Action (셀렉트용)
+ * 5분 캐싱 적용 - 필터 데이터 최적화
  */
 export async function getAllProductsForSelectAction() {
   const adminId = await getAdminOrganizationId();
@@ -387,7 +445,8 @@ export async function getAllProductsForSelectAction() {
     };
   }
 
-  return adminService.getAllProductsForSelect();
+  // 캐싱된 서비스 함수 사용
+  return getCachedProductsForSelect();
 }
 
 /**
@@ -637,7 +696,9 @@ export async function acknowledgeUsageLogAction(logId: string) {
   const result = await adminService.acknowledgeUsageLog(logId, adminId);
 
   if (result.success) {
-    revalidatePath('/admin/alerts');
+    after(() => {
+      revalidatePath('/admin/alerts');
+    });
   }
 
   return result;
@@ -661,7 +722,9 @@ export async function acknowledgeUsageLogsAction(logIds: string[]) {
   const result = await adminService.acknowledgeUsageLogs(logIds, adminId);
 
   if (result.success) {
-    revalidatePath('/admin/alerts');
+    after(() => {
+      revalidatePath('/admin/alerts');
+    });
   }
 
   return result;
@@ -735,7 +798,9 @@ export async function markAlertAsReadAction(alertId: string) {
   const result = await alertService.markAlertAsRead(adminId, alertId);
 
   if (result.success) {
-    revalidatePath('/admin/inbox');
+    after(() => {
+      revalidatePath('/admin/inbox');
+    });
   }
 
   return result;
@@ -759,7 +824,9 @@ export async function markAlertsAsReadAction(alertIds: string[]) {
   const result = await alertService.markAlertsAsRead(adminId, alertIds);
 
   if (result.success) {
-    revalidatePath('/admin/inbox');
+    after(() => {
+      revalidatePath('/admin/inbox');
+    });
   }
 
   return result;
@@ -783,7 +850,9 @@ export async function markAllAlertsAsReadAction() {
   const result = await alertService.markAllAlertsAsRead(adminId);
 
   if (result.success) {
-    revalidatePath('/admin/inbox');
+    after(() => {
+      revalidatePath('/admin/inbox');
+    });
   }
 
   return result;

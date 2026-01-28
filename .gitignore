@@ -27,6 +27,8 @@ Thumbs.db
 /playwright-report/
 /test-results/
 /.auth/
+/e2e/.auth/
+/e2e/performance/reports/
 
 # Claude Code
 CLAUDE.md
