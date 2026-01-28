@@ -52,71 +52,10 @@ export interface TreatmentRecordSummary extends TreatmentRecord {
 }
 
 // ============================================================================
-// 알림 메시지 생성
+// 알림 메시지 생성 (공유 템플릿 기반)
 // ============================================================================
 
-/**
- * 정품 인증 알림 메시지 생성
- * 환자가 여러 제품을 시술해도 하나의 이벤트에 메시지 하나가 전송됨
- */
-function generateCertificationMessage(params: {
-  treatmentDate: string;
-  hospitalName: string;
-  itemSummary: { productName: string; manufacturerName: string; quantity: number }[];
-}): string {
-  const { treatmentDate, hospitalName, itemSummary } = params;
-
-  const productLines = itemSummary
-    .map((item) => `- ${item.productName} ${item.quantity}개`)
-    .join('\n');
-
-  return `[네오인증서] 정품 인증 완료
-
-안녕하세요.
-${treatmentDate}에 ${hospitalName}에서 시술받으신
-제품의 정품 인증이 완료되었습니다.
-
-■ 시술 정보
-${productLines}
-- 시술일: ${treatmentDate}
-- 시술 병원: ${hospitalName}
-
-본 제품은 정품임이 확인되었습니다.
-
-아래 버튼을 눌러 개별 인증코드를 확인하세요.`;
-}
-
-/**
- * 회수 알림 메시지 생성
- * 병원 연락처와 고객센터 문의 버튼 안내 포함
- */
-function generateRecallMessage(params: {
-  hospitalName: string;
-  hospitalContact: string;
-  reason: string;
-  itemSummary: { productName: string; quantity: number }[];
-}): string {
-  const { hospitalName, hospitalContact, reason, itemSummary } = params;
-
-  const productLines = itemSummary
-    .map((item) => `- 회수 제품: ${item.productName} ${item.quantity}개`)
-    .join('\n');
-
-  return `[네오인증서] 정품 인증 회수 안내
-
-안녕하세요.
-${hospitalName}에서 발급한 정품 인증이
-회수되었음을 안내드립니다.
-
-■ 회수 정보
-- 병원: ${hospitalName}
-- 병원 연락처: ${hospitalContact}
-- 회수 사유: ${reason}
-${productLines}
-
-문의사항은 병원으로 연락해주세요.
-병원과 연락이 어려운 경우 아래 버튼을 통해 고객센터로 문의해주세요.`;
-}
+import { ALIMTALK_TEMPLATES, replaceTemplateVariables } from '@/constants/alimtalk-templates';
 
 // ============================================================================
 // 시술 생성
@@ -211,11 +150,26 @@ export async function createTreatment(
       })
     );
 
-    const certificationMessage = generateCertificationMessage({
-      treatmentDate: data.treatmentDate,
-      hospitalName,
-      itemSummary: itemSummaryForMessage,
-    });
+    const productLines = itemSummaryForMessage
+      .map((item) => `- ${item.productName} ${item.quantity}개`)
+      .join('\n');
+    const maskedPhone = `${normalizedPhone.slice(0, 3)}****${normalizedPhone.slice(-4)} 고객`;
+
+    const template = ALIMTALK_TEMPLATES['CERT_COMPLETE']!;
+    const templateVars: Record<string, string> = {
+      고객명: maskedPhone,
+      시술일: data.treatmentDate,
+      병원명: hospitalName,
+      제품목록: productLines,
+      시술ID: treatmentId,
+    };
+    const certificationMessage = replaceTemplateVariables(template.content, templateVars);
+    const renderedButtons = template.buttons
+      .filter((b) => b.urlTemplate)
+      .map((b) => ({
+        name: b.name,
+        url: replaceTemplateVariables(b.urlTemplate!, templateVars),
+      }));
 
     await supabase.from('notification_messages').insert({
       type: 'CERTIFICATION',
@@ -223,9 +177,8 @@ export async function createTreatment(
       content: certificationMessage,
       treatment_id: treatmentId,
       metadata: {
-        buttons: [
-          { name: '인증코드 확인하기', url: `/verify/${treatmentId}` }
-        ]
+        templateCode: template.code,
+        buttons: renderedButtons,
       },
       is_sent: false,
     });
@@ -433,23 +386,36 @@ export async function recallTreatment(
     const hospitalInfo = treatment.hospital as { name: string; representative_contact: string };
     const hospitalContact = hospitalInfo.representative_contact ?? '연락처 정보 없음';
 
-    const recallMessage = generateRecallMessage({
-      hospitalName: hospitalInfo.name,
-      hospitalContact,
-      reason,
-      itemSummary: summary,
-    });
+    const recallProductLines = summary
+      .map((item) => `- 회수 제품: ${item.productName} ${item.quantity}개`)
+      .join('\n');
+    const maskedPatientPhone = `${treatment.patient_phone.slice(0, 3)}****${treatment.patient_phone.slice(-4)} 고객`;
+
+    const recallTemplate = ALIMTALK_TEMPLATES['CERT_RECALL']!;
+    const recallVars: Record<string, string> = {
+      고객명: maskedPatientPhone,
+      병원명: hospitalInfo.name,
+      병원연락처: hospitalContact,
+      회수사유: reason,
+      제품목록: recallProductLines,
+    };
+    const recallMessage = replaceTemplateVariables(recallTemplate.content, recallVars);
+    const recallButtons = recallTemplate.buttons
+      .filter((b) => b.urlTemplate)
+      .map((b) => ({
+        name: b.name,
+        url: replaceTemplateVariables(b.urlTemplate!, recallVars),
+      }));
 
     await supabase.from('notification_messages').insert({
       type: 'RECALL',
       patient_phone: treatment.patient_phone,
       content: recallMessage,
-      treatment_id: treatmentId, // 회수된 시술 ID 저장 (인증 페이지에서 회수 여부 판단용)
+      treatment_id: treatmentId,
       metadata: {
+        templateCode: recallTemplate.code,
         hospitalContact,
-        buttons: [
-          { name: '고객센터 문의', url: '/inquiry' }
-        ]
+        buttons: recallButtons,
       },
       is_sent: false,
     });

@@ -32,7 +32,7 @@ interface AligoConfig {
 
 export interface AligoButton {
   name: string;
-  type: 'WL' | 'AL' | 'DS' | 'BK' | 'BC';
+  linkType: 'WL' | 'AL' | 'DS' | 'BK' | 'BC';
   linkM?: string;
   linkP?: string;
   linkI?: string;
@@ -40,7 +40,7 @@ export interface AligoButton {
 }
 
 interface AligoResponse {
-  code: number;
+  code: number | string;
   message: string;
   info?: {
     type: string;
@@ -156,7 +156,7 @@ async function callAligoApi(
 
   const result = (await response.json()) as AligoResponse;
 
-  if (result.code !== 0) {
+  if (String(result.code) !== '0') {
     logger.error('알리고 API 오류 응답', {
       code: result.code,
       message: result.message,
@@ -211,12 +211,12 @@ export async function registerTemplate(
       apiParams['tpl_emsubtitle'] = params.tplEmSubtitle;
     }
     if (params.tplButton) {
-      apiParams['tpl_button'] = JSON.stringify(params.tplButton);
+      apiParams['tpl_button'] = JSON.stringify({ button: params.tplButton });
     }
 
     const result = await callAligoApi('/akv10/template/add/', apiParams);
 
-    if (result.code !== 0) {
+    if (String(result.code) !== '0') {
       return createErrorResponse('TEMPLATE_REGISTER_FAILED', result.message);
     }
 
@@ -248,7 +248,7 @@ export async function requestTemplateReview(
       tpl_code: tplCode,
     });
 
-    if (result.code !== 0) {
+    if (String(result.code) !== '0') {
       return createErrorResponse('TEMPLATE_REVIEW_FAILED', result.message);
     }
 
@@ -272,7 +272,7 @@ export async function listTemplates(): Promise<ApiResponse<AligoTemplateItem[]>>
 
     const result = await callAligoApi('/akv10/template/list/', {});
 
-    if (result.code !== 0) {
+    if (String(result.code) !== '0') {
       return createErrorResponse('TEMPLATE_LIST_FAILED', result.message);
     }
 
@@ -348,7 +348,7 @@ export async function sendAlimtalk(
       apiParams['subject_1'] = params.subject;
     }
     if (params.buttons) {
-      apiParams['button_1'] = JSON.stringify(params.buttons);
+      apiParams['button_1'] = JSON.stringify({ button: params.buttons });
     }
     if (params.failoverMessage) {
       apiParams['failover'] = 'Y';
@@ -357,7 +357,7 @@ export async function sendAlimtalk(
 
     const result = await callAligoApi('/akv10/alimtalk/send/', apiParams);
 
-    if (result.code !== 0) {
+    if (String(result.code) !== '0') {
       return createErrorResponse('ALIMTALK_SEND_FAILED', result.message);
     }
 

@@ -5,106 +5,16 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  ALIMTALK_TEMPLATES,
+  replaceTemplateVariables,
+  type AlimtalkTemplate,
+} from '@/constants/alimtalk-templates';
 
 /**
- * 알림톡 템플릿 정의
+ * 공유 템플릿을 배열로 변환 (UI 인덱스 접근용)
  */
-interface AlimtalkTemplate {
-  code: string;
-  name: string;
-  messageType: 'BA' | 'EX' | 'AD' | 'MI';
-  emphasizeType: 'NONE' | 'TEXT' | 'IMAGE' | 'ITEM_LIST';
-  emphasizeTitle?: string;
-  emphasizeSubtitle?: string;
-  content: string;
-  variables: {
-    name: string;
-    description: string;
-    defaultValue: string;
-  }[];
-  buttons: {
-    type: 'WL' | 'AL' | 'DS' | 'BK' | 'BC' | 'BT';
-    name: string;
-    url?: string;
-  }[];
-}
-
-/**
- * Neo-Certify 알림톡 템플릿 정의
- */
-const TEMPLATES: AlimtalkTemplate[] = [
-  {
-    code: 'ND-CERT-001',
-    name: '정품 인증 완료',
-    messageType: 'BA',
-    emphasizeType: 'TEXT',
-    emphasizeTitle: '정품 인증 완료',
-    emphasizeSubtitle: '의료기기 정품이 확인되었습니다',
-    content: `#{고객명}님, 안녕하세요.
-
-#{시술일}에 #{병원명}에서 시술받으신 제품의 정품 인증이 완료되었습니다.
-
-■ 시술 정보
-#{제품목록}
-- 시술일: #{시술일}
-- 시술 병원: #{병원명}
-
-본 제품은 정식 유통 경로를 통해 공급된 정품임이 확인되었습니다.
-
-아래 버튼을 눌러 개별 인증코드를 확인하세요.`,
-    variables: [
-      { name: '고객명', description: '고객 호칭 (마스킹)', defaultValue: '010****5678 고객' },
-      { name: '시술일', description: '시술 날짜', defaultValue: '2026-01-23' },
-      { name: '병원명', description: '시술 병원명', defaultValue: '강남성형외과' },
-      { name: '제품목록', description: '제품 목록', defaultValue: '- 쥬비덤 볼류마 2개\n- 레스틸렌 1개' },
-      { name: '시술ID', description: '시술 기록 ID', defaultValue: 'abc123' },
-    ],
-    buttons: [
-      { type: 'WL', name: '인증코드 확인하기', url: '/verify/#{시술ID}' },
-    ],
-  },
-  {
-    code: 'ND-CERT-002',
-    name: '정품 인증 회수',
-    messageType: 'BA',
-    emphasizeType: 'TEXT',
-    emphasizeTitle: '정품 인증 회수 안내',
-    emphasizeSubtitle: '발급된 인증이 회수되었습니다',
-    content: `#{고객명}님, 안녕하세요.
-
-#{병원명}에서 발급한 정품 인증이 회수되었음을 안내드립니다.
-
-■ 회수 정보
-- 병원: #{병원명}
-- 병원 연락처: #{병원연락처}
-- 회수 사유: #{회수사유}
-#{제품목록}
-
-문의사항은 해당 병원으로 연락해주세요.
-병원과 연락이 어려운 경우 아래 버튼을 통해 고객센터로 문의해주세요.`,
-    variables: [
-      { name: '고객명', description: '고객 호칭 (마스킹)', defaultValue: '010****5678 고객' },
-      { name: '병원명', description: '시술 병원명', defaultValue: '강남성형외과' },
-      { name: '병원연락처', description: '병원 대표 연락처', defaultValue: '02-1234-5678' },
-      { name: '회수사유', description: '회수 사유', defaultValue: '고객 요청에 의한 취소' },
-      { name: '제품목록', description: '회수 제품 목록', defaultValue: '- 회수 제품: 쥬비덤 볼류마 2개' },
-    ],
-    buttons: [
-      { type: 'WL', name: '고객센터 문의', url: '/inquiry' },
-    ],
-  },
-];
-
-/**
- * 변수 치환 함수
- */
-function replaceVariables(content: string, variables: Record<string, string>): string {
-  let result = content;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`#\\{${key}\\}`, 'g'), value);
-  }
-  return result;
-}
+const TEMPLATES: AlimtalkTemplate[] = Object.values(ALIMTALK_TEMPLATES);
 
 /**
  * 알림톡 메시지 카드 (카카오톡 실제 스타일 기반)
@@ -122,8 +32,8 @@ function AlimtalkMessageCard({
   template: AlimtalkTemplate;
   variableValues: Record<string, string>;
 }): React.ReactElement {
-  const content = replaceVariables(template.content, variableValues);
-  const isCertification = template.code === 'ND-CERT-001';
+  const content = replaceTemplateVariables(template.content, variableValues);
+  const isCertification = template.code === 'CERT_COMPLETE';
 
   return (
     <div className="flex gap-2 px-4 py-2">
@@ -348,15 +258,15 @@ export function AlimtalkTemplatePreview({
     setIsSimulating(true);
     setSimulationResult(null);
 
-    const renderedMessage = replaceVariables(selectedTemplate.content, variableValues);
+    const renderedMessage = replaceTemplateVariables(selectedTemplate.content, variableValues);
     const renderedButtons = selectedTemplate.buttons
-      .filter((b) => b.url)
+      .filter((b) => b.urlTemplate)
       .map((b) => ({
         name: b.name,
-        url: replaceVariables(b.url ?? '', variableValues),
+        url: replaceTemplateVariables(b.urlTemplate ?? '', variableValues),
       }));
 
-    const type = selectedTemplate.code === 'ND-CERT-001' ? 'CERTIFICATION' as const : 'RECALL' as const;
+    const type = selectedTemplate.code === 'CERT_COMPLETE' ? 'CERTIFICATION' as const : 'RECALL' as const;
 
     try {
       const result = await onSimulateSend({
@@ -628,9 +538,9 @@ export function AlimtalkTemplatePreview({
                       </span>
                       <span className="font-medium text-gray-900">{button.name}</span>
                     </div>
-                    {button.url && (
+                    {button.urlTemplate && (
                       <div className="mt-2 truncate text-sm text-gray-500">
-                        {replaceVariables(button.url, variableValues)}
+                        {replaceTemplateVariables(button.urlTemplate, variableValues)}
                       </div>
                     )}
                   </div>
