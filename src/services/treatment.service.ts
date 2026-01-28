@@ -183,20 +183,33 @@ export async function createTreatment(
 
   // 4. 정품 인증 알림 메시지 기록 (트랜잭션 외부, 실패해도 시술은 유지)
   try {
-    const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
+    // 동일 제품명 합산 (제품 등록명 기준)
+    const nameQuantityMap = new Map<string, { manufacturerName: string; quantity: number }>();
     if (productsInfo) {
       const productMap = new Map(productsInfo.map(p => [p.id, p]));
       for (const item of data.items) {
         const productInfo = productMap.get(item.productId);
         if (productInfo) {
-          itemSummaryForMessage.push({
-            productName: productInfo.name,
-            manufacturerName: (productInfo.organization as { name: string }).name,
-            quantity: item.quantity,
-          });
+          const existing = nameQuantityMap.get(productInfo.name);
+          if (existing) {
+            existing.quantity += item.quantity;
+          } else {
+            nameQuantityMap.set(productInfo.name, {
+              manufacturerName: (productInfo.organization as { name: string }).name,
+              quantity: item.quantity,
+            });
+          }
         }
       }
     }
+
+    const itemSummaryForMessage = Array.from(nameQuantityMap.entries()).map(
+      ([name, info]) => ({
+        productName: name,
+        manufacturerName: info.manufacturerName,
+        quantity: info.quantity,
+      })
+    );
 
     const certificationMessage = generateCertificationMessage({
       treatmentDate: data.treatmentDate,
