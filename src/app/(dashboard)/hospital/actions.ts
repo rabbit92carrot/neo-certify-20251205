@@ -40,6 +40,14 @@ async function getHospitalOrganizationId(): Promise<string | null> {
   return user.organization.id;
 }
 
+async function getHospitalInfo(): Promise<{ id: string; name: string } | null> {
+  const user = await getCurrentUser();
+  if (user?.organization.type !== 'HOSPITAL') {
+    return null;
+  }
+  return { id: user.organization.id, name: user.organization.name };
+}
+
 /**
  * Zod 검증 에러를 ApiResponse 형식으로 변환
  */
@@ -89,8 +97,8 @@ export async function createTreatmentAction(
   treatmentDate: string,
   items: TreatmentItemData[]
 ): Promise<ApiResponse<{ treatmentId: string; totalQuantity: number }>> {
-  const organizationId = await getHospitalOrganizationId();
-  if (!organizationId) {
+  const hospital = await getHospitalInfo();
+  if (!hospital) {
     return {
       success: false,
       error: {
@@ -116,7 +124,7 @@ export async function createTreatmentAction(
     patientPhone: normalizePhoneNumber(validation.data.patientPhone),
   };
 
-  const result = await treatmentService.createTreatment(normalizedData);
+  const result = await treatmentService.createTreatment(normalizedData, hospital.name);
 
   if (result.success) {
     revalidatePath('/hospital/treatment');

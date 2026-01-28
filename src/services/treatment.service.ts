@@ -133,7 +133,8 @@ ${productLines}
  * @returns 생성된 시술 기록
  */
 export async function createTreatment(
-  data: TreatmentCreateData
+  data: TreatmentCreateData,
+  hospitalName: string
 ): Promise<ApiResponse<{ treatmentId: string; totalQuantity: number }>> {
   const supabase = await createClient();
   const normalizedPhone = normalizePhoneNumber(data.patientPhone);
@@ -144,7 +145,14 @@ export async function createTreatment(
     quantity: item.quantity,
   }));
 
-  // 2. 원자적 시술 생성 DB 함수 호출 (환자 생성 포함)
+  // 2. 제품 정보 사전 조회 (RPC 전 — 재고 보유 중이므로 RLS 통과)
+  const productIds = data.items.map(item => item.productId);
+  const { data: productsInfo } = await supabase
+    .from('products')
+    .select('id, name, organization:organizations!inner(name)')
+    .in('id', productIds);
+
+  // 3. 원자적 시술 생성 DB 함수 호출 (환자 생성 포함)
   // 병원 ID는 DB 함수 내에서 get_user_organization_id()로 도출됨
   const { data: result, error } = await supabase.rpc('create_treatment_atomic', {
     p_patient_phone: normalizedPhone,
@@ -173,27 +181,8 @@ export async function createTreatment(
   const treatmentId = row?.treatment_id ?? '';
   const totalQuantity = row?.total_quantity ?? 0;
 
-  // 3. 정품 인증 알림 메시지 기록 (트랜잭션 외부, 실패해도 시술은 유지)
+  // 4. 정품 인증 알림 메시지 기록 (트랜잭션 외부, 실패해도 시술은 유지)
   try {
-    // 병렬로 병원 정보와 제품 정보 조회 (알림 메시지용)
-    const productIds = data.items.map(item => item.productId);
-    const [treatmentRecordResult, productsInfoResult] = await Promise.all([
-      supabase
-        .from('treatment_records')
-        .select('hospital:organizations!treatment_records_hospital_id_fkey(name)')
-        .eq('id', treatmentId)
-        .single(),
-      supabase
-        .from('products')
-        .select('id, name, organization:organizations!inner(name)')
-        .in('id', productIds),
-    ]);
-
-    const { data: treatmentRecord } = treatmentRecordResult;
-    const { data: productsInfo } = productsInfoResult;
-
-    const hospitalName = (treatmentRecord?.hospital as { name: string } | null)?.name ?? '병원';
-
     const itemSummaryForMessage: { productName: string; manufacturerName: string; quantity: number }[] = [];
     if (productsInfo) {
       const productMap = new Map(productsInfo.map(p => [p.id, p]));
