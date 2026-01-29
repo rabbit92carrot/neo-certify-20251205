@@ -7,6 +7,9 @@ export const ERROR_MESSAGES = {
   // 인증
   AUTH: {
     LOGIN_FAILED: '이메일 또는 비밀번호가 올바르지 않습니다.',
+    EMAIL_NOT_CONFIRMED: '이메일 인증이 완료되지 않았습니다. 메일함을 확인해주세요.',
+    VERIFICATION_EMAIL_SENT: '인증 메일을 발송했습니다. 메일함을 확인해주세요.',
+    VERIFICATION_EMAIL_RESEND_FAILED: '인증 메일 재발송에 실패했습니다. 잠시 후 다시 시도해주세요.',
     UNAUTHORIZED: '해당 기능에 대한 접근 권한이 없습니다.',
     SESSION_EXPIRED: '세션이 만료되었습니다. 다시 로그인해주세요.',
     INVALID_EMAIL: '올바른 이메일 형식이 아닙니다.',

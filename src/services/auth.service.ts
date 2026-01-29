@@ -146,6 +146,10 @@ export async function login(
   });
 
   if (authError || !authData.user) {
+    // 이메일 미인증 에러 분기
+    if (authError?.message?.includes('Email not confirmed') || authError?.message?.includes('email_not_confirmed')) {
+      return createErrorResponse('EMAIL_NOT_CONFIRMED', ERROR_MESSAGES.AUTH.EMAIL_NOT_CONFIRMED);
+    }
     return createErrorResponse('LOGIN_FAILED', ERROR_MESSAGES.AUTH.LOGIN_FAILED);
   }
 
@@ -381,4 +385,28 @@ export async function findAccount(
   const maskedEmail = maskEmail(org.email);
 
   return createSuccessResponse({ maskedEmail });
+}
+
+/**
+ * 이메일 인증 메일 재발송
+ * Supabase resend API를 활용하여 인증 메일을 재발송합니다.
+ *
+ * @param email 재발송할 이메일 주소
+ * @returns API 응답
+ */
+export async function resendVerificationEmail(
+  email: string
+): Promise<ApiResponse<void>> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+  });
+
+  if (error) {
+    return createErrorResponse('RESEND_ERROR', ERROR_MESSAGES.AUTH.VERIFICATION_EMAIL_RESEND_FAILED);
+  }
+
+  return createSuccessResponse(undefined);
 }
