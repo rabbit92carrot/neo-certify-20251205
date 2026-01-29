@@ -4,7 +4,7 @@ import { getCachedCurrentUser } from '@/services/auth.service';
 import { getHospitalDashboardStatsOptimized } from '@/services/dashboard.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatCard } from '@/components/shared/StatCard';
-import { Package, Stethoscope, Users } from 'lucide-react';
+import { HospitalStatsCards } from '@/components/dashboard/HospitalStatsCards';
 
 export const metadata = {
   title: '대시보드 | 병원',
@@ -12,8 +12,8 @@ export const metadata = {
 };
 
 /**
- * 통계 카드 그리드 컴포넌트 (통합 RPC 호출 사용)
- * 3개 쿼리를 1개 DB 왕복으로 처리하여 성능 향상
+ * 통계 카드 그리드 컴포넌트
+ * Server에서 초기 데이터 fetch → Client에서 react-query로 자동 refetch (5분 간격)
  */
 async function StatsCardsGrid({ orgId }: { orgId: string }): Promise<React.ReactElement> {
   const statsResult = await getHospitalDashboardStatsOptimized(orgId);
@@ -26,28 +26,7 @@ async function StatsCardsGrid({ orgId }: { orgId: string }): Promise<React.React
         todayShipments: 0,
       };
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <StatCard
-        title="총 재고량"
-        value={stats.totalInventory}
-        icon={Package}
-        description="현재 보유 중인 총 재고"
-      />
-      <StatCard
-        title="오늘 시술 건수"
-        value={stats.todayTreatments}
-        icon={Stethoscope}
-        description="오늘 등록된 시술"
-      />
-      <StatCard
-        title="총 환자 수"
-        value={stats.totalPatients}
-        icon={Users}
-        description="누적 시술 환자 수"
-      />
-    </div>
-  );
+  return <HospitalStatsCards organizationId={orgId} initialData={stats} />;
 }
 
 /**
@@ -65,7 +44,7 @@ function StatsCardsGridSkeleton(): React.ReactElement {
 
 /**
  * 병원 대시보드 페이지
- * 통합 DB 함수로 3개 통계를 1회 왕복으로 조회 (Phase 15 최적화)
+ * 통합 DB 함수로 3개 통계를 1회 왕복으로 조회 + react-query 자동 refetch
  */
 export default async function HospitalDashboardPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
@@ -93,7 +72,7 @@ export default async function HospitalDashboardPage(): Promise<React.ReactElemen
         </CardContent>
       </Card>
 
-      {/* 통계 카드 - 통합 RPC로 1회 DB 왕복 (Phase 15 최적화) */}
+      {/* 통계 카드 - SSR + react-query 자동 refetch (5분 간격) */}
       <Suspense fallback={<StatsCardsGridSkeleton />}>
         <StatsCardsGrid orgId={org.id} />
       </Suspense>
