@@ -34,7 +34,7 @@ test.describe('인증 흐름', () => {
     await expect(page).toHaveURL(/\/manufacturer\/dashboard/);
 
     // 환영 메시지 확인
-    await expect(page.locator('text=환영합니다')).toBeVisible();
+    await expect(page.locator('text=환영합니다').first()).toBeVisible();
   });
 
   test('유통사 계정으로 로그인하면 유통사 대시보드로 이동한다', async ({ page }) => {
@@ -45,7 +45,7 @@ test.describe('인증 흐름', () => {
     await page.locator('button[type="submit"]').click();
 
     await expect(page).toHaveURL(/\/distributor\/dashboard/);
-    await expect(page.locator('text=환영합니다')).toBeVisible();
+    await expect(page.locator('text=환영합니다').first()).toBeVisible();
   });
 
   test('병원 계정으로 로그인하면 병원 대시보드로 이동한다', async ({ page }) => {
@@ -56,7 +56,7 @@ test.describe('인증 흐름', () => {
     await page.locator('button[type="submit"]').click();
 
     await expect(page).toHaveURL(/\/hospital\/dashboard/);
-    await expect(page.locator('text=환영합니다')).toBeVisible();
+    await expect(page.locator('text=환영합니다').first()).toBeVisible();
   });
 
   test('관리자 계정으로 로그인하면 관리자 대시보드로 이동한다', async ({ page }) => {
@@ -67,7 +67,7 @@ test.describe('인증 흐름', () => {
     await page.locator('button[type="submit"]').click();
 
     await expect(page).toHaveURL(/\/admin\/dashboard/);
-    await expect(page.locator('text=환영합니다')).toBeVisible();
+    await expect(page.locator('text=환영합니다').first()).toBeVisible();
   });
 
   test('잘못된 자격증명으로 로그인하면 에러 메시지가 표시된다', async ({ page }) => {

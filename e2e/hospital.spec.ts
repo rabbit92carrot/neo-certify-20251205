@@ -10,7 +10,7 @@ test.describe('병원 대시보드', () => {
     await expect(page).toHaveURL(/\/hospital\/dashboard/);
 
     // 환영 메시지 확인
-    await expect(page.locator('text=환영합니다')).toBeVisible();
+    await expect(page.locator('text=환영합니다').first()).toBeVisible();
 
     // 통계 카드 확인
     await expect(page.locator('text=총 재고량')).toBeVisible();
