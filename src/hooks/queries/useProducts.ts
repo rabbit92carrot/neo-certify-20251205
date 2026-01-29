@@ -37,6 +37,7 @@ export function useProductList(
     queryFn: () => fetchProducts(organizationId, query),
     initialData,
     staleTime: 60 * 1000, // 1분
+    enabled: !!organizationId,
   });
 }
 

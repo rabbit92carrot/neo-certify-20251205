@@ -36,7 +36,7 @@ export default async function ProductsPage(): Promise<React.ReactElement> {
         actions={<ProductFormTrigger />}
       />
 
-      <ProductsTable products={products} />
+      <ProductsTable products={products} organizationId={user.organization.id} />
     </div>
   );
 }

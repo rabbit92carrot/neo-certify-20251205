@@ -3,10 +3,10 @@
 /**
  * 제품 목록 테이블 컴포넌트
  * 제품 조회, 수정, 비활성화 기능
+ * react-query를 사용하여 캐싱 + 자동 refetch 지원
  */
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -33,21 +33,37 @@ import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Package, AlertTriangle
 import { ProductForm } from '@/components/forms/ProductForm';
 import { ProductDeactivateDialog } from '@/components/forms/ProductDeactivateDialog';
 import {
-  deactivateProductAction,
-  activateProductAction,
-} from '@/app/(dashboard)/manufacturer/actions';
+  useProductList,
+  useDeactivateProduct,
+  useActivateProduct,
+} from '@/hooks/queries';
 import type { Product, ProductDeactivationReason } from '@/types/api.types';
 import { DEACTIVATION_REASON_LABELS } from '@/types/api.types';
 
 interface ProductsTableProps {
-  /** 제품 목록 */
+  /** 초기 제품 목록 (Server Component에서 전달) */
   products: Product[];
+  /** 조직 ID (react-query 활성화용, 없으면 props만 사용) */
+  organizationId?: string;
 }
 
-export function ProductsTable({ products }: ProductsTableProps): React.ReactElement {
-  const router = useRouter();
+export function ProductsTable({ products: initialProducts, organizationId }: ProductsTableProps): React.ReactElement {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deactivatingProduct, setDeactivatingProduct] = useState<Product | null>(null);
+
+  // react-query: organizationId가 있으면 자동 refetch 활성화
+  const { data: queryData } = useProductList(
+    organizationId ?? '',
+    { page: 1, pageSize: 100 },
+    organizationId
+      ? { items: initialProducts, meta: { page: 1, pageSize: 100, total: initialProducts.length, totalPages: 1, hasMore: false } }
+      : undefined
+  );
+
+  const products = organizationId && queryData ? queryData.items : initialProducts;
+
+  const deactivateMutation = useDeactivateProduct();
+  const activateMutation = useActivateProduct();
 
   // 비활성화 처리
   const handleDeactivate = async (
@@ -55,14 +71,12 @@ export function ProductsTable({ products }: ProductsTableProps): React.ReactElem
     reason: ProductDeactivationReason,
     note?: string
   ): Promise<void> => {
-    await deactivateProductAction(productId, reason, note);
-    router.refresh();
+    await deactivateMutation.mutateAsync({ productId, reason, note });
   };
 
   // 활성화 처리
   const handleActivate = async (product: Product) => {
-    await activateProductAction(product.id);
-    router.refresh();
+    await activateMutation.mutateAsync(product.id);
   };
 
   // 날짜 포맷
@@ -201,7 +215,6 @@ export function ProductsTable({ products }: ProductsTableProps): React.ReactElem
         product={editingProduct || undefined}
         open={!!editingProduct}
         onOpenChange={(open) => !open && setEditingProduct(null)}
-        onSuccess={() => router.refresh()}
       />
 
       {/* 비활성화 다이얼로그 (사유 선택) */}
