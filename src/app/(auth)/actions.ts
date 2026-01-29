@@ -10,7 +10,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import * as authService from '@/services/auth.service';
 import { organizationRegisterSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, findAccountSchema } from '@/lib/validations';
-import { DEFAULT_REDIRECT, LOGIN_PATH } from '@/constants/routes';
+import { DEFAULT_REDIRECT, LOGIN_PATH, VERIFY_EMAIL_PATH } from '@/constants/routes';
 import { createErrorResponse, createSuccessResponse, ERROR_CODES } from '@/services/common.service';
 import { formatZodErrors } from '@/lib/utils';
 import {
@@ -93,7 +93,8 @@ export async function registerAction(
     return createErrorResponse(result.error?.code ?? 'UNKNOWN_ERROR', result.error?.message ?? '회원가입에 실패했습니다.');
   }
 
-  return createSuccessResponse({ redirect: `${LOGIN_PATH}?registered=true` });
+  const registeredEmail = encodeURIComponent(validationResult.data.email);
+  return createSuccessResponse({ redirect: `${VERIFY_EMAIL_PATH}?email=${registeredEmail}` });
 }
 
 /**
@@ -283,4 +284,41 @@ export async function findAccountAction(
   }
 
   return createSuccessResponse(result.data!);
+}
+
+/**
+ * 인증 메일 재발송 Server Action
+ * Supabase resend API를 활용하여 이메일 인증 메일을 재발송합니다.
+ *
+ * @param email 재발송할 이메일 주소
+ * @returns API 응답
+ */
+export async function resendVerificationAction(
+  email: string
+): Promise<ApiResponse<void>> {
+  // Rate Limit 체크
+  const headersList = await headers();
+  const clientIP = getClientIP(headersList);
+  const rateLimitKey = createRateLimitKey(clientIP, 'resend-verification');
+  const rateLimitResult = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.auth);
+
+  if (!rateLimitResult.success) {
+    const retryAfter = formatRetryAfter(rateLimitResult.resetAt);
+    return createErrorResponse(
+      ERROR_CODES.RATE_LIMIT_EXCEEDED,
+      `너무 많은 요청입니다. ${retryAfter} 후에 다시 시도해주세요.`
+    );
+  }
+
+  if (!email || typeof email !== 'string') {
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '이메일 주소가 필요합니다.');
+  }
+
+  const result = await authService.resendVerificationEmail(email);
+
+  if (!result.success) {
+    return createErrorResponse(result.error?.code ?? 'UNKNOWN_ERROR', result.error?.message ?? '인증 메일 재발송에 실패했습니다.');
+  }
+
+  return createSuccessResponse(undefined);
 }

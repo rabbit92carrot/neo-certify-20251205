@@ -24,10 +24,14 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { ERROR_MESSAGES } from '@/constants';
+import { resendVerificationAction } from '@/app/(auth)/actions';
 
 export function LoginForm(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get('registered');
@@ -45,6 +49,8 @@ export function LoginForm(): React.ReactElement {
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true);
     setError(null);
+    setEmailNotConfirmed(false);
+    setResendMessage(null);
 
     try {
       const formData = new FormData();
@@ -59,6 +65,10 @@ export function LoginForm(): React.ReactElement {
         router.push(targetPath);
         router.refresh();
       } else {
+        // 이메일 미인증 에러 분기
+        if (result.error?.code === 'EMAIL_NOT_CONFIRMED') {
+          setEmailNotConfirmed(true);
+        }
         setError(result.error?.message || ERROR_MESSAGES.AUTH.LOGIN_FAILED);
       }
     } catch {
@@ -74,7 +84,7 @@ export function LoginForm(): React.ReactElement {
         <h2 className="text-2xl font-semibold text-gray-900">로그인</h2>
         {registered && (
           <p className="mt-2 text-sm text-green-600">
-            회원가입이 완료되었습니다. 로그인해주세요.
+            회원가입이 완료되었습니다. 이메일 인증 후 로그인해주세요.
           </p>
         )}
         {reset && (
@@ -85,7 +95,39 @@ export function LoginForm(): React.ReactElement {
       </div>
 
       {error && (
-        <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">{error}</div>
+        <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">
+          <p>{error}</p>
+          {emailNotConfirmed && (
+            <button
+              type="button"
+              className="mt-2 text-sm font-medium text-blue-600 hover:underline disabled:opacity-50"
+              disabled={isResending}
+              onClick={async () => {
+                const email = form.getValues('email');
+                if (!email) return;
+                setIsResending(true);
+                setResendMessage(null);
+                try {
+                  const result = await resendVerificationAction(email);
+                  if (result.success) {
+                    setResendMessage('인증 메일을 재발송했습니다. 메일함을 확인해주세요.');
+                  } else {
+                    setResendMessage(result.error?.message || '재발송에 실패했습니다.');
+                  }
+                } catch {
+                  setResendMessage('서버 오류가 발생했습니다.');
+                } finally {
+                  setIsResending(false);
+                }
+              }}
+            >
+              {isResending ? '발송 중…' : '인증 메일 재발송'}
+            </button>
+          )}
+        </div>
+      )}
+      {resendMessage && (
+        <div className="p-3 rounded-md bg-green-50 text-green-700 text-sm">{resendMessage}</div>
       )}
 
       <Form {...form}>
