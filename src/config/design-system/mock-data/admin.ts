@@ -4,6 +4,7 @@ import type { AdminDashboardViewProps } from '@/components/views/admin';
  * Admin Dashboard mock 데이터
  */
 export const adminDashboardMockData: AdminDashboardViewProps = {
+  organizationId: 'mock-admin-org',
   organization: {
     name: '테스트 관리자',
     email: 'admin@neocert.com',

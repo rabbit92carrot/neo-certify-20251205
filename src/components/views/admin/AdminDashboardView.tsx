@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { StatCard } from '@/components/shared/StatCard';
 import {
   Building2,
   UserCheck,
@@ -12,17 +11,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { PendingOrganizationsList } from './PendingOrganizationsList';
-import type { OrganizationType } from '@/types/api.types';
-
-/**
- * Admin Dashboard 통계 데이터
- */
-export interface AdminDashboardStats {
-  totalOrganizations: number;
-  pendingApprovals: number;
-  todayRecalls: number;
-  totalVirtualCodes: number;
-}
+import { AdminStatsCards } from '@/components/dashboard/AdminStatsCards';
+import type { OrganizationType, AdminDashboardStats } from '@/types/api.types';
 
 /**
  * 승인 대기 조직 정보
@@ -39,6 +29,7 @@ export interface PendingOrganization {
  * AdminDashboardView Props
  */
 export interface AdminDashboardViewProps {
+  organizationId: string;
   organization: {
     name: string;
     email: string;
@@ -49,9 +40,10 @@ export interface AdminDashboardViewProps {
 
 /**
  * 관리자 대시보드 View 컴포넌트
- * props 기반으로 UI만 렌더링 (데이터 fetch는 page.tsx에서 수행)
+ * react-query를 통해 통계를 자동 refetch합니다.
  */
 export function AdminDashboardView({
+  organizationId,
   organization,
   stats,
   pendingOrganizations,
@@ -71,41 +63,8 @@ export function AdminDashboardView({
         </CardContent>
       </Card>
 
-      {/* 통계 카드 (Phase 2C: prefetch=false로 초기 로드 부하 감소) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/admin/organizations" prefetch={false}>
-          <StatCard
-            title="총 조직 수"
-            value={stats.totalOrganizations}
-            icon={Building2}
-            description="등록된 조직 수"
-          />
-        </Link>
-        <Link href="/admin/approvals" prefetch={false}>
-          <StatCard
-            title="승인 대기"
-            value={stats.pendingApprovals}
-            icon={UserCheck}
-            description="승인 대기 중인 조직"
-          />
-        </Link>
-        <Link href="/admin/recalls" prefetch={false}>
-          <StatCard
-            title="오늘 회수 건수"
-            value={stats.todayRecalls}
-            icon={AlertCircle}
-            description="오늘 발생한 회수"
-          />
-        </Link>
-        <Link href="/admin/history" prefetch={false}>
-          <StatCard
-            title="총 가상 코드"
-            value={stats.totalVirtualCodes}
-            icon={QrCode}
-            description="생성된 가상 식별코드"
-          />
-        </Link>
-      </div>
+      {/* 통계 카드 - react-query 자동 refetch (5분 간격) */}
+      <AdminStatsCards organizationId={organizationId} initialData={stats} />
 
       {/* 빠른 링크 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

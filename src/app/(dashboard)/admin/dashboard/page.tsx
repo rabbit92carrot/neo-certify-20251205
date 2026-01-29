@@ -12,7 +12,7 @@ export const metadata = {
 
 /**
  * 관리자 대시보드 페이지
- * 통합 DB 함수로 4개 통계를 1회 왕복으로 조회 (Phase 15 최적화)
+ * 통합 DB 함수로 4개 통계를 1회 왕복으로 조회 + react-query 자동 refetch
  */
 export default async function AdminDashboardPage(): Promise<React.ReactElement> {
   const user = await getCachedCurrentUser();
@@ -50,6 +50,7 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
 
   return (
     <AdminDashboardView
+      organizationId={org.id}
       organization={{
         name: org.name,
         email: org.email,

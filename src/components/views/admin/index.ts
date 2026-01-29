@@ -1,7 +1,6 @@
 export {
   AdminDashboardView,
   type AdminDashboardViewProps,
-  type AdminDashboardStats,
   type PendingOrganization,
 } from './AdminDashboardView';
 export {
