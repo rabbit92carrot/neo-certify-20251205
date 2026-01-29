@@ -46,10 +46,16 @@ export {
   loginSchema,
   registerCredentialsSchema,
   changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  findAccountSchema,
   // 타입
   type LoginFormData,
   type RegisterCredentialsData,
   type ChangePasswordData,
+  type ForgotPasswordFormData,
+  type ResetPasswordFormData,
+  type FindAccountFormData,
 } from './auth';
 
 // ============================================================================

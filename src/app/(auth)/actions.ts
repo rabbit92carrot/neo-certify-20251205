@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import * as authService from '@/services/auth.service';
-import { organizationRegisterSchema, loginSchema } from '@/lib/validations';
+import { organizationRegisterSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, findAccountSchema } from '@/lib/validations';
 import { DEFAULT_REDIRECT, LOGIN_PATH } from '@/constants/routes';
 import { createErrorResponse, createSuccessResponse, ERROR_CODES } from '@/services/common.service';
 import { formatZodErrors } from '@/lib/utils';
@@ -156,4 +156,131 @@ export async function logoutAction(): Promise<void> {
   await authService.logout();
   revalidatePath('/', 'layout');
   redirect(LOGIN_PATH);
+}
+
+/**
+ * 비밀번호 찾기 Server Action
+ * 사업자등록번호 + 이메일 확인 후 재설정 메일 발송
+ *
+ * @param formData 폼 데이터
+ * @returns API 응답
+ */
+export async function forgotPasswordAction(
+  formData: FormData
+): Promise<ApiResponse<void>> {
+  // Rate Limit 체크
+  const headersList = await headers();
+  const clientIP = getClientIP(headersList);
+  const rateLimitKey = createRateLimitKey(clientIP, 'forgot-password');
+  const rateLimitResult = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.auth);
+
+  if (!rateLimitResult.success) {
+    const retryAfter = formatRetryAfter(rateLimitResult.resetAt);
+    return createErrorResponse(
+      ERROR_CODES.RATE_LIMIT_EXCEEDED,
+      `너무 많은 요청입니다. ${retryAfter} 후에 다시 시도해주세요.`
+    );
+  }
+
+  const rawData = {
+    businessNumber: formData.get('businessNumber') as string,
+    email: formData.get('email') as string,
+  };
+
+  // Zod 검증
+  const validationResult = forgotPasswordSchema.safeParse(rawData);
+  if (!validationResult.success) {
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', formatZodErrors(validationResult.error));
+  }
+
+  // 서비스 호출
+  const result = await authService.resetPassword(
+    validationResult.data.businessNumber,
+    validationResult.data.email
+  );
+
+  if (!result.success) {
+    return createErrorResponse(result.error?.code ?? 'UNKNOWN_ERROR', result.error?.message ?? '비밀번호 재설정에 실패했습니다.');
+  }
+
+  return createSuccessResponse(undefined);
+}
+
+/**
+ * 비밀번호 재설정 Server Action
+ * recovery 세션에서 새 비밀번호 설정
+ *
+ * @param formData 폼 데이터
+ * @returns API 응답
+ */
+export async function resetPasswordAction(
+  formData: FormData
+): Promise<ApiResponse<{ redirect: string }>> {
+  const rawData = {
+    password: formData.get('password') as string,
+    confirmPassword: formData.get('confirmPassword') as string,
+  };
+
+  // Zod 검증
+  const validationResult = resetPasswordSchema.safeParse(rawData);
+  if (!validationResult.success) {
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', formatZodErrors(validationResult.error));
+  }
+
+  // 서비스 호출
+  const result = await authService.updatePassword(validationResult.data.password);
+
+  if (!result.success) {
+    return createErrorResponse(result.error?.code ?? 'UNKNOWN_ERROR', result.error?.message ?? '비밀번호 변경에 실패했습니다.');
+  }
+
+  return createSuccessResponse({ redirect: `${LOGIN_PATH}?reset=true` });
+}
+
+/**
+ * 계정 찾기 Server Action
+ * 사업자등록번호 + 대표연락처로 가입 이메일 조회
+ *
+ * @param formData 폼 데이터
+ * @returns API 응답 (마스킹된 이메일)
+ */
+export async function findAccountAction(
+  formData: FormData
+): Promise<ApiResponse<{ maskedEmail: string }>> {
+  // Rate Limit 체크
+  const headersList = await headers();
+  const clientIP = getClientIP(headersList);
+  const rateLimitKey = createRateLimitKey(clientIP, 'find-account');
+  const rateLimitResult = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIGS.auth);
+
+  if (!rateLimitResult.success) {
+    const retryAfter = formatRetryAfter(rateLimitResult.resetAt);
+    return createErrorResponse(
+      ERROR_CODES.RATE_LIMIT_EXCEEDED,
+      `너무 많은 요청입니다. ${retryAfter} 후에 다시 시도해주세요.`
+    );
+  }
+
+  const rawData = {
+    businessNumber: formData.get('businessNumber') as string,
+    representativeContact: formData.get('representativeContact') as string,
+  };
+
+  // Zod 검증
+  const validationResult = findAccountSchema.safeParse(rawData);
+  if (!validationResult.success) {
+    return createErrorResponse(ERROR_CODES.VALIDATION_ERROR, '입력값을 확인해주세요.', formatZodErrors(validationResult.error));
+  }
+
+  // 서비스 호출
+  const result = await authService.findAccount(
+    validationResult.data.businessNumber,
+    validationResult.data.representativeContact
+  );
+
+  if (!result.success) {
+    return createErrorResponse(result.error?.code ?? 'UNKNOWN_ERROR', result.error?.message ?? '계정을 찾을 수 없습니다.');
+  }
+
+  return createSuccessResponse(result.data!);
 }

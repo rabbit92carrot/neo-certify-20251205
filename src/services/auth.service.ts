@@ -284,3 +284,101 @@ export async function checkBusinessNumberExists(businessNumber: string): Promise
 
   return !!data;
 }
+
+/**
+ * 비밀번호 재설정 이메일 발송
+ * 사업자등록번호와 이메일 일치 확인 후 Supabase resetPasswordForEmail 호출
+ *
+ * @param businessNumber 사업자등록번호
+ * @param email 이메일
+ * @returns API 응답
+ */
+export async function resetPassword(
+  businessNumber: string,
+  email: string
+): Promise<ApiResponse<void>> {
+  const adminClient = createAdminClient();
+  const normalizedBN = normalizeBusinessNumber(businessNumber);
+
+  // organizations 테이블에서 사업자등록번호 + 이메일 일치 확인
+  const { data: org } = await adminClient
+    .from('organizations')
+    .select('id')
+    .eq('business_number', normalizedBN)
+    .eq('email', email)
+    .single();
+
+  if (!org) {
+    return createErrorResponse('NOT_FOUND', '일치하는 계정 정보를 찾을 수 없습니다.');
+  }
+
+  // Supabase 비밀번호 재설정 이메일 발송
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/reset-password`,
+  });
+
+  if (error) {
+    return createErrorResponse('RESET_PASSWORD_ERROR', error.message);
+  }
+
+  return createSuccessResponse(undefined);
+}
+
+/**
+ * 새 비밀번호 설정
+ * recovery 토큰으로 인증된 세션에서 비밀번호 업데이트
+ *
+ * @param password 새 비밀번호
+ * @returns API 응답
+ */
+export async function updatePassword(
+  password: string
+): Promise<ApiResponse<void>> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.updateUser({
+    password,
+  });
+
+  if (error) {
+    return createErrorResponse('UPDATE_PASSWORD_ERROR', error.message);
+  }
+
+  return createSuccessResponse(undefined);
+}
+
+/**
+ * 계정 찾기
+ * 사업자등록번호 + 대표연락처로 가입 이메일 조회 (마스킹 처리)
+ *
+ * @param businessNumber 사업자등록번호
+ * @param representativeContact 대표연락처
+ * @returns API 응답 (마스킹된 이메일)
+ */
+export async function findAccount(
+  businessNumber: string,
+  representativeContact: string
+): Promise<ApiResponse<{ maskedEmail: string }>> {
+  const adminClient = createAdminClient();
+  const normalizedBN = normalizeBusinessNumber(businessNumber);
+  const normalizedPhone = normalizePhoneNumber(representativeContact);
+
+  // organizations 테이블에서 사업자등록번호 + 대표연락처 매칭
+  const { data: org } = await adminClient
+    .from('organizations')
+    .select('email')
+    .eq('business_number', normalizedBN)
+    .eq('representative_contact', normalizedPhone)
+    .single();
+
+  if (!org || !org.email) {
+    return createErrorResponse('NOT_FOUND', '일치하는 계정 정보를 찾을 수 없습니다.');
+  }
+
+  // 이메일 마스킹
+  const { maskEmail } = await import('./common.service');
+  const maskedEmail = maskEmail(org.email);
+
+  return createSuccessResponse({ maskedEmail });
+}
