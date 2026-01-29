@@ -13,6 +13,9 @@ import type {
   PaginatedResponse,
   InventorySummary,
   ManufacturerDashboardStats,
+  DistributorDashboardStats,
+  HospitalDashboardStats,
+  AdminDashboardStats,
 } from '@/types/api.types';
 import type { ProductListQueryData } from '@/lib/validations/product';
 
@@ -147,5 +150,78 @@ export async function fetchManufacturerDashboardStats(
     todayProduction: Number(row?.today_production) || 0,
     todayShipments: Number(row?.today_shipments) || 0,
     activeProducts: Number(row?.active_products) || 0,
+  };
+}
+
+/**
+ * 유통사 대시보드 통계 조회 (클라이언트)
+ */
+export async function fetchDistributorDashboardStats(
+  organizationId: string
+): Promise<DistributorDashboardStats> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc('get_dashboard_stats_distributor', {
+    p_organization_id: organizationId,
+  });
+
+  if (error) {
+    throw new Error('대시보드 통계 조회에 실패했습니다.');
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+
+  return {
+    totalInventory: Number(row?.total_inventory) || 0,
+    todayReceived: Number(row?.today_received) || 0,
+    todayShipments: Number(row?.today_shipments) || 0,
+  };
+}
+
+/**
+ * 병원 대시보드 통계 조회 (클라이언트)
+ */
+export async function fetchHospitalDashboardStats(
+  organizationId: string
+): Promise<HospitalDashboardStats> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc('get_dashboard_stats_hospital', {
+    p_organization_id: organizationId,
+  });
+
+  if (error) {
+    throw new Error('대시보드 통계 조회에 실패했습니다.');
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+
+  return {
+    totalInventory: Number(row?.total_inventory) || 0,
+    todayShipments: Number(row?.today_shipments) || 0,
+    todayTreatments: Number(row?.today_treatments) || 0,
+    totalPatients: Number(row?.total_patients) || 0,
+  };
+}
+
+/**
+ * 관리자 대시보드 통계 조회 (클라이언트)
+ */
+export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc('get_dashboard_stats_admin');
+
+  if (error) {
+    throw new Error('대시보드 통계 조회에 실패했습니다.');
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+
+  return {
+    totalOrganizations: Number(row?.total_organizations) || 0,
+    pendingApprovals: Number(row?.pending_approvals) || 0,
+    todayRecalls: Number(row?.today_recalls) || 0,
+    totalVirtualCodes: Number(row?.total_virtual_codes) || 0,
   };
 }
