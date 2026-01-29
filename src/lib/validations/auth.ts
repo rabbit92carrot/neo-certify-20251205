@@ -59,9 +59,52 @@ export const changePasswordSchema = z
   });
 
 // ============================================================================
+// 비밀번호 찾기 스키마
+// ============================================================================
+
+/**
+ * 비밀번호 찾기 폼 스키마
+ * 사업자등록번호 + 이메일로 본인 확인 후 비밀번호 재설정 메일 발송
+ */
+export const forgotPasswordSchema = z.object({
+  businessNumber: z.string().min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('사업자등록번호')),
+  email: emailSchema,
+});
+
+/**
+ * 비밀번호 재설정 스키마
+ * 새 비밀번호 입력 및 확인
+ */
+export const resetPasswordSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('비밀번호 확인')),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: '비밀번호가 일치하지 않습니다.',
+    path: ['confirmPassword'],
+  });
+
+// ============================================================================
+// 계정 찾기 스키마
+// ============================================================================
+
+/**
+ * 계정 찾기 폼 스키마
+ * 사업자등록번호 + 대표연락처로 가입 이메일 확인
+ */
+export const findAccountSchema = z.object({
+  businessNumber: z.string().min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('사업자등록번호')),
+  representativeContact: z.string().min(1, ERROR_MESSAGES.GENERAL.REQUIRED_FIELD('대표연락처')),
+});
+
+// ============================================================================
 // 타입 추출
 // ============================================================================
 
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type RegisterCredentialsData = z.infer<typeof registerCredentialsSchema>;
 export type ChangePasswordData = z.infer<typeof changePasswordSchema>;
+export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
+export type FindAccountFormData = z.infer<typeof findAccountSchema>;

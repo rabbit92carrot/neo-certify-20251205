@@ -8,12 +8,12 @@ import type { OrganizationType } from './organization';
 /**
  * 공개 라우트 (인증 불필요)
  */
-export const PUBLIC_ROUTES = ['/login', '/register', '/mock'] as const;
+export const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password', '/find-account', '/mock'] as const;
 
 /**
  * 인증 라우트 (로그인된 사용자는 대시보드로 리다이렉트)
  */
-export const AUTH_ROUTES = ['/login', '/register'] as const;
+export const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/find-account'] as const;
 
 /**
  * 보호된 라우트 (조직 유형별)

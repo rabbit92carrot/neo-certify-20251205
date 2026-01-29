@@ -31,6 +31,7 @@ export function LoginForm(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get('registered');
+  const reset = searchParams.get('reset');
   const redirectPath = searchParams.get('redirect');
 
   const form = useForm<LoginFormData>({
@@ -74,6 +75,11 @@ export function LoginForm(): React.ReactElement {
         {registered && (
           <p className="mt-2 text-sm text-green-600">
             회원가입이 완료되었습니다. 로그인해주세요.
+          </p>
+        )}
+        {reset && (
+          <p className="mt-2 text-sm text-green-600">
+            비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.
           </p>
         )}
       </div>
@@ -129,6 +135,16 @@ export function LoginForm(): React.ReactElement {
           </Button>
         </form>
       </Form>
+
+      <div className="flex justify-center gap-4 text-sm">
+        <Link href="/find-account" className="text-gray-600 hover:underline">
+          계정 찾기
+        </Link>
+        <span className="text-gray-300">|</span>
+        <Link href="/forgot-password" className="text-gray-600 hover:underline">
+          비밀번호 찾기
+        </Link>
+      </div>
 
       <div className="text-center text-sm">
         <span className="text-gray-600">계정이 없으신가요? </span>
