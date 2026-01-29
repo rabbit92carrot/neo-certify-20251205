@@ -43,7 +43,7 @@ test.describe('병원 비즈니스 플로우 - 시술 이력', () => {
 
   test('시술 기록 카드 펼침 시 제품 정보가 표시된다', async ({ page }) => {
     // 시술 이력 헤딩 확인
-    await expect(page.getByRole('heading', { name: /시술 이력/ })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /시술 이력/ }).first()).toBeVisible({ timeout: 15000 });
 
     // 시술 기록 카드 또는 빈 상태 확인
     const maskedPhone = page.locator('text=/010-\\*{4}-\\d{3,4}/');
