@@ -68,7 +68,7 @@ test.describe('관리자 비즈니스 플로우 - 전체 이력', () => {
 
     // 테이블 결과 또는 빈 상태 확인
     const table = page.locator('table');
-    const emptyState = page.locator('text=이벤트가 없습니다');
+    const emptyState = page.getByRole('heading', { name: '이벤트가 없습니다' });
     await expect(table.or(emptyState)).toBeVisible({ timeout: 15000 });
 
     if (await table.isVisible()) {
