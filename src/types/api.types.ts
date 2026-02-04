@@ -270,6 +270,18 @@ export interface ProductInventoryDetail {
   byLot: InventoryByLot[];
 }
 
+/**
+ * 출고용 제품 요약 정보 (Lot 미포함)
+ * 출고 페이지 초기 로딩 최적화를 위해 사용
+ */
+export interface ShipmentProductSummary {
+  productId: string;
+  productName: string;
+  modelName: string;
+  udiDi: string;
+  totalQuantity: number;
+}
+
 // ============================================================================
 // 병원 제품 관리 타입
 // ============================================================================
