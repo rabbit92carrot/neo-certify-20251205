@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedCurrentUser } from '@/services/auth.service';
 import { getTopProductsForShipment } from '@/services/inventory.service';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { ShipmentFormWrapperV2 } from './ShipmentFormWrapperV2';
+import { ShipmentFormWrapperV2 } from '@/components/forms/shipment/ShipmentFormWrapperV2';
 import {
   createShipmentAction,
   searchShipmentTargetsAction,
