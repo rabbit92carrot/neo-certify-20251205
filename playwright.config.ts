@@ -27,6 +27,8 @@ export default defineConfig({
   ],
 
   // 개발 서버 자동 시작 (로컬 테스트용)
+  // d3k 모니터링이 필요한 경우 별도 터미널에서 `d3k --servers-only --no-tui --script dev` 실행 후
+  // reuseExistingServer로 기존 서버를 재사용합니다.
   webServer: process.env.CI
     ? undefined
     : {
@@ -34,7 +36,6 @@ export default defineConfig({
         url: 'http://localhost:3000',
         reuseExistingServer: true,
         timeout: 120000,
-        // E2E 테스트 환경 변수 설정 (rate limit 비활성화)
         env: {
           ...process.env,
           E2E_TEST: 'true',
