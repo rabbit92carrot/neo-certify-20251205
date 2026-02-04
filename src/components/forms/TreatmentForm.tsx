@@ -9,7 +9,8 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Package, Stethoscope, Phone, Calendar, Loader2, User } from 'lucide-react';
+import { Package, Stethoscope, Phone, Calendar, Loader2, User, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -155,8 +156,10 @@ export function TreatmentForm({
         toast.success(`${totalItems}개 제품 시술이 등록되었습니다.`);
 
         // mock 알림톡 미리보기 새 창 열기 (개발/테스트 환경)
+        // 해당 환자 번호로 필터링된 메시지만 표시
         if (process.env.NODE_ENV !== 'production') {
-          window.open('/mock/kakao', 'mock-kakao', 'width=430,height=930,noopener,noreferrer');
+          const mockUrl = `/mock/kakao?phone=${encodeURIComponent(normalizedPhone)}`;
+          window.open(mockUrl, 'mock-kakao', 'width=430,height=930,noopener,noreferrer');
         }
 
         clearCart();
@@ -380,6 +383,29 @@ export function TreatmentForm({
                 시술 등록 시 환자에게 정품 인증 알림이 발송됩니다.
                 오류 시 24시간 이내에 회수할 수 있습니다.
               </p>
+              {/* 개발 환경에서만 표시되는 알림톡 발송 테스트 버튼 */}
+              {process.env.NODE_ENV !== 'production' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      template: 'CERT_COMPLETE',
+                      phone: phoneInputValue || '',
+                    });
+                    window.open(
+                      `/alimtalk-test?${params}`,
+                      'alimtalk-test',
+                      'width=1680,height=950,noopener'
+                    );
+                  }}
+                >
+                  <ExternalLink className="mr-1.5 h-3 w-3" />
+                  [DEV] 알림톡 발송 테스트
+                </Button>
+              )}
             </div>
           )}
         </div>

@@ -10,6 +10,10 @@ export const metadata = {
   description: '환자에게 발송되는 알림톡 메시지 미리보기',
 };
 
+interface KakaoMockPageProps {
+  searchParams: Promise<{ phone?: string }>;
+}
+
 /**
  * 카카오 알림톡 Mock 페이지
  * DB에 저장된 알림 메시지를 카카오톡 스타일로 표시
@@ -18,11 +22,20 @@ export const metadata = {
  * - 개발/테스트 과정에서 알림톡 메시지 형태 확인
  * - 메시지 구성 및 포맷 검증
  * - 실제 카카오톡 UI와 유사한 형태로 미리보기
+ *
+ * URL 파라미터:
+ * - phone: 필터링할 전화번호 (시술 등록 후 해당 환자만 표시)
  */
-export default async function KakaoMockPage(): Promise<React.ReactElement> {
+export default async function KakaoMockPage({
+  searchParams,
+}: KakaoMockPageProps): Promise<React.ReactElement> {
+  const { phone } = await searchParams;
+  // 전화번호 정규화 (하이픈, 공백 제거)
+  const normalizedPhone = phone?.replace(/[\s-]/g, '') || undefined;
+
   // 초기 데이터 로드 (RLS 우회 - Admin Client 사용)
   const [messagesResult, statsResult] = await Promise.all([
-    getNotificationMessages({ page: 1, pageSize: 20 }),
+    getNotificationMessages({ page: 1, pageSize: 20, phoneNumber: normalizedPhone }),
     getNotificationStats(),
   ]);
 
@@ -65,6 +78,7 @@ export default async function KakaoMockPage(): Promise<React.ReactElement> {
       <KakaoMessageList
         initialMessages={initialMessages}
         initialStats={initialStats}
+        initialPhoneFilter={phone || ''}
         onLoadMore={loadMoreMessages}
       />
     </div>
