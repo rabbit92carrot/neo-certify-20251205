@@ -1,13 +1,59 @@
 'use client';
 
 /**
- * 전체 제품 다이얼로그 V2
- * 출고 페이지에서 모든 제품을 검색하고 여러 제품을 장바구니에 추가할 수 있는 다이얼로그
+ * 전체 제품 선택 다이얼로그 (Generic)
  *
+ * 페이지네이션과 검색을 지원하는 제품 선택 다이얼로그입니다.
+ * SelectableProduct 인터페이스를 구현하는 모든 제품 타입과 함께 사용할 수 있습니다.
+ *
+ * @description
  * 주요 기능:
  * - 좌우 분할 레이아웃 (좌: 제품 목록 | 우: 수량 입력 + 미니 장바구니)
- * - 다이얼로그 내에서 여러 제품 추가 가능
+ * - 페이지네이션 (기본 30개/페이지)
+ * - 검색 (300ms 디바운스)
+ * - 즐겨찾기 지원
  * - 부모 컴포넌트의 장바구니와 실시간 동기화
+ *
+ * @example
+ * // Shipment 사용 예시 (ShipmentProductSelector에서)
+ * const toSelectableProduct = (p: ShipmentProductSummary): SelectableProduct => ({
+ *   productId: p.productId,
+ *   productName: p.productName,
+ *   modelName: p.modelName,
+ *   quantity: p.totalQuantity,
+ * });
+ *
+ * <AllProductsDialog<SelectableProduct>
+ *   open={isOpen}
+ *   onOpenChange={setIsOpen}
+ *   organizationId={orgId}
+ *   getAllProductsAction={async (page, search) => {
+ *     const result = await getAllProductsAction(page, search);
+ *     if (result.success && result.data) {
+ *       return {
+ *         success: true,
+ *         data: { ...result.data, items: result.data.items.map(toSelectableProduct) },
+ *       };
+ *     }
+ *     return { success: false, error: result.error };
+ *   }}
+ *   cartItems={cartItems}
+ *   onAddToCart={addItem}
+ *   onRemoveFromCart={removeItem}
+ * />
+ *
+ * @example
+ * // Hospital 사용 예시 (향후 TreatmentForm에서)
+ * const toSelectableProduct = (p: ProductForTreatment): SelectableProduct => ({
+ *   productId: p.productId,
+ *   productName: p.productName,
+ *   modelName: p.modelName,
+ *   quantity: p.availableQuantity,
+ *   displayName: p.alias ?? undefined,  // 별칭이 있으면 표시
+ * });
+ *
+ * @see SelectableProduct - 제품 타입 인터페이스 정의 (src/types/api.types.ts)
+ * @see ShipmentProductSelector - Shipment에서의 사용 예시
  */
 
 import { useState, useCallback, useTransition, useEffect, useMemo } from 'react';
@@ -50,10 +96,19 @@ interface AllProductsDialogProps<T extends SelectableProduct> {
 }
 
 /**
- * 전체 제품 다이얼로그 컴포넌트 (제네릭)
+ * 전체 제품 선택 다이얼로그 컴포넌트
  *
- * SelectableProduct 인터페이스를 구현하는 모든 제품 타입과 함께 사용할 수 있습니다.
- * Shipment와 Hospital 양쪽에서 재사용 가능합니다.
+ * @template T - SelectableProduct를 확장하는 제품 타입
+ *
+ * @param props.open - 다이얼로그 열림 상태
+ * @param props.onOpenChange - 다이얼로그 상태 변경 핸들러
+ * @param props.organizationId - 조직 ID (즐겨찾기 저장용)
+ * @param props.getAllProductsAction - 페이지네이션된 제품 조회 서버 액션
+ * @param props.cartItems - 현재 장바구니 아이템 목록
+ * @param props.onAddToCart - 장바구니 추가 핸들러
+ * @param props.onRemoveFromCart - 장바구니 삭제 핸들러
+ *
+ * @returns 전체 제품 선택 다이얼로그 React 엘리먼트
  */
 export function AllProductsDialog<T extends SelectableProduct>({
   open,
