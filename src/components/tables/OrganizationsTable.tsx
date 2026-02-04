@@ -60,6 +60,10 @@ import {
 
 interface OrganizationsTableProps {
   organizations: OrganizationWithStats[];
+  /** 선택된 조직 ID (행 하이라이트용) */
+  selectedOrgId?: string | null;
+  /** 조직 선택 핸들러 (행 클릭 시) */
+  onSelectOrg?: (org: OrganizationWithStats) => void;
   onApprove?: (id: string) => Promise<void>;
   onDeactivate?: (id: string) => Promise<void>;
   onActivate?: (id: string) => Promise<void>;
@@ -110,6 +114,8 @@ type ActionType = 'approve' | 'deactivate' | 'activate' | 'delete';
 
 interface OrganizationRowProps {
   organization: OrganizationWithStats;
+  isSelected?: boolean;
+  onSelectOrg?: (org: OrganizationWithStats) => void;
   onOpenDialog: (action: ActionType, org: OrganizationWithStats) => void;
 }
 
@@ -118,6 +124,8 @@ interface OrganizationRowProps {
  */
 const OrganizationRow = memo(function OrganizationRow({
   organization: org,
+  isSelected = false,
+  onSelectOrg,
   onOpenDialog,
 }: OrganizationRowProps) {
   // useMemo로 아이콘 및 배지 스타일 캐싱
@@ -131,12 +139,37 @@ const OrganizationRow = memo(function OrganizationRow({
     [org.created_at]
   );
 
+  // 행 클릭 핸들러
+  const handleRowClick = (): void => {
+    onSelectOrg?.(org);
+  };
+
+  // 드롭다운 클릭 시 이벤트 버블링 방지
+  const handleDropdownClick = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+  };
+
   return (
-    <TableRow>
+    <TableRow
+      className={cn(
+        onSelectOrg && 'cursor-pointer transition-colors',
+        isSelected
+          ? 'bg-primary/5 hover:bg-primary/10'
+          : onSelectOrg && 'hover:bg-muted/50'
+      )}
+      onClick={handleRowClick}
+    >
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-full bg-gray-100">{icon}</div>
-          {org.name}
+          <div
+            className={cn(
+              'p-1.5 rounded-full',
+              isSelected ? 'bg-primary/10' : 'bg-gray-100'
+            )}
+          >
+            {icon}
+          </div>
+          <span className="truncate max-w-[150px]">{org.name}</span>
         </div>
       </TableCell>
       <TableCell>{ORGANIZATION_TYPE_LABELS[org.type as OrganizationType]}</TableCell>
@@ -148,7 +181,7 @@ const OrganizationRow = memo(function OrganizationRow({
       <TableCell className="text-muted-foreground">{org.email}</TableCell>
       <TableCell>{org.virtualCodeCount.toLocaleString()}개</TableCell>
       <TableCell className="text-muted-foreground">{formattedDate}</TableCell>
-      <TableCell>
+      <TableCell onClick={handleDropdownClick}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -201,10 +234,11 @@ const OrganizationRow = memo(function OrganizationRow({
     </TableRow>
   );
 }, (prev, next) => {
-  // 커스텀 비교 함수: ID와 상태가 같으면 리렌더 스킵
+  // 커스텀 비교 함수: ID, 상태, 선택 상태가 같으면 리렌더 스킵
   return prev.organization.id === next.organization.id
     && prev.organization.status === next.organization.status
-    && prev.organization.virtualCodeCount === next.organization.virtualCodeCount;
+    && prev.organization.virtualCodeCount === next.organization.virtualCodeCount
+    && prev.isSelected === next.isSelected;
 });
 
 // ============================================================================
@@ -325,6 +359,8 @@ const ConfirmActionDialog = memo(function ConfirmActionDialog({
  */
 export function OrganizationsTable({
   organizations,
+  selectedOrgId,
+  onSelectOrg,
   onApprove,
   onDeactivate,
   onActivate,
@@ -380,6 +416,8 @@ export function OrganizationsTable({
               <OrganizationRow
                 key={org.id}
                 organization={org}
+                isSelected={selectedOrgId === org.id}
+                onSelectOrg={onSelectOrg}
                 onOpenDialog={handleOpenDialog}
               />
             ))}
