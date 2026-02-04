@@ -376,7 +376,7 @@ export async function findAccount(
     .eq('representative_contact', normalizedPhone)
     .single();
 
-  if (!org || !org.email) {
+  if (!org?.email) {
     return createErrorResponse('NOT_FOUND', '일치하는 계정 정보를 찾을 수 없습니다.');
   }
 
