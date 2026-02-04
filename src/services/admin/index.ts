@@ -57,3 +57,7 @@ export {
   getEventCodesPaginated,
   getAdminEventSummaryCursor,
 } from './event-summary.service';
+
+// 스토리지
+export { getBusinessLicenseSignedUrl } from './storage.service';
+export type { SignedUrlResult } from './storage.service';

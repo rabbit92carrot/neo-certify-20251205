@@ -23,6 +23,7 @@ export * from './admin/recall.service';
 export * from './admin/select.service';
 export * from './admin/alert.service';
 export * from './admin/event-summary.service';
+export * from './admin/storage.service';
 
 // 타입도 re-export
 export * from './admin/types';
