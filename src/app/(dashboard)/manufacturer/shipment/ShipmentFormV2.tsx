@@ -293,6 +293,9 @@ export function ShipmentFormV2({
               getProductLotsAction={getProductLotsAction}
               getAllProductsAction={getAllProductsAction}
               cartQuantityByProduct={cartQuantityByProduct}
+              cartItems={items}
+              onAddToCart={addItem}
+              onRemoveFromCart={removeItem}
             />
           </CardContent>
         </Card>

@@ -16,6 +16,7 @@ import { AllProductsDialog } from './AllProductsDialog';
 import { useFavoriteProducts } from '@/hooks';
 import { useDebounce } from '@/hooks';
 import type { ShipmentProductSummary, InventoryByLot, ApiResponse, PaginatedResponse } from '@/types/api.types';
+import type { CartItem } from '@/hooks/useCart';
 
 interface ShipmentProductSelectorProps {
   /** 조직 ID (즐겨찾기 저장용) */
@@ -40,6 +41,12 @@ interface ShipmentProductSelectorProps {
   ) => Promise<ApiResponse<PaginatedResponse<ShipmentProductSummary>>>;
   /** 장바구니에 담긴 제품별 수량 (가용 재고 계산용) */
   cartQuantityByProduct?: Map<string, number>;
+  /** 장바구니 아이템 목록 (AllProductsDialog용) */
+  cartItems?: CartItem[];
+  /** 장바구니에 아이템 추가 (AllProductsDialog용) */
+  onAddToCart?: (item: CartItem) => void;
+  /** 장바구니에서 아이템 삭제 (AllProductsDialog용) */
+  onRemoveFromCart?: (productId: string, lotId?: string) => void;
 }
 
 const GRID_SIZE = 12; // 3x4 그리드
@@ -56,6 +63,9 @@ export function ShipmentProductSelector({
   getProductLotsAction: _getProductLotsAction,
   getAllProductsAction,
   cartQuantityByProduct = new Map(),
+  cartItems = [],
+  onAddToCart,
+  onRemoveFromCart,
 }: ShipmentProductSelectorProps): React.ReactElement {
   const [isPending, startTransition] = useTransition();
   const [searchInput, setSearchInput] = useState('');
@@ -202,14 +212,15 @@ export function ShipmentProductSelector({
       )}
 
       {/* 전체 제품 다이얼로그 */}
-      {getAllProductsAction && (
+      {getAllProductsAction && onAddToCart && onRemoveFromCart && (
         <AllProductsDialog
           open={isAllProductsDialogOpen}
           onOpenChange={setIsAllProductsDialogOpen}
           organizationId={organizationId}
-          onSelectProduct={onSelectProduct}
           getAllProductsAction={getAllProductsAction}
-          cartQuantityByProduct={cartQuantityByProduct}
+          cartItems={cartItems}
+          onAddToCart={onAddToCart}
+          onRemoveFromCart={onRemoveFromCart}
         />
       )}
     </div>
