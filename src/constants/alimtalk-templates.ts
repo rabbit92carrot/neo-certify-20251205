@@ -58,9 +58,57 @@ export interface AlimtalkTemplate {
 // ============================================================================
 
 export const ALIMTALK_TEMPLATES: Record<string, AlimtalkTemplate> = {
+  // ============================================================================
+  // 승인받은 템플릿 (Production)
+  // ============================================================================
+
+  /**
+   * 정품 인증 완료 - 카카오 승인 템플릿
+   * 템플릿 코드: UF_1441 (환경변수 ALIMTALK_TPL_CERT_COMPLETE로 관리)
+   *
+   * ⚠️ 주의: 이 본문은 카카오 승인된 템플릿과 정확히 일치해야 합니다.
+   * - templateType: EX (부가정보형)
+   * - templateExtra: "아래 버튼을 눌러 개별 인증코드를 확인하세요." (별도 관리)
+   * - 버튼 URL 도메인: neo-certify.com (승인된 도메인)
+   */
   CERT_COMPLETE: {
     code: 'CERT_COMPLETE',
     name: '정품 인증 완료',
+    messageType: 'EX',
+    emphasizeType: 'NONE',
+    content: `#{고객명}님, 안녕하세요.
+
+고객님께서 요청하신 시술 제품 정품 인증코드를 전달드립니다.
+
+■ 시술 정보
+#{제품목록}
+- 시술일: #{시술일}
+- 시술 병원: #{병원명}
+
+본 제품은 정식 유통 경로를 통해 공급된 정품임이 확인되었습니다.`,
+    variables: [
+      { name: '고객명', description: '고객 호칭 (마스킹)', defaultValue: '010****5678' },
+      { name: '시술일', description: '시술 날짜', defaultValue: '2026-01-23' },
+      { name: '병원명', description: '시술 병원명', defaultValue: '강남성형외과' },
+      { name: '제품목록', description: '제품 목록 (줄바꿈)', defaultValue: '- 쥬비덤 볼류마 2개\n- 레스틸렌 1개' },
+      { name: '시술ID', description: '시술 기록 ID (버튼 URL용)', defaultValue: 'abc123' },
+    ],
+    buttons: [
+      { type: 'WL', name: '인증코드 확인하기', urlTemplate: 'https://neo-certify.com/verify/#{시술ID}' },
+    ],
+  },
+
+  // ============================================================================
+  // Sample 템플릿 (개발/테스트용, 미승인)
+  // ============================================================================
+
+  /**
+   * [SAMPLE] 정품 인증 완료 - 개발/테스트용
+   * 카카오 미승인 템플릿, Mock 모드에서만 사용
+   */
+  SAMPLE_CERT_COMPLETE: {
+    code: 'SAMPLE_CERT_COMPLETE',
+    name: '[SAMPLE] 정품 인증 완료',
     messageType: 'BA',
     emphasizeType: 'TEXT',
     emphasizeTitle: '정품 인증 완료',
@@ -88,9 +136,13 @@ export const ALIMTALK_TEMPLATES: Record<string, AlimtalkTemplate> = {
       { type: 'WL', name: '인증코드 확인하기', urlTemplate: '/verify/#{시술ID}' },
     ],
   },
-  CERT_RECALL: {
-    code: 'CERT_RECALL',
-    name: '정품 인증 회수',
+  /**
+   * [SAMPLE] 정품 인증 회수 - 개발/테스트용
+   * 카카오 미승인 템플릿, Mock 모드에서만 사용
+   */
+  SAMPLE_CERT_RECALL: {
+    code: 'SAMPLE_CERT_RECALL',
+    name: '[SAMPLE] 정품 인증 회수',
     messageType: 'BA',
     emphasizeType: 'TEXT',
     emphasizeTitle: '정품 인증 회수 안내',
