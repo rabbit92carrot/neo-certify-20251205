@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProductCard } from '@/components/shared/ProductCard';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { AllProductsDialog } from './AllProductsDialog';
+import { AllProductsDialog } from '@/components/shared/AllProductsDialog';
 import { useFavoriteProducts } from '@/hooks';
 import { useDebounce } from '@/hooks';
 import type {
