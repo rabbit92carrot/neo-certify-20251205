@@ -82,6 +82,9 @@ function SearchableCombobox({
   // initialOptions가 undefined이면 안정적인 빈 배열 사용
   const stableInitialOptions = initialOptions ?? EMPTY_OPTIONS;
 
+  // Hydration mismatch 방지를 위한 마운트 상태 체크
+  // Radix UI가 서버/클라이언트에서 다른 ID를 생성하므로 클라이언트에서만 Popover 렌더링
+  const [mounted, setMounted] = React.useState(false);
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [options, setOptions] = React.useState<SearchableComboboxOption[]>(stableInitialOptions);
@@ -89,6 +92,11 @@ function SearchableCombobox({
   // 선택된 옵션을 별도로 저장하여 옵션 목록이 초기화되어도 표시 가능하게 함
   const [selectedOptionState, setSelectedOptionState] =
     React.useState<SearchableComboboxOption | null>(null);
+
+  // 클라이언트 마운트 확인
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const debouncedQuery = useDebounce(searchQuery, debounceMs);
 
@@ -141,6 +149,40 @@ function SearchableCombobox({
   // 표시할 옵션 목록
   const displayOptions = defaultOption ? [defaultOption, ...options] : options;
 
+  // 공통 버튼 콘텐츠
+  const buttonContent = (
+    <>
+      {selectedOption ? (
+        <span className="flex items-center gap-2 truncate">
+          {selectedOption.icon}
+          <span className="truncate">{selectedOption.label}</span>
+        </span>
+      ) : (
+        placeholder
+      )}
+      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    </>
+  );
+
+  // 마운트 전에는 Popover 없이 버튼만 렌더링 (hydration mismatch 방지)
+  if (!mounted) {
+    return (
+      <Button
+        variant="outline"
+        role="combobox"
+        aria-expanded={false}
+        disabled={disabled}
+        className={cn(
+          'w-full justify-between font-normal',
+          !selectedOption && 'text-muted-foreground',
+          className
+        )}
+      >
+        {buttonContent}
+      </Button>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -155,15 +197,7 @@ function SearchableCombobox({
             className
           )}
         >
-          {selectedOption ? (
-            <span className="flex items-center gap-2 truncate">
-              {selectedOption.icon}
-              <span className="truncate">{selectedOption.label}</span>
-            </span>
-          ) : (
-            placeholder
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {buttonContent}
         </Button>
       </PopoverTrigger>
       <PopoverContent
