@@ -86,9 +86,11 @@ export async function createProductAction(
   const result = await productService.createProduct(organizationId, validation.data);
 
   if (result.success) {
-    revalidatePath('/manufacturer/products');
-    revalidatePath('/manufacturer/production');
-    revalidatePath('/manufacturer/dashboard');
+    after(() => {
+      revalidatePath('/manufacturer/products');
+      revalidatePath('/manufacturer/production');
+      revalidatePath('/manufacturer/dashboard');
+    });
     return { success: true, data: { id: result.data!.id } };
   }
 
@@ -127,8 +129,10 @@ export async function updateProductAction(
   const result = await productService.updateProduct(organizationId, validation.data);
 
   if (result.success) {
-    revalidatePath('/manufacturer/products');
-    revalidatePath('/manufacturer/production');
+    after(() => {
+      revalidatePath('/manufacturer/products');
+      revalidatePath('/manufacturer/production');
+    });
   }
 
   return result;
@@ -156,9 +160,11 @@ export async function deactivateProductAction(
   const result = await productService.deactivateProduct(organizationId, productId, reason, note);
 
   if (result.success) {
-    revalidatePath('/manufacturer/products');
-    revalidatePath('/manufacturer/production');
-    revalidatePath('/manufacturer/dashboard');
+    after(() => {
+      revalidatePath('/manufacturer/products');
+      revalidatePath('/manufacturer/production');
+      revalidatePath('/manufacturer/dashboard');
+    });
     return { success: true };
   }
 
@@ -185,9 +191,11 @@ export async function activateProductAction(
   const result = await productService.activateProduct(organizationId, productId);
 
   if (result.success) {
-    revalidatePath('/manufacturer/products');
-    revalidatePath('/manufacturer/production');
-    revalidatePath('/manufacturer/dashboard');
+    after(() => {
+      revalidatePath('/manufacturer/products');
+      revalidatePath('/manufacturer/production');
+      revalidatePath('/manufacturer/dashboard');
+    });
     return { success: true };
   }
 
@@ -233,9 +241,11 @@ export async function createLotAction(
   const result = await lotService.createLot(organizationId, validation.data);
 
   if (result.success) {
-    revalidatePath('/manufacturer/production');
-    revalidatePath('/manufacturer/inventory');
-    revalidatePath('/manufacturer/dashboard');
+    after(() => {
+      revalidatePath('/manufacturer/production');
+      revalidatePath('/manufacturer/inventory');
+      revalidatePath('/manufacturer/dashboard');
+    });
     return {
       success: true,
       data: {
@@ -330,10 +340,12 @@ export async function createShipmentAction(
   const result = await shipmentService.createShipment(validation.data);
 
   if (result.success) {
-    revalidatePath('/manufacturer/shipment');
-    revalidatePath('/manufacturer/shipment-history');
-    revalidatePath('/manufacturer/inventory');
-    revalidatePath('/manufacturer/dashboard');
+    after(() => {
+      revalidatePath('/manufacturer/shipment');
+      revalidatePath('/manufacturer/shipment-history');
+      revalidatePath('/manufacturer/inventory');
+      revalidatePath('/manufacturer/dashboard');
+    });
   }
 
   return result;
@@ -400,9 +412,11 @@ export async function returnShipmentAction(
   );
 
   if (result.success) {
-    revalidatePath('/manufacturer/history');
-    revalidatePath('/manufacturer/inventory');
-    revalidatePath('/manufacturer/dashboard');
+    after(() => {
+      revalidatePath('/manufacturer/history');
+      revalidatePath('/manufacturer/inventory');
+      revalidatePath('/manufacturer/dashboard');
+    });
   }
 
   return result;
