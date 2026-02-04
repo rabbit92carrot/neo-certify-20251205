@@ -43,8 +43,8 @@ interface ShipmentProductSelectorProps {
     search: string,
     favoriteIds: string[]
   ) => Promise<ApiResponse<ShipmentProductSummary[]>>;
-  /** Lot 조회 액션 (lazy load) - ShipmentFormV2에서 사용 */
-  getProductLotsAction: (productId: string) => Promise<ApiResponse<InventoryByLot[]>>;
+  /** Lot 조회 액션 (lazy load) - ShipmentFormV2에서 사용, canSelectLot=true 시에만 필요 */
+  getProductLotsAction?: (productId: string) => Promise<ApiResponse<InventoryByLot[]>>;
   /** 전체 제품 조회 액션 (다이얼로그용) */
   getAllProductsAction?: (
     page: number,

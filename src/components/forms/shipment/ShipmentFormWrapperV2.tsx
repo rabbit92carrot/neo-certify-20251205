@@ -86,7 +86,8 @@ interface ShipmentFormWrapperV2Props {
     search: string,
     favoriteIds: string[]
   ) => Promise<ApiResponse<ShipmentProductSummary[]>>;
-  getProductLotsAction: (productId: string) => Promise<ApiResponse<InventoryByLot[]>>;
+  /** Lot 조회 액션 (canSelectLot=true 일 때만 필요) */
+  getProductLotsAction?: (productId: string) => Promise<ApiResponse<InventoryByLot[]>>;
   getAllProductsAction?: (
     page: number,
     search: string

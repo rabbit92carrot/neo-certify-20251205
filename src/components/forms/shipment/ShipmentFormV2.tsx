@@ -47,8 +47,8 @@ interface ShipmentFormV2Props {
     search: string,
     favoriteIds: string[]
   ) => Promise<ApiResponse<ShipmentProductSummary[]>>;
-  /** Lot 조회 액션 */
-  getProductLotsAction: (productId: string) => Promise<ApiResponse<InventoryByLot[]>>;
+  /** Lot 조회 액션 (canSelectLot=true 일 때만 필요) */
+  getProductLotsAction?: (productId: string) => Promise<ApiResponse<InventoryByLot[]>>;
   /** 전체 제품 조회 액션 (다이얼로그용) */
   getAllProductsAction?: (
     page: number,
@@ -101,7 +101,7 @@ export function ShipmentFormV2({
 
   // 선택된 제품 변경 시 Lot 로딩
   useEffect(() => {
-    if (!selectedProduct || !canSelectLot) {
+    if (!selectedProduct || !canSelectLot || !getProductLotsAction) {
       setProductLots([]);
       setSelectedLotId('auto');
       return;
