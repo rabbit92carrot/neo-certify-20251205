@@ -202,6 +202,36 @@ export async function activateProductAction(
   return { success: false, error: result.error };
 }
 
+/**
+ * 제품 검색 Action
+ * 검색, 정렬, 페이지네이션을 지원하는 제품 조회
+ */
+export async function searchProductsAction(
+  search: string,
+  sortBy: 'model_name' | 'name' | 'created_at',
+  sortOrder: 'asc' | 'desc',
+  page: number
+): Promise<ApiResponse<import('@/types/api.types').PaginatedResponse<Product>>> {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return productService.getProducts(organizationId, {
+    page,
+    pageSize: 20,
+    search: search || undefined,
+    sortBy,
+    sortOrder,
+  });
+}
+
 // ============================================================================
 // Lot 생산 관련 Actions
 // ============================================================================
@@ -376,6 +406,82 @@ export async function searchShipmentTargetsAction(
     user.organization.id,
     limit
   );
+}
+
+/**
+ * 출고 제품 검색 Action (최적화)
+ * 검색어로 제품을 검색하고 즐겨찾기 순으로 정렬합니다.
+ */
+export async function searchShipmentProductsAction(
+  search: string,
+  favoriteIds: string[]
+): Promise<ApiResponse<import('@/types/api.types').ShipmentProductSummary[]>> {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const { getTopProductsForShipment } = await import('@/services/inventory.service');
+  return getTopProductsForShipment(organizationId, {
+    limit: 12,
+    search,
+    favoriteIds,
+  });
+}
+
+/**
+ * 제품 Lot 조회 Action (Lazy Load)
+ * 제품 선택 시 Lot 정보를 지연 로딩합니다.
+ */
+export async function getProductLotsAction(
+  productId: string
+): Promise<ApiResponse<import('@/types/api.types').InventoryByLot[]>> {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const { getProductLotsOnDemand } = await import('@/services/inventory.service');
+  return getProductLotsOnDemand(organizationId, productId);
+}
+
+/**
+ * 전체 제품 목록 조회 Action (다이얼로그용)
+ * 페이지네이션과 검색을 지원합니다.
+ */
+export async function getAllProductsForShipmentDialogAction(
+  page: number,
+  search: string
+): Promise<ApiResponse<import('@/types/api.types').PaginatedResponse<import('@/types/api.types').ShipmentProductSummary>>> {
+  const organizationId = await getManufacturerOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '제조사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  const { getAllProductsForShipmentDialog } = await import('@/services/inventory.service');
+  return getAllProductsForShipmentDialog(organizationId, {
+    page,
+    pageSize: 30,
+    search: search || undefined,
+  });
 }
 
 /**
