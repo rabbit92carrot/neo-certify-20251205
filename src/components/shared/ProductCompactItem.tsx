@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 interface ProductCompactItemProps {
   /** 제품명 */
   name: string;
+  /** 표시명 (별칭 등) - name 대신 표시됨 */
+  displayName?: string;
   /** 모델명 */
   modelName?: string;
   /** 재고 수량 */
@@ -32,6 +34,7 @@ interface ProductCompactItemProps {
  */
 export function ProductCompactItem({
   name,
+  displayName,
   modelName,
   quantity,
   isSelected = false,
@@ -83,7 +86,7 @@ export function ProductCompactItem({
 
       {/* 제품 정보 */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{name}</p>
+        <p className="text-sm font-medium truncate">{displayName ?? name}</p>
         {modelName && (
           <p className="text-xs text-muted-foreground truncate">{modelName}</p>
         )}
