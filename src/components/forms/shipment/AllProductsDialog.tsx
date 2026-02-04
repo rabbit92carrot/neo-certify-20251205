@@ -26,10 +26,10 @@ import { ProductCompactItem } from '@/components/shared/ProductCompactItem';
 import { MiniCartDisplay } from '@/components/shared/MiniCartDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useDebounce, useFavoriteProducts } from '@/hooks';
-import type { ShipmentProductSummary, ApiResponse, PaginatedResponse } from '@/types/api.types';
+import type { SelectableProduct, ApiResponse, PaginatedResponse } from '@/types/api.types';
 import type { CartItem } from '@/hooks/useCart';
 
-interface AllProductsDialogProps {
+interface AllProductsDialogProps<T extends SelectableProduct> {
   /** 다이얼로그 열림 상태 */
   open: boolean;
   /** 다이얼로그 닫기 핸들러 */
@@ -40,7 +40,7 @@ interface AllProductsDialogProps {
   getAllProductsAction: (
     page: number,
     search: string
-  ) => Promise<ApiResponse<PaginatedResponse<ShipmentProductSummary>>>;
+  ) => Promise<ApiResponse<PaginatedResponse<T>>>;
   /** 장바구니 아이템 목록 */
   cartItems: CartItem[];
   /** 장바구니에 아이템 추가 */
@@ -50,9 +50,12 @@ interface AllProductsDialogProps {
 }
 
 /**
- * 전체 제품 다이얼로그 컴포넌트 V2
+ * 전체 제품 다이얼로그 컴포넌트 (제네릭)
+ *
+ * SelectableProduct 인터페이스를 구현하는 모든 제품 타입과 함께 사용할 수 있습니다.
+ * Shipment와 Hospital 양쪽에서 재사용 가능합니다.
  */
-export function AllProductsDialog({
+export function AllProductsDialog<T extends SelectableProduct>({
   open,
   onOpenChange,
   organizationId,
@@ -60,17 +63,17 @@ export function AllProductsDialog({
   cartItems,
   onAddToCart,
   onRemoveFromCart,
-}: AllProductsDialogProps): React.ReactElement {
+}: AllProductsDialogProps<T>): React.ReactElement {
   const [isPending, startTransition] = useTransition();
   const [searchInput, setSearchInput] = useState('');
-  const [products, setProducts] = useState<ShipmentProductSummary[]>([]);
+  const [products, setProducts] = useState<T[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // 다이얼로그 내 선택된 제품 상태
-  const [selectedProduct, setSelectedProduct] = useState<ShipmentProductSummary | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<T | null>(null);
   const [quantityInput, setQuantityInput] = useState<string>('1');
 
   // 즐겨찾기 훅
@@ -133,9 +136,9 @@ export function AllProductsDialog({
 
   // 가용 재고 계산
   const getAvailableQuantity = useCallback(
-    (product: ShipmentProductSummary): number => {
+    (product: T): number => {
       const cartQty = cartQuantityByProduct.get(product.productId) ?? 0;
-      return Math.max(0, product.totalQuantity - cartQty);
+      return Math.max(0, product.quantity - cartQty);
     },
     [cartQuantityByProduct]
   );
@@ -146,7 +149,7 @@ export function AllProductsDialog({
     : 0;
 
   // 제품 선택 핸들러 (다이얼로그 닫지 않음)
-  const handleSelectProduct = (product: ShipmentProductSummary) => {
+  const handleSelectProduct = (product: T): void => {
     setSelectedProduct(product);
     setQuantityInput('1');
   };
@@ -159,7 +162,7 @@ export function AllProductsDialog({
   };
 
   // 장바구니에 추가
-  const handleAddToCart = () => {
+  const handleAddToCart = (): void => {
     if (!selectedProduct) return;
 
     const qty = parseInt(quantityInput) || 1;
@@ -167,7 +170,7 @@ export function AllProductsDialog({
 
     onAddToCart({
       productId: selectedProduct.productId,
-      productName: selectedProduct.productName,
+      productName: selectedProduct.displayName ?? selectedProduct.productName,
       quantity: qty,
     });
 
@@ -251,6 +254,7 @@ export function AllProductsDialog({
                         <ProductCompactItem
                           key={product.productId}
                           name={product.productName}
+                          displayName={product.displayName}
                           modelName={product.modelName}
                           quantity={availableQty}
                           onClick={() => handleSelectProduct(product)}
@@ -308,7 +312,7 @@ export function AllProductsDialog({
               <div className="border rounded-lg p-4 space-y-4 shrink-0">
                 <div>
                   <h3 className="font-medium text-base">
-                    {selectedProduct.productName}
+                    {selectedProduct.displayName ?? selectedProduct.productName}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     {selectedProduct.modelName && (

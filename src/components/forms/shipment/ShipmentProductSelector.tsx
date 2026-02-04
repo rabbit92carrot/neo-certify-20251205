@@ -15,8 +15,24 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { AllProductsDialog } from './AllProductsDialog';
 import { useFavoriteProducts } from '@/hooks';
 import { useDebounce } from '@/hooks';
-import type { ShipmentProductSummary, InventoryByLot, ApiResponse, PaginatedResponse } from '@/types/api.types';
+import type {
+  ShipmentProductSummary,
+  SelectableProduct,
+  InventoryByLot,
+  ApiResponse,
+  PaginatedResponse,
+} from '@/types/api.types';
 import type { CartItem } from '@/hooks/useCart';
+
+/**
+ * ShipmentProductSummary를 SelectableProduct로 변환하는 어댑터
+ */
+const toSelectableProduct = (product: ShipmentProductSummary): SelectableProduct => ({
+  productId: product.productId,
+  productName: product.productName,
+  modelName: product.modelName,
+  quantity: product.totalQuantity,
+});
 
 interface ShipmentProductSelectorProps {
   /** 조직 ID (즐겨찾기 저장용) */
@@ -213,12 +229,24 @@ export function ShipmentProductSelector({
 
       {/* 전체 제품 다이얼로그 */}
       {getAllProductsAction && onAddToCart && onRemoveFromCart && (
-        <AllProductsDialog
+        <AllProductsDialog<SelectableProduct>
           open={isAllProductsDialogOpen}
           onOpenChange={setIsAllProductsDialogOpen}
           organizationId={organizationId}
-          getAllProductsAction={getAllProductsAction}
-          cartItems={cartItems}
+          getAllProductsAction={async (page, search) => {
+            const result = await getAllProductsAction(page, search);
+            if (result.success && result.data) {
+              return {
+                success: true as const,
+                data: {
+                  ...result.data,
+                  items: result.data.items.map(toSelectableProduct),
+                },
+              };
+            }
+            return { success: false as const, error: result.error };
+          }}
+          cartItems={cartItems ?? []}
           onAddToCart={onAddToCart}
           onRemoveFromCart={onRemoveFromCart}
         />
