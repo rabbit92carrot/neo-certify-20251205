@@ -91,6 +91,31 @@ export interface SendResult {
   testMode: boolean;
 }
 
+export interface SendAlimtalkBulkParams {
+  templateCode: string;
+  recipients: Array<{
+    phone: string;
+    name?: string;
+    message: string;
+  }>;
+  buttons?: AligoButton[];
+  failoverMessage?: string;
+  /** true면 ALIGO_TEST_MODE 환경변수 무시하고 실제 발송 */
+  forceRealSend?: boolean;
+}
+
+export interface BulkSendResult {
+  mid: number;
+  successCount: number;
+  failCount: number;
+  testMode: boolean;
+  results: Array<{
+    phone: string;
+    success: boolean;
+    error?: string;
+  }>;
+}
+
 // ============================================================================
 // 설정 로드
 // ============================================================================
@@ -103,6 +128,19 @@ function getAligoConfig(): AligoConfig {
     senderPhone: process.env.ALIGO_SENDER_PHONE ?? '',
     testMode: process.env.ALIGO_TEST_MODE === 'Y',
   };
+}
+
+/**
+ * 내부 템플릿 코드를 알리고 API 템플릿 코드로 변환
+ * 환경변수에 등록된 카카오 승인 템플릿 코드를 반환
+ */
+function getAligoTemplateCode(internalCode: string): string | null {
+  const templateCodeMap: Record<string, string | undefined> = {
+    CERT_COMPLETE: process.env.ALIMTALK_TPL_CERT_COMPLETE,
+    CERT_RECALL: process.env.ALIMTALK_TPL_CERT_RECALL,
+  };
+
+  return templateCodeMap[internalCode] ?? null;
 }
 
 function validateConfig(config: AligoConfig): string | null {
@@ -310,10 +348,14 @@ export async function sendAlimtalk(
       return createErrorResponse('ALIMTALK_CONFIG_ERROR', configError);
     }
 
+    // 알리고 API 템플릿 코드 조회
+    const aligoTemplateCode = getAligoTemplateCode(params.templateCode);
+
     // mock 모드
     if (config.testMode) {
       logger.info('[MOCK] 알림톡 발송 시뮬레이션', {
         templateCode: params.templateCode,
+        aligoTemplateCode: aligoTemplateCode ?? '(미등록)',
         recipientPhone: params.recipientPhone,
         recipientName: params.recipientName,
         subject: params.subject,
@@ -333,9 +375,17 @@ export async function sendAlimtalk(
       return createSuccessResponse(mockResult);
     }
 
+    // 실제 발송 시 템플릿 코드 확인
+    if (!aligoTemplateCode) {
+      return createErrorResponse(
+        'ALIMTALK_TEMPLATE_NOT_FOUND',
+        `템플릿 코드 '${params.templateCode}'에 대한 알리고 템플릿이 등록되지 않았습니다. 환경변수 ALIMTALK_TPL_${params.templateCode}를 확인하세요.`
+      );
+    }
+
     // 실제 발송
     const apiParams: Record<string, string> = {
-      tpl_code: params.templateCode,
+      tpl_code: aligoTemplateCode,
       sender: config.senderPhone,
       receiver_1: params.recipientPhone,
       message_1: params.message,
@@ -372,6 +422,159 @@ export async function sendAlimtalk(
   } catch (error) {
     logger.error('알림톡 발송 실패', error);
     return createErrorResponse('ALIMTALK_SEND_ERROR', '알림톡 발송 중 오류가 발생했습니다.');
+  }
+}
+
+// ============================================================================
+// 알림톡 다중 발송 API
+// ============================================================================
+
+/**
+ * 알림톡 다중 발송 (최대 10건, 알리고 API는 500건까지 지원)
+ * 알리고 API 형식: receiver_1, receiver_2, ..., message_1, message_2, ...
+ *
+ * mock 모드(ALIGO_TEST_MODE=Y):
+ * - 알리고 API 호출 없이 개별 결과 시뮬레이션
+ * - 로그에 발송 파라미터 전체 출력
+ *
+ * 실제 모드:
+ * - 알리고 API /akv10/alimtalk/send/ 호출 (다중 수신자)
+ */
+export async function sendAlimtalkBulk(
+  params: SendAlimtalkBulkParams
+): Promise<ApiResponse<BulkSendResult>> {
+  const config = getAligoConfig();
+
+  try {
+    // forceRealSend가 true면 testMode 무시
+    const effectiveTestMode = params.forceRealSend ? false : config.testMode;
+
+    const configError = validateConfig(config);
+    if (configError && !effectiveTestMode) {
+      return createErrorResponse('ALIMTALK_CONFIG_ERROR', configError);
+    }
+
+    // 수신자 수 제한 (UI에서 10명으로 제한, 알리고 API는 500건까지)
+    if (params.recipients.length > 10) {
+      return createErrorResponse(
+        'ALIMTALK_BULK_LIMIT',
+        '한 번에 최대 10명까지 발송 가능합니다.'
+      );
+    }
+
+    if (params.recipients.length === 0) {
+      return createErrorResponse(
+        'ALIMTALK_NO_RECIPIENTS',
+        '수신자가 없습니다.'
+      );
+    }
+
+    const aligoTemplateCode = getAligoTemplateCode(params.templateCode);
+
+    // Mock 모드 (forceRealSend가 true면 건너뜀)
+    if (effectiveTestMode) {
+      logger.info('[MOCK] 알림톡 다중 발송 시뮬레이션', {
+        templateCode: params.templateCode,
+        aligoTemplateCode: aligoTemplateCode ?? '(미등록)',
+        recipientCount: params.recipients.length,
+        recipients: params.recipients.map((r) => r.phone),
+      });
+
+      // 각 수신자별 메시지 로그
+      for (const [index, recipient] of params.recipients.entries()) {
+        logger.info(`[MOCK] 수신자 ${index + 1}:`, {
+          phone: recipient.phone,
+          name: recipient.name,
+          messageLength: recipient.message.length,
+        });
+      }
+
+      const mockResult: BulkSendResult = {
+        mid: 0,
+        successCount: params.recipients.length,
+        failCount: 0,
+        testMode: true,
+        results: params.recipients.map((r) => ({
+          phone: r.phone,
+          success: true,
+        })),
+      };
+
+      return createSuccessResponse(mockResult);
+    }
+
+    // 실제 발송 시 템플릿 코드 확인
+    if (!aligoTemplateCode) {
+      return createErrorResponse(
+        'ALIMTALK_TEMPLATE_NOT_FOUND',
+        `템플릿 코드 '${params.templateCode}'에 대한 알리고 템플릿이 등록되지 않았습니다. 환경변수 ALIMTALK_TPL_${params.templateCode}를 확인하세요.`
+      );
+    }
+
+    // 알리고 API 파라미터 구성
+    const apiParams: Record<string, string> = {
+      tpl_code: aligoTemplateCode,
+      sender: config.senderPhone,
+    };
+
+    // 수신자별 파라미터 (receiver_N, message_N, recvname_N)
+    for (const [index, recipient] of params.recipients.entries()) {
+      const n = index + 1;
+      apiParams[`receiver_${n}`] = recipient.phone;
+      apiParams[`message_${n}`] = recipient.message;
+      if (recipient.name) {
+        apiParams[`recvname_${n}`] = recipient.name;
+      }
+    }
+
+    // 버튼 (모든 수신자에게 동일하게 적용)
+    if (params.buttons && params.buttons.length > 0) {
+      const buttonJson = JSON.stringify({ button: params.buttons });
+      for (const [index] of params.recipients.entries()) {
+        apiParams[`button_${index + 1}`] = buttonJson;
+      }
+    }
+
+    // Failover 설정
+    if (params.failoverMessage) {
+      apiParams['failover'] = 'Y';
+      for (const [index] of params.recipients.entries()) {
+        apiParams[`fmessage_${index + 1}`] = params.failoverMessage;
+      }
+    }
+
+    const result = await callAligoApi('/akv10/alimtalk/send/', apiParams);
+
+    if (String(result.code) !== '0') {
+      return createErrorResponse('ALIMTALK_SEND_FAILED', result.message);
+    }
+
+    const sendResult: BulkSendResult = {
+      mid: result.info?.mid ?? 0,
+      successCount: result.info?.scnt ?? 0,
+      failCount: result.info?.fcnt ?? 0,
+      testMode: false,
+      // 알리고 API는 개별 결과를 반환하지 않으므로 성공으로 가정
+      results: params.recipients.map((r) => ({
+        phone: r.phone,
+        success: true,
+      })),
+    };
+
+    logger.info('알림톡 다중 발송 완료', {
+      mid: sendResult.mid,
+      successCount: sendResult.successCount,
+      failCount: sendResult.failCount,
+      recipientCount: params.recipients.length,
+    });
+
+    return createSuccessResponse(sendResult);
+  } catch (error) {
+    logger.error('알림톡 다중 발송 실패', error);
+    return createErrorResponse(
+      'ALIMTALK_SEND_ERROR',
+      '알림톡 다중 발송 중 오류가 발생했습니다.'
+    );
   }
 }
 
