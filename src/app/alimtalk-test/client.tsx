@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -12,6 +12,7 @@ import {
   XCircle,
   AlertTriangle,
   X,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,9 @@ import {
   type AlimtalkTemplate,
 } from '@/constants/alimtalk-templates';
 import { formatPhoneNumber } from '@/lib/validations/common';
-import { sendBulkAlimtalkAction } from './actions';
+import { sendBulkAlimtalkAction, verifyTestPasswordAction } from './actions';
+
+const SESSION_KEY = 'alimtalk-test-auth';
 
 interface AlimtalkTestSendClientProps {
   initialTemplate?: string;
@@ -59,6 +62,40 @@ export function AlimtalkTestSendClient({
   initialTemplate = 'CERT_COMPLETE',
   initialPhone = '',
 }: AlimtalkTestSendClientProps): React.ReactElement {
+  // 인증 상태
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // 세션 스토리지에서 인증 상태 확인
+  useEffect(() => {
+    const stored = sessionStorage.getItem(SESSION_KEY);
+    setIsAuthenticated(stored === 'true');
+  }, []);
+
+  // 비밀번호 검증
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setAuthError(null);
+
+    try {
+      const result = await verifyTestPasswordAction(passwordInput);
+      if (result.success) {
+        sessionStorage.setItem(SESSION_KEY, 'true');
+        setIsAuthenticated(true);
+        toast.success('인증되었습니다.');
+      } else {
+        setAuthError(result.error || '인증에 실패했습니다.');
+      }
+    } catch {
+      setAuthError('인증 중 오류가 발생했습니다.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   // 템플릿 선택
   const [selectedTemplateCode, setSelectedTemplateCode] = useState(
     initialTemplate in APPROVED_TEMPLATES ? initialTemplate : 'CERT_COMPLETE'
@@ -242,6 +279,65 @@ export function AlimtalkTestSendClient({
   const handleClose = () => {
     window.close();
   };
+
+  // 로딩 중
+  if (isAuthenticated === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+          <p className="text-sm text-gray-500">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 비밀번호 입력 화면
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
+              <Lock className="h-8 w-8 text-yellow-600" />
+            </div>
+            <CardTitle className="text-xl">알림톡 발송 테스트</CardTitle>
+            <p className="mt-2 text-sm text-muted-foreground">
+              이 페이지는 비밀번호로 보호되어 있습니다.
+              <br />
+              실제 API 호출로 요금이 발생할 수 있습니다.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="password">비밀번호</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  className="mt-1.5"
+                  autoFocus
+                />
+              </div>
+              {authError && (
+                <p className="text-sm text-red-600">{authError}</p>
+              )}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isVerifying || !passwordInput}
+              >
+                {isVerifying ? '확인 중...' : '확인'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
