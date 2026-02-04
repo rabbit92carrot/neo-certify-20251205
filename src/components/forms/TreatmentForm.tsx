@@ -383,29 +383,27 @@ export function TreatmentForm({
                 시술 등록 시 환자에게 정품 인증 알림이 발송됩니다.
                 오류 시 24시간 이내에 회수할 수 있습니다.
               </p>
-              {/* 개발 환경에서만 표시되는 알림톡 발송 테스트 버튼 */}
-              {process.env.NODE_ENV !== 'production' && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 w-full text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      template: 'CERT_COMPLETE',
-                      phone: phoneInputValue || '',
-                    });
-                    window.open(
-                      `/alimtalk-test?${params}`,
-                      'alimtalk-test',
-                      'width=1680,height=950,noopener'
-                    );
-                  }}
-                >
-                  <ExternalLink className="mr-1.5 h-3 w-3" />
-                  [DEV] 알림톡 발송 테스트
-                </Button>
-              )}
+              {/* 알림톡 발송 테스트 버튼 (비밀번호 보호) */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    template: 'CERT_COMPLETE',
+                    phone: phoneInputValue || '',
+                  });
+                  window.open(
+                    `/alimtalk-test?${params}`,
+                    'alimtalk-test',
+                    'width=1680,height=950,noopener'
+                  );
+                }}
+              >
+                <ExternalLink className="mr-1.5 h-3 w-3" />
+                알림톡 발송 테스트
+              </Button>
             </div>
           )}
         </div>

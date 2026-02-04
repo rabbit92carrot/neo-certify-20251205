@@ -2,6 +2,32 @@
 
 import { sendAlimtalkBulk, type AligoButton } from '@/services/alimtalk.service';
 
+/**
+ * 알림톡 테스트 페이지 비밀번호 검증
+ * ALIMTALK_TEST_PASSWORD 환경 변수와 비교
+ */
+export async function verifyTestPasswordAction(
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  const correctPassword = process.env.ALIMTALK_TEST_PASSWORD;
+
+  if (!correctPassword) {
+    return {
+      success: false,
+      error: '테스트 비밀번호가 설정되지 않았습니다. 관리자에게 문의하세요.',
+    };
+  }
+
+  if (password !== correctPassword) {
+    return {
+      success: false,
+      error: '비밀번호가 올바르지 않습니다.',
+    };
+  }
+
+  return { success: true };
+}
+
 interface BulkSendParams {
   templateCode: string;
   message: string;
@@ -27,19 +53,11 @@ interface BulkSendResult {
 
 /**
  * 알림톡 다중 발송 Server Action
- * 개발/테스트 환경에서 실제 알림톡 발송 테스트용
+ * 비밀번호 검증 후 사용 가능 (클라이언트에서 세션 체크)
  */
 export async function sendBulkAlimtalkAction(
   params: BulkSendParams
 ): Promise<BulkSendResult> {
-  // 프로덕션 환경 체크 (명시적 허용이 없으면 차단)
-  if (
-    process.env.NODE_ENV === 'production' &&
-    process.env.ALLOW_TEST_SEND !== 'true'
-  ) {
-    throw new Error('테스트 발송은 개발 환경에서만 사용 가능합니다.');
-  }
-
   // 각 수신자에게 동일한 메시지 적용
   const result = await sendAlimtalkBulk({
     templateCode: params.templateCode,
