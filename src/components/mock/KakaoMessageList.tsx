@@ -17,6 +17,8 @@ interface KakaoMessageListProps {
     certificationCount: number;
     recallCount: number;
   };
+  /** 초기 전화번호 필터 (URL 파라미터로 전달됨) */
+  initialPhoneFilter?: string;
   /** 메시지 더 불러오기 함수 */
   onLoadMore?: (params: {
     phoneNumber?: string;
@@ -37,16 +39,18 @@ type FilterType = 'ALL' | NotificationType;
 export function KakaoMessageList({
   initialMessages,
   initialStats,
+  initialPhoneFilter = '',
   onLoadMore,
 }: KakaoMessageListProps): React.ReactElement {
   const [messages, setMessages] = useState<NotificationItem[]>(initialMessages);
-  const [phoneFilter, setPhoneFilter] = useState('');
+  const [phoneFilter, setPhoneFilter] = useState(initialPhoneFilter);
   const [typeFilter, setTypeFilter] = useState<FilterType>('ALL');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialMessages.length >= 20);
   const [isPending, startTransition] = useTransition();
   const [isFiltering, setIsFiltering] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  // 초기 필터가 있으면 필터 영역 자동 표시
+  const [showFilters, setShowFilters] = useState(!!initialPhoneFilter);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 날짜별 그룹핑

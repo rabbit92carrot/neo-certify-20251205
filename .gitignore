@@ -32,6 +32,49 @@ Thumbs.db
 
 # Claude Code
 CLAUDE.md
+.claude/
+
+# D3K (dev monitoring)
+e2e/D3K_GUIDE.md
+e2e/scripts/
+
+# AI/Agent tool configurations
+.adal/
+.agent/
+.agents/
+.augment/
+.cline/
+.codebuddy/
+.codex/
+.commandcode/
+.continue/
+.crush/
+.cursor/
+.factory/
+.gemini/
+.github/
+.goose/
+.iflow/
+.junie/
+.kilocode/
+.kiro/
+.kode/
+.mcpjam/
+.mux/
+.neovate/
+.openclaude/
+.opencode/
+.openhands/
+.pi/
+.pochi/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.vibe/
+.windsurf/
+.zencoder/
+skills/
 
 # Documentation (local only)
 docs/

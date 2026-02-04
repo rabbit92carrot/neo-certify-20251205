@@ -30,12 +30,30 @@ export interface RateLimitResult {
 
 /**
  * Upstash 환경 변수 설정 여부 확인
+ * Vercel 통합: KV_REST_API_URL, KV_REST_API_TOKEN
+ * 직접 설정: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
  */
 function isUpstashConfigured(): boolean {
-  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  const hasVercelKV = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+  const hasUpstash = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return hasVercelKV || hasUpstash;
 }
 
-// Upstash Redis 인스턴스 (환경 변수 자동 로드)
+/**
+ * Upstash Redis URL 가져오기
+ */
+function getRedisUrl(): string | undefined {
+  return process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+}
+
+/**
+ * Upstash Redis Token 가져오기
+ */
+function getRedisToken(): string | undefined {
+  return process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+}
+
+// Upstash Redis 인스턴스
 // 환경 변수가 없으면 null
 let redis: Redis | null = null;
 let authLimiter: Ratelimit | null = null;
@@ -43,7 +61,10 @@ let registerLimiter: Ratelimit | null = null;
 
 // Upstash 설정이 있으면 Redis 및 Rate Limiter 초기화
 if (isUpstashConfigured()) {
-  redis = Redis.fromEnv();
+  const url = getRedisUrl();
+  const token = getRedisToken();
+
+  redis = new Redis({ url: url!, token: token! });
 
   // 로그인: 5분당 20회 (슬라이딩 윈도우)
   authLimiter = new Ratelimit({

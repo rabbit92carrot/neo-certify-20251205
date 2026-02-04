@@ -391,7 +391,8 @@ export async function recallTreatment(
       .join('\n');
     const maskedPatientPhone = `${treatment.patient_phone.slice(0, 3)}****${treatment.patient_phone.slice(-4)} 고객`;
 
-    const recallTemplate = ALIMTALK_TEMPLATES['CERT_RECALL']!;
+    // 회수 템플릿 (아직 카카오 미승인, SAMPLE 사용)
+    const recallTemplate = ALIMTALK_TEMPLATES['SAMPLE_CERT_RECALL']!;
     const recallVars: Record<string, string> = {
       고객명: maskedPatientPhone,
       병원명: hospitalInfo.name,
