@@ -18,3 +18,7 @@ export {
   type UsePatientSearchOptions,
   type UsePatientSearchReturn,
 } from './usePatientSearch';
+export {
+  useFavoriteProducts,
+  type UseFavoriteProductsReturn,
+} from './useFavoriteProducts';
