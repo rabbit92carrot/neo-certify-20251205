@@ -313,6 +313,26 @@ export interface ProductForTreatment {
   availableQuantity: number;
 }
 
+/**
+ * 선택 가능한 제품 공통 인터페이스 (다이얼로그용)
+ * AllProductsDialog의 제네릭 타입 제약으로 사용됩니다.
+ *
+ * ShipmentProductSummary와 ProductForTreatment 모두 어댑터를 통해
+ * 이 인터페이스로 변환 가능합니다.
+ */
+export interface SelectableProduct {
+  /** 제품 ID */
+  productId: string;
+  /** 제품명 */
+  productName: string;
+  /** 모델명 */
+  modelName: string;
+  /** 가용 수량 */
+  quantity: number;
+  /** 표시명 (별칭이 있으면 별칭, 없으면 제품명과 동일) */
+  displayName?: string;
+}
+
 // ============================================================================
 // 대시보드 통계 타입
 // ============================================================================
