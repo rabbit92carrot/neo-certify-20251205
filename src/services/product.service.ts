@@ -29,14 +29,14 @@ export async function getProducts(
   query: ProductListQueryData
 ): Promise<ApiResponse<PaginatedResponse<Product>>> {
   const supabase = await createClient();
-  const { page = 1, pageSize = 20, search, isActive } = query;
+  const { page = 1, pageSize = 20, search, isActive, sortBy = 'created_at', sortOrder = 'desc' } = query;
   const offset = (page - 1) * pageSize;
 
   let queryBuilder = supabase
     .from('products')
     .select('*', { count: 'exact' })
     .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false });
+    .order(sortBy, { ascending: sortOrder === 'asc' });
 
   // 활성 여부 필터
   if (isActive !== undefined) {

@@ -11,6 +11,8 @@ import type {
   ProductInventoryDetail,
   InventoryByLot,
   Product,
+  ShipmentProductSummary,
+  PaginatedResponse,
 } from '@/types/api.types';
 import { createErrorResponse, createSuccessResponse, parseRpcArray } from './common.service';
 import {
@@ -313,4 +315,175 @@ export async function getProductsWithLotsForShipment(
   }));
 
   return createSuccessResponse(productsWithLots);
+}
+
+// ============================================================================
+// 출고 페이지 최적화 함수 (Lot lazy loading 지원)
+// ============================================================================
+
+/**
+ * 출고용 상위 제품 목록 조회 (Lot 제외)
+ * 초기 로딩 최적화를 위해 재고 수량 내림차순으로 상위 N개만 반환
+ *
+ * @param organizationId 조직 ID
+ * @param query 조회 옵션
+ * @returns 상위 제품 목록 (Lot 정보 미포함)
+ */
+export async function getTopProductsForShipment(
+  organizationId: string,
+  query: { limit?: number; search?: string; favoriteIds?: string[] }
+): Promise<ApiResponse<ShipmentProductSummary[]>> {
+  const { limit = 12, search, favoriteIds = [] } = query;
+
+  // 재고 요약 조회
+  const summaryResult = await getInventorySummary(organizationId);
+  if (!summaryResult.success || !summaryResult.data) {
+    return createErrorResponse(
+      summaryResult.error?.code ?? 'QUERY_ERROR',
+      summaryResult.error?.message ?? '재고 조회에 실패했습니다.'
+    );
+  }
+
+  let summaries = summaryResult.data.filter((s) => s.totalQuantity > 0);
+
+  // 검색 필터
+  if (search) {
+    const searchLower = search.toLowerCase();
+    summaries = summaries.filter(
+      (s) =>
+        s.productName.toLowerCase().includes(searchLower) ||
+        s.modelName.toLowerCase().includes(searchLower) ||
+        s.udiDi.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // 즐겨찾기 우선 정렬 후 재고 내림차순
+  const favoriteSet = new Set(favoriteIds);
+  summaries.sort((a, b) => {
+    const aFav = favoriteSet.has(a.productId) ? 1 : 0;
+    const bFav = favoriteSet.has(b.productId) ? 1 : 0;
+    if (aFav !== bFav) return bFav - aFav;
+    return b.totalQuantity - a.totalQuantity;
+  });
+
+  // 상위 N개만 반환
+  const topSummaries = summaries.slice(0, limit);
+
+  const result: ShipmentProductSummary[] = topSummaries.map((s) => ({
+    productId: s.productId,
+    productName: s.productName,
+    modelName: s.modelName,
+    udiDi: s.udiDi,
+    totalQuantity: s.totalQuantity,
+  }));
+
+  return createSuccessResponse(result);
+}
+
+/**
+ * 전체 제품 목록 조회 (팝업용, 페이지네이션)
+ * 전체 팝업에서 사용되며 페이지네이션과 검색을 지원
+ *
+ * @param organizationId 조직 ID
+ * @param query 조회 옵션
+ * @returns 페이지네이션된 제품 목록
+ */
+export async function getAllProductsForShipmentDialog(
+  organizationId: string,
+  query: { page?: number; pageSize?: number; search?: string }
+): Promise<ApiResponse<PaginatedResponse<ShipmentProductSummary>>> {
+  const { page = 1, pageSize = 30, search } = query;
+
+  // 재고 요약 조회
+  const summaryResult = await getInventorySummary(organizationId);
+  if (!summaryResult.success || !summaryResult.data) {
+    return createErrorResponse(
+      summaryResult.error?.code ?? 'QUERY_ERROR',
+      summaryResult.error?.message ?? '재고 조회에 실패했습니다.'
+    );
+  }
+
+  let summaries = summaryResult.data.filter((s) => s.totalQuantity > 0);
+
+  // 검색 필터
+  if (search) {
+    const searchLower = search.toLowerCase();
+    summaries = summaries.filter(
+      (s) =>
+        s.productName.toLowerCase().includes(searchLower) ||
+        s.modelName.toLowerCase().includes(searchLower) ||
+        s.udiDi.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // 재고 내림차순 정렬
+  summaries.sort((a, b) => b.totalQuantity - a.totalQuantity);
+
+  // 페이지네이션 계산
+  const total = summaries.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const offset = (page - 1) * pageSize;
+  const paginatedSummaries = summaries.slice(offset, offset + pageSize);
+
+  const items: ShipmentProductSummary[] = paginatedSummaries.map((s) => ({
+    productId: s.productId,
+    productName: s.productName,
+    modelName: s.modelName,
+    udiDi: s.udiDi,
+    totalQuantity: s.totalQuantity,
+  }));
+
+  return createSuccessResponse({
+    items,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+      hasMore: offset + pageSize < total,
+    },
+  });
+}
+
+/**
+ * 단일 제품의 Lot 목록 조회 (lazy load)
+ * 제품 선택 시 Lot 정보를 지연 로딩하기 위해 사용
+ *
+ * @param organizationId 조직 ID
+ * @param productId 제품 ID
+ * @returns Lot별 재고 정보
+ */
+export async function getProductLotsOnDemand(
+  organizationId: string,
+  productId: string
+): Promise<ApiResponse<InventoryByLot[]>> {
+  const supabase = await createClient();
+
+  // DB 함수를 사용하여 Lot별 재고 조회
+  const { data: lotData, error } = await supabase.rpc('get_inventory_by_lot', {
+    p_owner_id: organizationId,
+    p_product_id: productId,
+  });
+
+  if (error) {
+    logger.error('Lot 조회 실패', error);
+    return createErrorResponse('QUERY_ERROR', 'Lot 조회에 실패했습니다.');
+  }
+
+  // Zod 검증으로 결과 파싱
+  const parsed = parseRpcArray(InventoryByLotRowSchema, lotData, 'get_inventory_by_lot');
+  if (!parsed.success) {
+    logger.error('get_inventory_by_lot 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const lots: InventoryByLot[] = parsed.data.map((lot) => ({
+    lotId: lot.lot_id,
+    lotNumber: lot.lot_number,
+    manufactureDate: lot.manufacture_date,
+    expiryDate: lot.expiry_date ?? '',
+    quantity: lot.quantity,
+  }));
+
+  return createSuccessResponse(lots);
 }
