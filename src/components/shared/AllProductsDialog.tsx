@@ -218,10 +218,10 @@ export function AllProductsDialog<T extends SelectableProduct>({
 
   // 장바구니에 추가
   const handleAddToCart = (): void => {
-    if (!selectedProduct) return;
+    if (!selectedProduct) {return;}
 
     const qty = parseInt(quantityInput) || 1;
-    if (qty <= 0 || qty > selectedAvailableQty) return;
+    if (qty <= 0 || qty > selectedAvailableQty) {return;}
 
     onAddToCart({
       productId: selectedProduct.productId,

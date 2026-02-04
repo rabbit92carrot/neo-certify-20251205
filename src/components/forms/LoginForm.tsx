@@ -104,7 +104,7 @@ export function LoginForm(): React.ReactElement {
               disabled={isResending}
               onClick={async () => {
                 const email = form.getValues('email');
-                if (!email) return;
+                if (!email) {return;}
                 setIsResending(true);
                 setResendMessage(null);
                 try {

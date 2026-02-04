@@ -274,7 +274,7 @@ const ConfirmActionDialog = memo(function ConfirmActionDialog({
   const [loading, setLoading] = useState(false);
 
   const handleAction = async () => {
-    if (!dialogState.organization || !dialogState.action) return;
+    if (!dialogState.organization || !dialogState.action) {return;}
 
     setLoading(true);
     try {
@@ -300,7 +300,7 @@ const ConfirmActionDialog = memo(function ConfirmActionDialog({
 
   const dialogContent = useMemo(() => {
     const org = dialogState.organization;
-    if (!org) return { title: '', description: '' };
+    if (!org) {return { title: '', description: '' };}
 
     switch (dialogState.action) {
       case 'approve':

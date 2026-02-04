@@ -172,7 +172,7 @@ export function ProductSelector<T extends ProductSelectorItem>({
       if (showFavorites) {
         const aFav = isFavorite(getProductId(a)) ? 1 : 0;
         const bFav = isFavorite(getProductId(b)) ? 1 : 0;
-        if (aFav !== bFav) return bFav - aFav;
+        if (aFav !== bFav) {return bFav - aFav;}
       }
       return getQuantity(b) - getQuantity(a);
     });

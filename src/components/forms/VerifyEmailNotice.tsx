@@ -21,7 +21,7 @@ export function VerifyEmailNotice(): React.ReactElement {
   const [resendError, setResendError] = useState<string | null>(null);
 
   async function handleResend() {
-    if (!email || isResending) return;
+    if (!email || isResending) {return;}
 
     setIsResending(true);
     setResendMessage(null);

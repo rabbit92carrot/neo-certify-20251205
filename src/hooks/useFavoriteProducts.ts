@@ -55,7 +55,7 @@ export function useFavoriteProducts(organizationId: string): UseFavoriteProducts
 
   // 클라이언트에서만 localStorage 접근 (SSR 호환성)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {return;}
 
     try {
       const key = getStorageKey(organizationId);
@@ -76,7 +76,7 @@ export function useFavoriteProducts(organizationId: string): UseFavoriteProducts
   // localStorage에 저장
   const saveFavorites = useCallback(
     (newFavorites: string[]) => {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') {return;}
 
       try {
         const key = getStorageKey(organizationId);
@@ -92,7 +92,7 @@ export function useFavoriteProducts(organizationId: string): UseFavoriteProducts
   const addFavorite = useCallback(
     (productId: string) => {
       setFavorites((prev) => {
-        if (prev.includes(productId)) return prev;
+        if (prev.includes(productId)) {return prev;}
         const newFavorites = [...prev, productId];
         saveFavorites(newFavorites);
         return newFavorites;
@@ -105,7 +105,7 @@ export function useFavoriteProducts(organizationId: string): UseFavoriteProducts
   const removeFavorite = useCallback(
     (productId: string) => {
       setFavorites((prev) => {
-        if (!prev.includes(productId)) return prev;
+        if (!prev.includes(productId)) {return prev;}
         const newFavorites = prev.filter((id) => id !== productId);
         saveFavorites(newFavorites);
         return newFavorites;

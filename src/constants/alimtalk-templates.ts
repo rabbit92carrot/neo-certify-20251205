@@ -198,7 +198,7 @@ export const renderTemplate = (
   variables: Record<string, string>
 ): { message: string; buttons: { name: string; url: string }[] } | null => {
   const template = ALIMTALK_TEMPLATES[code];
-  if (!template) return null;
+  if (!template) {return null;}
 
   const message = replaceTemplateVariables(template.content, variables);
   const buttons = template.buttons

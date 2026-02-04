@@ -362,7 +362,9 @@ export async function getTopProductsForShipment(
   summaries.sort((a, b) => {
     const aFav = favoriteSet.has(a.productId) ? 1 : 0;
     const bFav = favoriteSet.has(b.productId) ? 1 : 0;
-    if (aFav !== bFav) return bFav - aFav;
+    if (aFav !== bFav) {
+      return bFav - aFav;
+    }
     return b.totalQuantity - a.totalQuantity;
   });
 

@@ -220,9 +220,9 @@ export function independentTTest(
  * - |d| >= 0.8: large (큰 효과)
  */
 function interpretEffectSize(d: number): 'negligible' | 'small' | 'medium' | 'large' {
-  if (d < 0.2) return 'negligible';
-  if (d < 0.5) return 'small';
-  if (d < 0.8) return 'medium';
+  if (d < 0.2) {return 'negligible';}
+  if (d < 0.5) {return 'small';}
+  if (d < 0.8) {return 'medium';}
   return 'large';
 }
 
@@ -271,12 +271,12 @@ function tQuantile(p: number, df: number): number {
     const cdf = tCDF(t, df);
     const pdf = tPDF(t, df);
 
-    if (pdf === 0) break;
+    if (pdf === 0) {break;}
 
     const delta = (cdf - p) / pdf;
     t -= delta;
 
-    if (Math.abs(delta) < 1e-10) break;
+    if (Math.abs(delta) < 1e-10) {break;}
   }
 
   return t;
@@ -388,8 +388,8 @@ function gamma(z: number): number {
  * 불완전 베타 함수 근사
  */
 function incompleteBeta(x: number, a: number, b: number): number {
-  if (x === 0) return 0;
-  if (x === 1) return 1;
+  if (x === 0) {return 0;}
+  if (x === 1) {return 1;}
 
   // 연분수 전개 (Lentz's algorithm)
   const maxIterations = 200;
@@ -401,7 +401,7 @@ function incompleteBeta(x: number, a: number, b: number): number {
 
   let c = 1;
   let d = 1 - (qab * x) / qap;
-  if (Math.abs(d) < epsilon) d = epsilon;
+  if (Math.abs(d) < epsilon) {d = epsilon;}
   d = 1 / d;
   let h = d;
 
@@ -411,23 +411,23 @@ function incompleteBeta(x: number, a: number, b: number): number {
     // Even step
     let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
     d = 1 + aa * d;
-    if (Math.abs(d) < epsilon) d = epsilon;
+    if (Math.abs(d) < epsilon) {d = epsilon;}
     c = 1 + aa / c;
-    if (Math.abs(c) < epsilon) c = epsilon;
+    if (Math.abs(c) < epsilon) {c = epsilon;}
     d = 1 / d;
     h *= d * c;
 
     // Odd step
     aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
     d = 1 + aa * d;
-    if (Math.abs(d) < epsilon) d = epsilon;
+    if (Math.abs(d) < epsilon) {d = epsilon;}
     c = 1 + aa / c;
-    if (Math.abs(c) < epsilon) c = epsilon;
+    if (Math.abs(c) < epsilon) {c = epsilon;}
     d = 1 / d;
     const delta = d * c;
     h *= delta;
 
-    if (Math.abs(delta - 1) < epsilon) break;
+    if (Math.abs(delta - 1) < epsilon) {break;}
   }
 
   const betaValue = (gamma(a) * gamma(b)) / gamma(a + b);

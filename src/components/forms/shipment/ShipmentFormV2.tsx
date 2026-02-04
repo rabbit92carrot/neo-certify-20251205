@@ -130,7 +130,7 @@ export function ShipmentFormV2({
     (product: ShipmentProductSummary, lotId?: string): number => {
       if (lotId && lotId !== 'auto' && productLots.length > 0) {
         const lot = productLots.find((l) => l.lotId === lotId);
-        if (!lot) return 0;
+        if (!lot) {return 0;}
 
         // 해당 Lot에서 장바구니에 담긴 수량 제외
         const cartQtyForLot = items
