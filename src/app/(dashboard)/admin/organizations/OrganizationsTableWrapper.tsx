@@ -2,13 +2,21 @@
 
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Search, Factory, Building2, Hospital, CheckCircle, XCircle, Clock, Trash2, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { OrganizationsTable } from '@/components/tables/OrganizationsTable';
+import { OrganizationDetailPanel } from '@/components/shared/OrganizationDetailPanel';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { StatCard } from '@/components/shared/StatCard';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   Pagination,
   PaginationContent,
@@ -26,6 +34,7 @@ import {
   getOrganizationsAction,
   getOrganizationStatusCountsAction,
   refreshOrgCodeCountsAction,
+  getBusinessLicenseSignedUrlAction,
 } from '../actions';
 import type { OrganizationWithStats, PaginationMeta } from '@/types/api.types';
 import {
@@ -68,6 +77,12 @@ export function OrganizationsTableWrapper({
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Split View 상태
+  const [selectedOrg, setSelectedOrg] = useState<OrganizationWithStats | null>(null);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+
   useEffect(() => {
     let ignore = false;
 
@@ -109,6 +124,52 @@ export function OrganizationsTableWrapper({
     setRefreshKey((prev) => prev + 1);
   };
 
+  // Signed URL 로드
+  const fetchSignedUrl = useCallback(async (filePath: string): Promise<void> => {
+    setUrlLoading(true);
+    setSignedUrl(null);
+
+    const result = await getBusinessLicenseSignedUrlAction(filePath);
+
+    if (result.success && result.data) {
+      setSignedUrl(result.data.signedUrl);
+    } else {
+      toast.error('파일을 불러올 수 없습니다');
+    }
+
+    setUrlLoading(false);
+  }, []);
+
+  // 조직 선택 핸들러 (데스크톱)
+  const handleSelectOrg = useCallback(
+    (org: OrganizationWithStats): void => {
+      setSelectedOrg(org);
+
+      // 사업자등록증 파일이 있으면 Signed URL 로드
+      if (org.business_license_file) {
+        void fetchSignedUrl(org.business_license_file);
+      } else {
+        setSignedUrl(null);
+      }
+    },
+    [fetchSignedUrl]
+  );
+
+  // 조직 선택 핸들러 (모바일)
+  const handleSelectOrgMobile = useCallback(
+    (org: OrganizationWithStats): void => {
+      handleSelectOrg(org);
+      setMobileSheetOpen(true);
+    },
+    [handleSelectOrg]
+  );
+
+  // 필터/페이지 변경 시 선택 초기화
+  useEffect(() => {
+    setSelectedOrg(null);
+    setSignedUrl(null);
+  }, [page, status, type, search]);
+
   /**
    * MV 수동 갱신 핸들러
    * 조직별 코드 카운트 Materialized View를 즉시 갱신하고 테이블 새로고침
@@ -148,30 +209,88 @@ export function OrganizationsTableWrapper({
 
   const handleApprove = async (id: string): Promise<void> => {
     startTransition(async () => {
-      await approveOrganizationAction(id);
-      refreshData();
+      const result = await approveOrganizationAction(id);
+      if (result.success) {
+        toast.success('조직이 승인되었습니다');
+        refreshData();
+        // 선택된 조직의 상태가 변경되면 선택 해제
+        if (selectedOrg?.id === id) {
+          setSelectedOrg(null);
+          setSignedUrl(null);
+        }
+      } else {
+        toast.error(result.error?.message ?? '승인에 실패했습니다');
+      }
     });
   };
 
   const handleDeactivate = async (id: string): Promise<void> => {
     startTransition(async () => {
-      await deactivateOrganizationAction(id);
-      refreshData();
+      const result = await deactivateOrganizationAction(id);
+      if (result.success) {
+        toast.success('조직이 비활성화되었습니다');
+        refreshData();
+        if (selectedOrg?.id === id) {
+          setSelectedOrg(null);
+          setSignedUrl(null);
+        }
+      } else {
+        toast.error(result.error?.message ?? '비활성화에 실패했습니다');
+      }
     });
   };
 
   const handleActivate = async (id: string): Promise<void> => {
     startTransition(async () => {
-      await activateOrganizationAction(id);
-      refreshData();
+      const result = await activateOrganizationAction(id);
+      if (result.success) {
+        toast.success('조직이 활성화되었습니다');
+        refreshData();
+        if (selectedOrg?.id === id) {
+          setSelectedOrg(null);
+          setSignedUrl(null);
+        }
+      } else {
+        toast.error(result.error?.message ?? '활성화에 실패했습니다');
+      }
     });
   };
 
   const handleDelete = async (id: string): Promise<void> => {
     startTransition(async () => {
-      await deleteOrganizationAction(id);
-      refreshData();
+      const result = await deleteOrganizationAction(id);
+      if (result.success) {
+        toast.success('조직이 삭제되었습니다');
+        refreshData();
+        if (selectedOrg?.id === id) {
+          setSelectedOrg(null);
+          setSignedUrl(null);
+        }
+      } else {
+        toast.error(result.error?.message ?? '삭제에 실패했습니다');
+      }
     });
+  };
+
+  // 모바일에서 액션 후 Sheet 닫기
+  const handleApproveAndClose = async (id: string): Promise<void> => {
+    await handleApprove(id);
+    setMobileSheetOpen(false);
+  };
+
+  const handleDeactivateAndClose = async (id: string): Promise<void> => {
+    await handleDeactivate(id);
+    setMobileSheetOpen(false);
+  };
+
+  const handleActivateAndClose = async (id: string): Promise<void> => {
+    await handleActivate(id);
+    setMobileSheetOpen(false);
+  };
+
+  const handleDeleteAndClose = async (id: string): Promise<void> => {
+    await handleDelete(id);
+    setMobileSheetOpen(false);
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -342,59 +461,159 @@ export function OrganizationsTableWrapper({
         </Button>
       </div>
 
-      {/* 테이블 */}
-      <OrganizationsTable
-        organizations={organizations}
-        onApprove={handleApprove}
-        onDeactivate={handleDeactivate}
-        onActivate={handleActivate}
-        onDelete={handleDelete}
-      />
+      {/* Desktop: Split View */}
+      <div className="hidden lg:grid lg:grid-cols-5 lg:gap-4 lg:min-h-[600px]">
+        {/* 좌측: 테이블 + 페이지네이션 */}
+        <div className="col-span-3 space-y-4 overflow-auto">
+          <OrganizationsTable
+            organizations={organizations}
+            selectedOrgId={selectedOrg?.id}
+            onSelectOrg={handleSelectOrg}
+            onApprove={handleApprove}
+            onDeactivate={handleDeactivate}
+            onActivate={handleActivate}
+            onDelete={handleDelete}
+          />
 
-      {/* 페이지네이션 */}
-      {meta && meta.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
-          <p className="text-sm text-muted-foreground">
-            총 {meta.total.toLocaleString()}개 중{' '}
-            {((page - 1) * PAGE_SIZE + 1).toLocaleString()}-
-            {Math.min(page * PAGE_SIZE, meta.total).toLocaleString()}개
-          </p>
+          {/* 페이지네이션 */}
+          {meta && meta.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                총 {meta.total.toLocaleString()}개 중{' '}
+                {((page - 1) * PAGE_SIZE + 1).toLocaleString()}-
+                {Math.min(page * PAGE_SIZE, meta.total).toLocaleString()}개
+              </p>
 
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => page > 1 && goToPage(page - 1)}
-                  className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => page > 1 && goToPage(page - 1)}
+                      className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
 
-              {getPageNumbers().map((pageNum, idx) => (
-                <PaginationItem key={idx}>
-                  {pageNum === 'ellipsis' ? (
-                    <PaginationEllipsis />
-                  ) : (
-                    <PaginationLink
-                      onClick={() => goToPage(pageNum)}
-                      isActive={pageNum === page}
-                      className="cursor-pointer"
-                    >
-                      {pageNum}
-                    </PaginationLink>
-                  )}
-                </PaginationItem>
-              ))}
+                  {getPageNumbers().map((pageNum, idx) => (
+                    <PaginationItem key={idx}>
+                      {pageNum === 'ellipsis' ? (
+                        <PaginationEllipsis />
+                      ) : (
+                        <PaginationLink
+                          onClick={() => goToPage(pageNum)}
+                          isActive={pageNum === page}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      )}
+                    </PaginationItem>
+                  ))}
 
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => page < meta.totalPages && goToPage(page + 1)}
-                  className={page === meta.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => page < meta.totalPages && goToPage(page + 1)}
+                      className={page === meta.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* 우측: 상세 패널 */}
+        <div className="col-span-2 overflow-hidden rounded-lg border bg-gray-50/50">
+          <OrganizationDetailPanel
+            organization={selectedOrg}
+            signedUrl={signedUrl}
+            isLoading={urlLoading}
+            actionMode="management"
+            onApprove={handleApprove}
+            onReject={handleDelete}
+            onDeactivate={handleDeactivate}
+            onActivate={handleActivate}
+            onDelete={handleDelete}
+          />
+        </div>
+      </div>
+
+      {/* Mobile: Table + Sheet */}
+      <div className="block lg:hidden space-y-4">
+        <OrganizationsTable
+          organizations={organizations}
+          selectedOrgId={selectedOrg?.id}
+          onSelectOrg={handleSelectOrgMobile}
+          onApprove={handleApprove}
+          onDeactivate={handleDeactivate}
+          onActivate={handleActivate}
+          onDelete={handleDelete}
+        />
+
+        {/* 페이지네이션 */}
+        {meta && meta.totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              총 {meta.total.toLocaleString()}개 중{' '}
+              {((page - 1) * PAGE_SIZE + 1).toLocaleString()}-
+              {Math.min(page * PAGE_SIZE, meta.total).toLocaleString()}개
+            </p>
+
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => page > 1 && goToPage(page - 1)}
+                    className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+
+                {getPageNumbers().map((pageNum, idx) => (
+                  <PaginationItem key={idx}>
+                    {pageNum === 'ellipsis' ? (
+                      <PaginationEllipsis />
+                    ) : (
+                      <PaginationLink
+                        onClick={() => goToPage(pageNum)}
+                        isActive={pageNum === page}
+                        className="cursor-pointer"
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => page < meta.totalPages && goToPage(page + 1)}
+                    className={page === meta.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
+
+        <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-lg p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>조직 상세</SheetTitle>
+            </SheetHeader>
+            <OrganizationDetailPanel
+              organization={selectedOrg}
+              signedUrl={signedUrl}
+              isLoading={urlLoading}
+              actionMode="management"
+              onApprove={handleApproveAndClose}
+              onReject={handleDeleteAndClose}
+              onDeactivate={handleDeactivateAndClose}
+              onActivate={handleActivateAndClose}
+              onDelete={handleDeleteAndClose}
+              className="h-full"
+            />
+          </SheetContent>
+        </Sheet>
+      </div>
     </div>
   );
 }

@@ -893,3 +893,28 @@ export async function getAlertDetailAction(alertId: string) {
 
   return alertService.getAlertDetail(adminId, alertId);
 }
+
+// ============================================================================
+// 스토리지 Actions
+// ============================================================================
+
+/**
+ * 사업자등록증 Signed URL 조회 Action
+ * Private Storage 버킷의 파일에 접근하기 위한 임시 URL 생성
+ */
+export async function getBusinessLicenseSignedUrlAction(
+  filePath: string
+): Promise<ApiResponse<{ signedUrl: string; expiresAt: string }>> {
+  const adminId = await getAdminOrganizationId();
+  if (!adminId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '관리자 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return adminService.getBusinessLicenseSignedUrl(filePath);
+}
