@@ -102,7 +102,7 @@ export function ApprovalTable({
 
   // 승인/거부 액션 실행
   const handleAction = async (): Promise<void> => {
-    if (!confirmDialog.organization || !confirmDialog.action) return;
+    if (!confirmDialog.organization || !confirmDialog.action) {return;}
 
     setLoading(true);
     try {

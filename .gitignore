@@ -107,3 +107,6 @@ yarn-error.log*
 next-env.d.ts
 supabase/migrations_backup/
 supabase/seed.sql
+
+# Claude docs (workflow planning)
+claudedocs/

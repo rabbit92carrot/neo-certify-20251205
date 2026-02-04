@@ -17,7 +17,13 @@ import { treatmentCreateSchema, treatmentRecallSchema } from '@/lib/validations/
 import { disposalCreateSchema } from '@/lib/validations/disposal';
 import { returnSchema } from '@/lib/validations/shipment';
 import { normalizePhoneNumber } from '@/lib/validations/common';
-import type { ApiResponse, HistoryActionType, HospitalKnownProduct, ProductForTreatment } from '@/types/api.types';
+import type {
+  ApiResponse,
+  HistoryActionType,
+  HospitalKnownProduct,
+  PaginatedResponse,
+  ProductForTreatment,
+} from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
 import type { DisposalItemData, DisposalReasonTypeValue } from '@/lib/validations/disposal';
 import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
@@ -414,4 +420,57 @@ export async function getActiveProductsForTreatmentAction(): Promise<ApiResponse
   }
 
   return hospitalProductService.getActiveProductsForTreatment(organizationId);
+}
+
+/**
+ * 시술용 제품 검색 Action
+ * 검색어와 즐겨찾기 ID를 기반으로 제품 목록을 반환합니다.
+ */
+export async function searchTreatmentProductsAction(
+  search: string,
+  favoriteIds: string[]
+): Promise<ApiResponse<ProductForTreatment[]>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return hospitalProductService.searchActiveProductsForTreatment(organizationId, {
+    search,
+    favoriteIds,
+    limit: 50,
+  });
+}
+
+/**
+ * 전체 제품 목록 조회 Action (다이얼로그용)
+ * 페이지네이션과 검색을 지원합니다.
+ * 활성화된 제품 중 재고가 있는 제품을 반환합니다.
+ */
+export async function getAllProductsForTreatmentDialogAction(
+  page: number,
+  search: string
+): Promise<ApiResponse<PaginatedResponse<ProductForTreatment>>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return hospitalProductService.getActiveProductsForTreatmentPaginated(organizationId, {
+    page,
+    pageSize: 30,
+    search: search || undefined,
+  });
 }

@@ -11,7 +11,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
-import type { ApiResponse, HospitalKnownProduct, ProductForTreatment } from '@/types/api.types';
+import type {
+  ApiResponse,
+  HospitalKnownProduct,
+  ProductForTreatment,
+  PaginatedResponse,
+} from '@/types/api.types';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -249,6 +254,132 @@ export async function getActiveProductsForTreatment(
   }));
 
   return createSuccessResponse(products);
+}
+
+// ============================================================================
+// 시술 등록용 제품 조회 (페이지네이션)
+// ============================================================================
+
+/**
+ * 페이지네이션 조회 옵션
+ */
+export interface PaginatedProductsQuery {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+/**
+ * 시술 등록용 활성 제품 목록 조회 (페이지네이션)
+ * AllProductsDialog에서 사용됩니다.
+ *
+ * 내부적으로 getActiveProductsForTreatment를 호출하고
+ * 검색 필터 및 페이지네이션을 적용합니다.
+ *
+ * @param hospitalId - 병원 조직 ID
+ * @param query - 조회 옵션 (page, pageSize, search)
+ * @returns 페이지네이션된 제품 목록
+ */
+export async function getActiveProductsForTreatmentPaginated(
+  hospitalId: string,
+  query: PaginatedProductsQuery
+): Promise<ApiResponse<PaginatedResponse<ProductForTreatment>>> {
+  const { page = 1, pageSize = 30, search } = query;
+
+  // 기존 함수로 전체 목록 조회
+  const result = await getActiveProductsForTreatment(hospitalId);
+  if (!result.success || !result.data) {
+    return createErrorResponse(
+      result.error?.code ?? 'QUERY_ERROR',
+      result.error?.message ?? '제품 목록 조회에 실패했습니다.'
+    );
+  }
+
+  let products = result.data;
+
+  // 검색 필터 (별칭, 제품명, 모델명)
+  if (search) {
+    const searchLower = search.toLowerCase();
+    products = products.filter(
+      (p) =>
+        p.productName.toLowerCase().includes(searchLower) ||
+        p.modelName.toLowerCase().includes(searchLower) ||
+        (p.alias?.toLowerCase().includes(searchLower) ?? false)
+    );
+  }
+
+  // 재고 내림차순 정렬
+  products.sort((a, b) => b.availableQuantity - a.availableQuantity);
+
+  // 페이지네이션 계산
+  const total = products.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const offset = (page - 1) * pageSize;
+  const paginatedProducts = products.slice(offset, offset + pageSize);
+
+  return createSuccessResponse({
+    items: paginatedProducts,
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+      hasMore: offset + pageSize < total,
+    },
+  });
+}
+
+// ============================================================================
+// 시술 등록용 제품 검색
+// ============================================================================
+
+/**
+ * 시술 등록용 활성 제품 검색
+ * 검색어와 즐겨찾기 ID를 기반으로 제품 목록을 반환합니다.
+ *
+ * @param hospitalId - 병원 조직 ID
+ * @param query - 검색 옵션 (search, favoriteIds)
+ * @returns 검색된 제품 목록
+ */
+export async function searchActiveProductsForTreatment(
+  hospitalId: string,
+  query: { search?: string; favoriteIds?: string[]; limit?: number }
+): Promise<ApiResponse<ProductForTreatment[]>> {
+  const { search, favoriteIds = [], limit = 50 } = query;
+
+  // 기존 함수로 전체 목록 조회
+  const result = await getActiveProductsForTreatment(hospitalId);
+  if (!result.success || !result.data) {
+    return createErrorResponse(
+      result.error?.code ?? 'QUERY_ERROR',
+      result.error?.message ?? '제품 목록 조회에 실패했습니다.'
+    );
+  }
+
+  let products = result.data;
+
+  // 검색 필터 (별칭, 제품명, 모델명)
+  if (search) {
+    const searchLower = search.toLowerCase();
+    products = products.filter(
+      (p) =>
+        p.productName.toLowerCase().includes(searchLower) ||
+        p.modelName.toLowerCase().includes(searchLower) ||
+        (p.alias?.toLowerCase().includes(searchLower) ?? false)
+    );
+  }
+
+  // 즐겨찾기 우선 정렬 후 재고 내림차순
+  const favoriteSet = new Set(favoriteIds);
+  products.sort((a, b) => {
+    const aFav = favoriteSet.has(a.productId) ? 1 : 0;
+    const bFav = favoriteSet.has(b.productId) ? 1 : 0;
+    if (aFav !== bFav) {return bFav - aFav;}
+    return b.availableQuantity - a.availableQuantity;
+  });
+
+  // 상위 N개만 반환
+  return createSuccessResponse(products.slice(0, limit));
 }
 
 // ============================================================================

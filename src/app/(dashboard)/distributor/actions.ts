@@ -9,8 +9,14 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/services/auth.service';
 import * as shipmentService from '@/services/shipment.service';
 import * as historyService from '@/services/history.service';
+import * as inventoryService from '@/services/inventory.service';
 import { shipmentCreateSchema, returnSchema } from '@/lib/validations/shipment';
-import type { ApiResponse, HistoryActionType } from '@/types/api.types';
+import type {
+  ApiResponse,
+  HistoryActionType,
+  ShipmentProductSummary,
+  PaginatedResponse,
+} from '@/types/api.types';
 import type { ShipmentItemData } from '@/lib/validations/shipment';
 import type { CursorPaginatedHistory, HistoryCursorQuery } from '@/services/history.service';
 import { formatZodErrors } from '@/lib/utils';
@@ -201,4 +207,60 @@ export async function getDistributorHistoryCursorAction(
   }
 
   return historyService.getDistributorHistoryCursor(organizationId, query as HistoryCursorQuery);
+}
+
+// ============================================================================
+// 출고용 제품 관련 Actions
+// ============================================================================
+
+/**
+ * 출고용 제품 검색 Action
+ * 검색어와 즐겨찾기 ID를 기반으로 제품 목록을 반환합니다.
+ */
+export async function searchShipmentProductsAction(
+  search: string,
+  favoriteIds: string[]
+): Promise<ApiResponse<ShipmentProductSummary[]>> {
+  const organizationId = await getDistributorOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '유통사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return inventoryService.getTopProductsForShipment(organizationId, {
+    limit: 50, // 검색 시에는 더 많은 결과 반환
+    search,
+    favoriteIds,
+  });
+}
+
+/**
+ * 전체 제품 목록 조회 Action (다이얼로그용)
+ * 페이지네이션과 검색을 지원합니다.
+ */
+export async function getAllProductsForShipmentDialogAction(
+  page: number,
+  search: string
+): Promise<ApiResponse<PaginatedResponse<ShipmentProductSummary>>> {
+  const organizationId = await getDistributorOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '유통사 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return inventoryService.getAllProductsForShipmentDialog(organizationId, {
+    page,
+    pageSize: 30,
+    search: search || undefined,
+  });
 }

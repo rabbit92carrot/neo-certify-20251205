@@ -12,6 +12,8 @@ import type { ProductForTreatment } from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
 
 export interface TreatmentViewProps {
+  /** 조직 ID (Preview용: 기본값 제공) */
+  organizationId?: string;
   /** 시술 가능한 제품 목록 */
   products: ProductForTreatment[];
   /** 환자 검색 함수 (Preview에서 mock 주입용) */
@@ -22,6 +24,7 @@ export interface TreatmentViewProps {
  * 시술 등록 View - 실제 TreatmentForm 사용
  */
 export function TreatmentView({
+  organizationId = 'preview-org-id',
   products,
   searchFn,
 }: TreatmentViewProps): React.ReactElement {
@@ -43,6 +46,7 @@ export function TreatmentView({
       />
 
       <TreatmentForm
+        organizationId={organizationId}
         products={products}
         onSubmit={handleSubmit}
         searchFn={searchFn}

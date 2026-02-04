@@ -270,6 +270,18 @@ export interface ProductInventoryDetail {
   byLot: InventoryByLot[];
 }
 
+/**
+ * 출고용 제품 요약 정보 (Lot 미포함)
+ * 출고 페이지 초기 로딩 최적화를 위해 사용
+ */
+export interface ShipmentProductSummary {
+  productId: string;
+  productName: string;
+  modelName: string;
+  udiDi: string;
+  totalQuantity: number;
+}
+
 // ============================================================================
 // 병원 제품 관리 타입
 // ============================================================================
@@ -299,6 +311,26 @@ export interface ProductForTreatment {
   udiDi: string;
   alias: string | null;
   availableQuantity: number;
+}
+
+/**
+ * 선택 가능한 제품 공통 인터페이스 (다이얼로그용)
+ * AllProductsDialog의 제네릭 타입 제약으로 사용됩니다.
+ *
+ * ShipmentProductSummary와 ProductForTreatment 모두 어댑터를 통해
+ * 이 인터페이스로 변환 가능합니다.
+ */
+export interface SelectableProduct {
+  /** 제품 ID */
+  productId: string;
+  /** 제품명 */
+  productName: string;
+  /** 모델명 */
+  modelName: string;
+  /** 가용 수량 */
+  quantity: number;
+  /** 표시명 (별칭이 있으면 별칭, 없으면 제품명과 동일) */
+  displayName?: string;
 }
 
 // ============================================================================

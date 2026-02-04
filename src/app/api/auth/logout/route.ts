@@ -93,6 +93,27 @@ export async function POST(request: NextRequest) {
     await supabase.auth.signOut();
   }
 
+  // Supabase 관련 쿠키 명시적 삭제 (HeadersOverflowError 방지)
+  // signOut()이 모든 청크 쿠키를 정리하지 못할 수 있음
+  const supabaseProjectId = process.env.NEXT_PUBLIC_SUPABASE_URL?.match(
+    /https:\/\/([^.]+)\./
+  )?.[1];
+
+  if (supabaseProjectId) {
+    const cookiePrefix = `sb-${supabaseProjectId}-auth-token`;
+    request.cookies.getAll().forEach(({ name }) => {
+      if (name.startsWith(cookiePrefix)) {
+        response.cookies.set(name, '', {
+          path: '/',
+          maxAge: 0,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+        });
+      }
+    });
+  }
+
   // 비차단 캐시 무효화 (응답 후 실행)
   after(() => {
     revalidatePath('/', 'layout');

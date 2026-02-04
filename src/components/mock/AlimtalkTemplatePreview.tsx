@@ -253,7 +253,7 @@ export function AlimtalkTemplatePreview({
   };
 
   const handleSimulateSend = async () => {
-    if (!onSimulateSend || !selectedTemplate) return;
+    if (!onSimulateSend || !selectedTemplate) {return;}
 
     setIsSimulating(true);
     setSimulationResult(null);

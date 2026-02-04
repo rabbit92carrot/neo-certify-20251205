@@ -131,13 +131,13 @@ export function AlimtalkTestSendClient({
 
   // 실시간 렌더링된 메시지
   const renderedMessage = useMemo(() => {
-    if (!selectedTemplate) return '';
+    if (!selectedTemplate) {return '';}
     return replaceTemplateVariables(selectedTemplate.content, variableValues);
   }, [selectedTemplate, variableValues]);
 
   // 렌더링된 버튼 URL (완전한 URL로 변환)
   const renderedButtons = useMemo(() => {
-    if (!selectedTemplate) return [];
+    if (!selectedTemplate) {return [];}
     return selectedTemplate.buttons
       .filter((b) => b.urlTemplate)
       .map((b) => {
@@ -173,7 +173,7 @@ export function AlimtalkTestSendClient({
 
   // 변수 기본값으로 초기화
   const handleResetVariables = useCallback(() => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate) {return;}
     const newValues: Record<string, string> = {};
     for (const v of selectedTemplate.variables) {
       newValues[v.name] = v.defaultValue;

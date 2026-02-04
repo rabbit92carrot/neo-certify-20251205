@@ -102,6 +102,16 @@ export const lotQuerySchema = z.object({
 // ============================================================================
 
 /**
+ * 제품 목록 정렬 기준
+ */
+export const productSortBySchema = z.enum(['model_name', 'name', 'created_at']).default('created_at');
+
+/**
+ * 정렬 방향
+ */
+export const sortOrderSchema = z.enum(['asc', 'desc']).default('desc');
+
+/**
  * 제품 목록 조회 스키마
  */
 export const productListQuerySchema = z.object({
@@ -109,6 +119,8 @@ export const productListQuerySchema = z.object({
   pageSize: z.number().int().min(1).max(100).default(20),
   search: z.string().optional(),
   isActive: z.boolean().optional(),
+  sortBy: productSortBySchema.optional(),
+  sortOrder: sortOrderSchema.optional(),
 });
 
 /**
