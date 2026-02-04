@@ -3,7 +3,11 @@ import { getCachedCurrentUser } from '@/services/auth.service';
 import { getActiveProductsForTreatment } from '@/services/hospital-product.service';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { LazyTreatmentForm } from '@/components/forms/lazy';
-import { createTreatmentAction } from '../actions';
+import {
+  createTreatmentAction,
+  searchTreatmentProductsAction,
+  getAllProductsForTreatmentDialogAction,
+} from '../actions';
 
 export const metadata = {
   title: '시술 등록 | 병원',
@@ -32,8 +36,11 @@ export default async function HospitalTreatmentPage(): Promise<React.ReactElemen
       />
 
       <LazyTreatmentForm
+        organizationId={user.organization.id}
         products={products}
         onSubmit={createTreatmentAction}
+        searchProductsAction={searchTreatmentProductsAction}
+        getAllProductsAction={getAllProductsForTreatmentDialogAction}
       />
     </div>
   );

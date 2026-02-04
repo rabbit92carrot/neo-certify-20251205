@@ -423,6 +423,32 @@ export async function getActiveProductsForTreatmentAction(): Promise<ApiResponse
 }
 
 /**
+ * 시술용 제품 검색 Action
+ * 검색어와 즐겨찾기 ID를 기반으로 제품 목록을 반환합니다.
+ */
+export async function searchTreatmentProductsAction(
+  search: string,
+  favoriteIds: string[]
+): Promise<ApiResponse<ProductForTreatment[]>> {
+  const organizationId = await getHospitalOrganizationId();
+  if (!organizationId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '병원 계정으로 로그인이 필요합니다.',
+      },
+    };
+  }
+
+  return hospitalProductService.searchActiveProductsForTreatment(organizationId, {
+    search,
+    favoriteIds,
+    limit: 50,
+  });
+}
+
+/**
  * 전체 제품 목록 조회 Action (다이얼로그용)
  * 페이지네이션과 검색을 지원합니다.
  * 활성화된 제품 중 재고가 있는 제품을 반환합니다.

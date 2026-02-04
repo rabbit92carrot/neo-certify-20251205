@@ -9,14 +9,13 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Package, Stethoscope, Phone, Calendar, Loader2, User, ExternalLink } from 'lucide-react';
+import { Stethoscope, Phone, Calendar, Loader2, User, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProductCard } from '@/components/shared/ProductCard';
+import { ProductSelector } from '@/components/shared/ProductSelector';
 import { CartDisplay } from '@/components/shared/CartDisplay';
-import { EmptyState } from '@/components/shared/EmptyState';
 import { QuantityInputPanel } from '@/components/shared/QuantityInputPanel';
 import {
   Command,
@@ -29,10 +28,28 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useCart, usePatientSearch } from '@/hooks';
 import { formatPhoneNumber, normalizePhoneNumber } from '@/lib/validations/common';
 import { searchHospitalPatientsAction } from '@/app/(dashboard)/hospital/actions';
-import type { ProductForTreatment } from '@/types/api.types';
+import type {
+  ProductForTreatment,
+  SelectableProduct,
+  ApiResponse,
+  PaginatedResponse,
+} from '@/types/api.types';
 import type { TreatmentItemData } from '@/lib/validations/treatment';
 
+/**
+ * ProductForTreatment를 SelectableProduct로 변환하는 어댑터
+ */
+const toSelectableProduct = (product: ProductForTreatment): SelectableProduct => ({
+  productId: product.productId,
+  productName: product.productName,
+  modelName: product.modelName,
+  quantity: product.availableQuantity,
+  displayName: product.alias || undefined,
+});
+
 interface TreatmentFormProps {
+  /** 조직 ID (즐겨찾기 저장용) */
+  organizationId: string;
   /** 시술 가능한 제품 목록 (활성화 + 재고 있음) */
   products: ProductForTreatment[];
   /** 시술 등록 액션 */
@@ -43,15 +60,28 @@ interface TreatmentFormProps {
   ) => Promise<{ success: boolean; error?: { message: string } }>;
   /** 환자 검색 함수 (Preview에서 mock 주입용) */
   searchFn?: (query: string) => Promise<{ success: boolean; data?: string[] }>;
+  /** 제품 검색 액션 (선택적) */
+  searchProductsAction?: (
+    search: string,
+    favoriteIds: string[]
+  ) => Promise<ApiResponse<ProductForTreatment[]>>;
+  /** 전체 제품 조회 액션 (다이얼로그용, 선택적) */
+  getAllProductsAction?: (
+    page: number,
+    search: string
+  ) => Promise<ApiResponse<PaginatedResponse<ProductForTreatment>>>;
 }
 
 /**
  * 시술 폼 컴포넌트
  */
 export function TreatmentForm({
+  organizationId,
   products,
   onSubmit,
   searchFn = searchHospitalPatientsAction,
+  searchProductsAction,
+  getAllProductsAction,
 }: TreatmentFormProps): React.ReactElement {
   const [isPending, startTransition] = useTransition();
   const [selectedProduct, setSelectedProduct] = useState<ProductForTreatment | null>(null);
@@ -191,6 +221,16 @@ export function TreatmentForm({
     return map;
   }, [items]);
 
+  // 장바구니 내 제품별 수량 (ProductSelector용)
+  const cartQuantityByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of items) {
+      const current = map.get(item.productId) || 0;
+      map.set(item.productId, current + item.quantity);
+    }
+    return map;
+  }, [items]);
+
   // 현재 선택된 제품의 가용 수량
   const currentAvailableQty = selectedProduct
     ? getAvailableQuantity(selectedProduct)
@@ -294,39 +334,27 @@ export function TreatmentForm({
           </CardContent>
         </Card>
 
-        {/* 제품 선택 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">제품 선택</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {products.length === 0 ? (
-              <EmptyState
-                icon={Package}
-                title="시술 가능한 제품이 없습니다"
-                description="재고가 있는 제품이 없습니다."
-              />
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {products.map((product) => {
-                  const availableQty = getAvailableQuantity(product);
-                  const displayName = getDisplayName(product);
-                  return (
-                    <ProductCard
-                      key={product.productId}
-                      name={displayName}
-                      modelName={product.modelName}
-                      additionalInfo={`재고: ${availableQty}개`}
-                      isSelected={selectedProduct?.productId === product.productId}
-                      onClick={() => setSelectedProduct(product)}
-                      disabled={availableQty === 0}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* 제품 선택 (V2: 검색, 즐겨찾기, 전체 제품 다이얼로그 지원) */}
+        <ProductSelector<ProductForTreatment>
+          organizationId={organizationId}
+          initialProducts={products}
+          selectedProduct={selectedProduct}
+          onSelectProduct={setSelectedProduct}
+          getProductId={(p) => p.productId}
+          getDisplayName={(p) => p.alias || p.productName}
+          getQuantity={(p) => p.availableQuantity}
+          toSelectableProduct={toSelectableProduct}
+          searchProductsAction={searchProductsAction}
+          getAllProductsAction={getAllProductsAction}
+          cartQuantityByProduct={cartQuantityByProduct}
+          cartItems={items}
+          onAddToCart={addItem}
+          onRemoveFromCart={removeItem}
+          showFavorites={true}
+          searchPlaceholder="제품명, 모델명, 별칭으로 검색"
+          emptySearchMessage="검색 결과가 없습니다"
+          emptyProductsMessage="시술 가능한 제품이 없습니다"
+        />
       </div>
 
       {/* 오른쪽: 수량 입력 + 장바구니 */}
