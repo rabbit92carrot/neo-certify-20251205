@@ -6,8 +6,9 @@
  */
 
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Package, Check } from 'lucide-react';
+import { Package, Check, Star } from 'lucide-react';
 import type { Product } from '@/types/api.types';
 
 export interface ProductCardProps {
@@ -27,6 +28,12 @@ export interface ProductCardProps {
   onClick?: () => void;
   /** 비활성화 여부 */
   disabled?: boolean;
+  /** 즐겨찾기 여부 */
+  isFavorite?: boolean;
+  /** 즐겨찾기 토글 핸들러 */
+  onFavoriteToggle?: (isFavorite: boolean) => void;
+  /** 즐겨찾기 버튼 표시 여부 */
+  showFavoriteButton?: boolean;
 }
 
 export function ProductCard({
@@ -38,6 +45,9 @@ export function ProductCard({
   isSelected,
   onClick,
   disabled = false,
+  isFavorite = false,
+  onFavoriteToggle,
+  showFavoriteButton = false,
 }: ProductCardProps): React.ReactElement {
   // isSelected가 전달되면 우선 사용
   const isProductSelected = isSelected ?? selected;
@@ -47,16 +57,47 @@ export function ProductCard({
   const displayModelName = modelName ?? product?.model_name ?? '';
   const displayUdi = product?.udi_di;
 
+  // 즐겨찾기 클릭 핸들러
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 방지
+    onFavoriteToggle?.(!isFavorite);
+  };
+
   return (
     <Card
       className={cn(
-        'cursor-pointer transition-all duration-200',
+        'cursor-pointer transition-all duration-200 relative group',
         'hover:border-primary hover:shadow-md',
         isProductSelected && 'border-primary ring-2 ring-primary/20 bg-primary/5',
         disabled && 'opacity-50 cursor-not-allowed hover:border-border hover:shadow-none'
       )}
       onClick={disabled ? undefined : onClick}
     >
+      {/* 즐겨찾기 버튼 */}
+      {showFavoriteButton && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn(
+            'absolute top-2 right-2 h-7 w-7 z-10',
+            'transition-opacity duration-200',
+            isFavorite
+              ? 'opacity-100 text-yellow-500 hover:text-yellow-600'
+              : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-yellow-500'
+          )}
+          onClick={handleFavoriteClick}
+          aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+        >
+          <Star
+            className={cn(
+              'h-4 w-4 transition-all',
+              isFavorite && 'fill-current'
+            )}
+          />
+        </Button>
+      )}
+
       <CardContent className="p-4 flex items-start gap-3">
         <div
           className={cn(
