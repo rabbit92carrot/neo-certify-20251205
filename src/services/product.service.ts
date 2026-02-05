@@ -369,6 +369,7 @@ export async function deactivateProduct(
 /**
  * 제품 활성화
  * 비활성화 관련 필드를 초기화함
+ * 동일 모델명의 활성 제품이 이미 존재하면 활성화 불가
  *
  * @param organizationId 제조사 조직 ID
  * @param productId 제품 ID
@@ -380,6 +381,37 @@ export async function activateProduct(
 ): Promise<ApiResponse<Product>> {
   const supabase = await createClient();
 
+  // 1. 현재 제품 정보 조회
+  const { data: currentProduct, error: fetchError } = await supabase
+    .from('products')
+    .select('model_name')
+    .eq('id', productId)
+    .eq('organization_id', organizationId)
+    .single();
+
+  if (fetchError || !currentProduct) {
+    return createNotFoundResponse('제품을 찾을 수 없습니다.');
+  }
+
+  // 2. 동일 모델명의 활성 제품 존재 여부 확인
+  const { data: existingActive } = await supabase
+    .from('products')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('model_name', currentProduct.model_name)
+    .eq('is_active', true)
+    .neq('id', productId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingActive) {
+    return createErrorResponse(
+      'DUPLICATE_MODEL_NAME',
+      '동일한 모델명의 활성 제품이 이미 존재합니다.'
+    );
+  }
+
+  // 3. 활성화 수행
   const { data: product, error } = await supabase
     .from('products')
     .update({
