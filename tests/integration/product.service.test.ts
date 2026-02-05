@@ -290,4 +290,241 @@ describe('Product Service Integration Tests', () => {
       expect(updatedProduct?.is_active).toBe(true);
     });
   });
+
+  // ============================================================================
+  // 검증 로직 테스트 (DB 레벨 - 서비스 로직 시뮬레이션)
+  // 참고: 서비스 함수는 Next.js 쿠키 컨텍스트 필요하므로, 동일한 검증 로직을 DB 레벨에서 테스트
+  // ============================================================================
+
+  describe('UDI-DI 전역 고유성 검증 로직', () => {
+    it('다른 조직에서 동일한 UDI-DI가 있으면 쿼리로 탐지해야 한다', async () => {
+      const manufacturer1 = await createTestOrganization({ type: 'MANUFACTURER' });
+      const manufacturer2 = await createTestOrganization({ type: 'MANUFACTURER' });
+      const udiDi = generateTestId('GLOBAL_UDI');
+
+      // 제조사1에서 제품 생성
+      await adminClient.from('products').insert({
+        organization_id: manufacturer1.id,
+        name: '제품1',
+        udi_di: udiDi,
+        model_name: 'MODEL-001',
+      });
+
+      // 전역 UDI-DI 중복 검사 쿼리 (서비스 로직과 동일)
+      const { data: existingUdi } = await adminClient
+        .from('products')
+        .select('id')
+        .eq('udi_di', udiDi)
+        .limit(1)
+        .maybeSingle();
+
+      // 다른 조직이라도 전역으로 탐지되어야 함
+      expect(existingUdi).not.toBeNull();
+    });
+  });
+
+  describe('모델명 조직 내 고유성 검증 로직', () => {
+    it('동일 조직 내 같은 모델명의 활성 제품이 있으면 탐지해야 한다', async () => {
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const modelName = 'DUPLICATE-MODEL';
+
+      // 활성 제품 생성
+      await adminClient.from('products').insert({
+        organization_id: manufacturer.id,
+        name: '제품1',
+        udi_di: generateTestId('UDI1'),
+        model_name: modelName,
+        is_active: true,
+      });
+
+      // 모델명 중복 검사 쿼리 (서비스 로직과 동일)
+      const { data: existingModel } = await adminClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', manufacturer.id)
+        .eq('model_name', modelName)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+
+      expect(existingModel).not.toBeNull();
+    });
+
+    it('다른 조직의 같은 모델명은 탐지되지 않아야 한다', async () => {
+      const manufacturer1 = await createTestOrganization({ type: 'MANUFACTURER' });
+      const manufacturer2 = await createTestOrganization({ type: 'MANUFACTURER' });
+      const modelName = 'SAME-MODEL';
+
+      // 제조사1 제품
+      await adminClient.from('products').insert({
+        organization_id: manufacturer1.id,
+        name: '제품1',
+        udi_di: generateTestId('UDI1'),
+        model_name: modelName,
+        is_active: true,
+      });
+
+      // 제조사2에서 모델명 중복 검사 (해당 조직 범위)
+      const { data: existingModel } = await adminClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', manufacturer2.id) // 다른 조직
+        .eq('model_name', modelName)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+
+      // 다른 조직이므로 탐지되지 않아야 함
+      expect(existingModel).toBeNull();
+    });
+
+    it('비활성 제품의 모델명은 중복으로 탐지되지 않아야 한다', async () => {
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const modelName = 'REUSABLE-MODEL';
+
+      // 비활성 제품
+      await adminClient.from('products').insert({
+        organization_id: manufacturer.id,
+        name: '비활성 제품',
+        udi_di: generateTestId('UDI1'),
+        model_name: modelName,
+        is_active: false,
+      });
+
+      // 활성 제품만 검사하는 쿼리
+      const { data: existingModel } = await adminClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', manufacturer.id)
+        .eq('model_name', modelName)
+        .eq('is_active', true) // 활성만
+        .limit(1)
+        .maybeSingle();
+
+      // 비활성이므로 탐지되지 않아야 함
+      expect(existingModel).toBeNull();
+    });
+  });
+
+  describe('수정 시 자기 자신 제외 검증 로직', () => {
+    it('수정 시 자기 자신의 ID를 제외한 중복 검사가 동작해야 한다', async () => {
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+
+      // 제품 생성
+      const { data: product } = await adminClient
+        .from('products')
+        .insert({
+          organization_id: manufacturer.id,
+          name: '제품',
+          udi_di: generateTestId('SELF_UDI'),
+          model_name: 'SELF-MODEL',
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      // 자기 자신 제외 중복 검사 (서비스 로직과 동일)
+      const { data: duplicate } = await adminClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', manufacturer.id)
+        .eq('model_name', product!.model_name)
+        .eq('is_active', true)
+        .neq('id', product!.id) // 자기 자신 제외
+        .limit(1)
+        .maybeSingle();
+
+      // 자기 자신만 있으므로 중복 없음
+      expect(duplicate).toBeNull();
+    });
+  });
+
+  describe('재활성화 검증 로직', () => {
+    it('동일 모델명의 활성 제품이 있으면 재활성화 전 탐지해야 한다', async () => {
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const modelName = 'REACTIVATE-MODEL';
+
+      // 비활성 제품
+      const { data: inactiveProduct } = await adminClient
+        .from('products')
+        .insert({
+          organization_id: manufacturer.id,
+          name: '비활성 제품',
+          udi_di: generateTestId('INACTIVE_UDI'),
+          model_name: modelName,
+          is_active: false,
+        })
+        .select()
+        .single();
+
+      // 동일 모델명의 활성 제품
+      await adminClient.from('products').insert({
+        organization_id: manufacturer.id,
+        name: '활성 제품',
+        udi_di: generateTestId('ACTIVE_UDI'),
+        model_name: modelName,
+        is_active: true,
+      });
+
+      // 재활성화 전 검사 (서비스 로직과 동일)
+      const { data: existingActive } = await adminClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', manufacturer.id)
+        .eq('model_name', modelName)
+        .eq('is_active', true)
+        .neq('id', inactiveProduct!.id)
+        .limit(1)
+        .maybeSingle();
+
+      // 다른 활성 제품이 탐지되어야 함
+      expect(existingActive).not.toBeNull();
+    });
+
+    it('동일 모델명의 활성 제품이 없으면 재활성화 가능해야 한다', async () => {
+      const manufacturer = await createTestOrganization({ type: 'MANUFACTURER' });
+      const modelName = 'SAFE-MODEL';
+
+      // 비활성 제품만 있음
+      const { data: product } = await adminClient
+        .from('products')
+        .insert({
+          organization_id: manufacturer.id,
+          name: '제품',
+          udi_di: generateTestId('SAFE_UDI'),
+          model_name: modelName,
+          is_active: false,
+        })
+        .select()
+        .single();
+
+      // 재활성화 전 검사
+      const { data: existingActive } = await adminClient
+        .from('products')
+        .select('id')
+        .eq('organization_id', manufacturer.id)
+        .eq('model_name', modelName)
+        .eq('is_active', true)
+        .neq('id', product!.id)
+        .limit(1)
+        .maybeSingle();
+
+      // 활성 제품 없음
+      expect(existingActive).toBeNull();
+
+      // 재활성화 수행
+      await adminClient
+        .from('products')
+        .update({ is_active: true })
+        .eq('id', product!.id);
+
+      const { data: reactivated } = await adminClient
+        .from('products')
+        .select('is_active')
+        .eq('id', product!.id)
+        .single();
+
+      expect(reactivated?.is_active).toBe(true);
+    });
+  });
 });
