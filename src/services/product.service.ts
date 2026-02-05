@@ -282,18 +282,34 @@ export async function updateProduct(
     updateData.model_name = data.modelName;
   }
 
-  // UDI-DI 변경 시 중복 확인
-  if (data.udiDi) {
-    const { data: existing } = await supabase
+  // UDI-DI 또는 모델명 변경 시 고유성 검증
+  if (data.udiDi || data.modelName) {
+    // 현재 제품 정보 조회 (변경되지 않은 필드 값 사용)
+    const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
-      .select('id')
+      .select('udi_di, model_name')
+      .eq('id', data.id)
       .eq('organization_id', organizationId)
-      .eq('udi_di', data.udiDi)
-      .neq('id', data.id)
       .single();
 
-    if (existing) {
-      return createErrorResponse('DUPLICATE_UDI_DI', '이미 등록된 UDI-DI입니다.');
+    if (fetchError || !currentProduct) {
+      return createNotFoundResponse('제품을 찾을 수 없습니다.');
+    }
+
+    const validationErrors = await validateProductUniqueness(
+      supabase,
+      organizationId,
+      data.udiDi ?? currentProduct.udi_di,
+      data.modelName ?? currentProduct.model_name,
+      data.id // 자기 자신 제외
+    );
+
+    if (validationErrors) {
+      return createErrorResponse(
+        'VALIDATION_ERROR',
+        '입력값을 확인해주세요.',
+        validationErrors
+      );
     }
   }
 
