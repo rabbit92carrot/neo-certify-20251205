@@ -223,16 +223,20 @@ export async function createProduct(
 ): Promise<ApiResponse<Product>> {
   const supabase = await createClient();
 
-  // UDI-DI 중복 확인 (동일 제조사 내)
-  const { data: existing } = await supabase
-    .from('products')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('udi_di', data.udiDi)
-    .single();
+  // 고유성 검증 (UDI-DI 전역, 모델명 조직 내 활성 제품)
+  const validationErrors = await validateProductUniqueness(
+    supabase,
+    organizationId,
+    data.udiDi,
+    data.modelName
+  );
 
-  if (existing) {
-    return createErrorResponse('DUPLICATE_UDI_DI', '이미 등록된 UDI-DI입니다.');
+  if (validationErrors) {
+    return createErrorResponse(
+      'VALIDATION_ERROR',
+      '입력값을 확인해주세요.',
+      validationErrors
+    );
   }
 
   const { data: product, error } = await supabase
