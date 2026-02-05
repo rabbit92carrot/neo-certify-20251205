@@ -17,6 +17,72 @@ import { buildIlikeFilter } from '@/lib/utils/db';
 // 캐시 TTL 상수 (초)
 const PRODUCTS_CACHE_TTL = 300; // 5분
 
+// Supabase 클라이언트 타입
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * 제품 고유성 검증 (UDI-DI 전역, 모델명 조직 내 활성 제품)
+ *
+ * @param supabase Supabase 클라이언트
+ * @param organizationId 조직 ID
+ * @param udiDi UDI-DI (전역 고유)
+ * @param modelName 모델명 (조직 내 활성 제품에서 고유)
+ * @param excludeProductId 수정 시 자기 자신 제외
+ * @returns 필드별 에러 객체 또는 null
+ */
+async function validateProductUniqueness(
+  supabase: SupabaseClient,
+  organizationId: string,
+  udiDi: string,
+  modelName: string,
+  excludeProductId?: string
+): Promise<Record<string, string[]> | null> {
+  const errors: Record<string, string[]> = {};
+
+  // 두 쿼리를 병렬로 실행
+  const [udiResult, modelResult] = await Promise.all([
+    // 1. UDI-DI 전역 중복 검사 (모든 조직에서)
+    (async () => {
+      let query = supabase
+        .from('products')
+        .select('id')
+        .eq('udi_di', udiDi);
+
+      if (excludeProductId) {
+        query = query.neq('id', excludeProductId);
+      }
+
+      return query.limit(1).maybeSingle();
+    })(),
+
+    // 2. 모델명 조직 내 중복 검사 (활성 제품만)
+    (async () => {
+      let query = supabase
+        .from('products')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('model_name', modelName)
+        .eq('is_active', true);
+
+      if (excludeProductId) {
+        query = query.neq('id', excludeProductId);
+      }
+
+      return query.limit(1).maybeSingle();
+    })(),
+  ]);
+
+  if (udiResult.data) {
+    errors['udiDi'] = ['이미 등록된 UDI-DI입니다.'];
+  }
+
+  if (modelResult.data) {
+    errors['modelName'] = ['동일한 모델명의 제품이 이미 존재합니다.'];
+  }
+
+  return Object.keys(errors).length > 0 ? errors : null;
+}
+
 /**
  * 제품 목록 조회 (페이지네이션)
  *
@@ -157,16 +223,20 @@ export async function createProduct(
 ): Promise<ApiResponse<Product>> {
   const supabase = await createClient();
 
-  // UDI-DI 중복 확인 (동일 제조사 내)
-  const { data: existing } = await supabase
-    .from('products')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('udi_di', data.udiDi)
-    .single();
+  // 고유성 검증 (UDI-DI 전역, 모델명 조직 내 활성 제품)
+  const validationErrors = await validateProductUniqueness(
+    supabase,
+    organizationId,
+    data.udiDi,
+    data.modelName
+  );
 
-  if (existing) {
-    return createErrorResponse('DUPLICATE_UDI_DI', '이미 등록된 UDI-DI입니다.');
+  if (validationErrors) {
+    return createErrorResponse(
+      'VALIDATION_ERROR',
+      '입력값을 확인해주세요.',
+      validationErrors
+    );
   }
 
   const { data: product, error } = await supabase
@@ -212,18 +282,34 @@ export async function updateProduct(
     updateData.model_name = data.modelName;
   }
 
-  // UDI-DI 변경 시 중복 확인
-  if (data.udiDi) {
-    const { data: existing } = await supabase
+  // UDI-DI 또는 모델명 변경 시 고유성 검증
+  if (data.udiDi || data.modelName) {
+    // 현재 제품 정보 조회 (변경되지 않은 필드 값 사용)
+    const { data: currentProduct, error: fetchError } = await supabase
       .from('products')
-      .select('id')
+      .select('udi_di, model_name')
+      .eq('id', data.id)
       .eq('organization_id', organizationId)
-      .eq('udi_di', data.udiDi)
-      .neq('id', data.id)
       .single();
 
-    if (existing) {
-      return createErrorResponse('DUPLICATE_UDI_DI', '이미 등록된 UDI-DI입니다.');
+    if (fetchError || !currentProduct) {
+      return createNotFoundResponse('제품을 찾을 수 없습니다.');
+    }
+
+    const validationErrors = await validateProductUniqueness(
+      supabase,
+      organizationId,
+      data.udiDi ?? currentProduct.udi_di,
+      data.modelName ?? currentProduct.model_name,
+      data.id // 자기 자신 제외
+    );
+
+    if (validationErrors) {
+      return createErrorResponse(
+        'VALIDATION_ERROR',
+        '입력값을 확인해주세요.',
+        validationErrors
+      );
     }
   }
 
@@ -283,6 +369,7 @@ export async function deactivateProduct(
 /**
  * 제품 활성화
  * 비활성화 관련 필드를 초기화함
+ * 동일 모델명의 활성 제품이 이미 존재하면 활성화 불가
  *
  * @param organizationId 제조사 조직 ID
  * @param productId 제품 ID
@@ -294,6 +381,37 @@ export async function activateProduct(
 ): Promise<ApiResponse<Product>> {
   const supabase = await createClient();
 
+  // 1. 현재 제품 정보 조회
+  const { data: currentProduct, error: fetchError } = await supabase
+    .from('products')
+    .select('model_name')
+    .eq('id', productId)
+    .eq('organization_id', organizationId)
+    .single();
+
+  if (fetchError || !currentProduct) {
+    return createNotFoundResponse('제품을 찾을 수 없습니다.');
+  }
+
+  // 2. 동일 모델명의 활성 제품 존재 여부 확인
+  const { data: existingActive } = await supabase
+    .from('products')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('model_name', currentProduct.model_name)
+    .eq('is_active', true)
+    .neq('id', productId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingActive) {
+    return createErrorResponse(
+      'DUPLICATE_MODEL_NAME',
+      '동일한 모델명의 활성 제품이 이미 존재합니다.'
+    );
+  }
+
+  // 3. 활성화 수행
   const { data: product, error } = await supabase
     .from('products')
     .update({
