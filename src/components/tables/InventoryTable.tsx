@@ -27,9 +27,9 @@ import {
 } from '@/components/ui/table';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils';
-import type { ProductInventoryDetail, InventorySummary, InventorySummaryWithAlias } from '@/types/api.types';
+import type { ProductInventoryDetail, InventorySummary, InventorySummaryWithAlias, HospitalInventorySummary } from '@/types/api.types';
 
-type SummaryType = InventorySummary | InventorySummaryWithAlias;
+type SummaryType = InventorySummary | InventorySummaryWithAlias | HospitalInventorySummary;
 
 interface InventoryTableProps {
   /** 제품별 재고 요약 (별칭 포함 가능) */
@@ -41,8 +41,15 @@ interface InventoryTableProps {
 /**
  * 별칭 여부 확인 헬퍼
  */
-function hasAlias(summary: SummaryType): summary is InventorySummaryWithAlias {
+function hasAlias(summary: SummaryType): summary is InventorySummaryWithAlias | HospitalInventorySummary {
   return 'alias' in summary && summary.alias !== null;
+}
+
+/**
+ * 병원 재고 요약 여부 확인 헬퍼
+ */
+function isHospitalSummary(summary: SummaryType): summary is HospitalInventorySummary {
+  return 'productIsActive' in summary;
 }
 
 /**
@@ -98,7 +105,10 @@ function ProductInventoryCard({
         role="button"
         aria-expanded={isExpanded}
       >
-        <div className="flex items-center justify-between gap-4">
+        <div className={cn(
+          "flex items-center justify-between gap-4",
+          isHospitalSummary(summary) && (!summary.productIsActive || summary.hkpIsActive === false) && "opacity-60"
+        )}>
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Button
               variant="ghost"
@@ -128,6 +138,16 @@ function ProductInventoryCard({
                 )}
               </div>
             </div>
+            {isHospitalSummary(summary) && !summary.productIsActive && (
+              <Badge variant="destructive" className="text-xs flex-shrink-0">
+                제조사 비활성
+              </Badge>
+            )}
+            {isHospitalSummary(summary) && summary.hkpIsActive === false && (
+              <Badge variant="outline" className="text-xs flex-shrink-0 text-orange-600 border-orange-300">
+                사용중지
+              </Badge>
+            )}
           </div>
 
           <Badge

@@ -177,6 +177,21 @@ export const InventorySummaryRowSchema = z.object({
 });
 
 /**
+ * 병원 재고 요약 스키마
+ * RPC: get_hospital_inventory_summary
+ */
+export const HospitalInventorySummaryRowSchema = z.object({
+  product_id: z.string().uuid(),
+  product_name: z.string(),
+  model_name: z.string(),
+  udi_di: z.string(),
+  quantity: z.number(),
+  product_is_active: z.boolean(),
+  hkp_is_active: z.boolean().nullable(),
+  alias: z.string().nullable(),
+});
+
+/**
  * Lot별 재고 스키마
  * RPC: get_inventory_by_lot
  */
@@ -555,8 +570,8 @@ export const HospitalKnownProductRowSchema = z.object({
   id: z.string().uuid(),
   product_id: z.string().uuid(),
   product_name: z.string(),
-  model_name: z.string().nullable(),
-  udi_di: z.string().nullable(),
+  model_name: z.string(),
+  udi_di: z.string(),
   alias: z.string().nullable(),
   is_active: z.boolean(),
   first_received_at: z.string(),
@@ -584,8 +599,8 @@ export type UpdateHospitalProductSettingsResult = z.infer<typeof UpdateHospitalP
 export const ActiveProductForTreatmentRowSchema = z.object({
   product_id: z.string().uuid(),
   product_name: z.string(),
-  model_name: z.string().nullable(),
-  udi_di: z.string().nullable(),
+  model_name: z.string(),
+  udi_di: z.string(),
   alias: z.string().nullable(),
   available_quantity: z.number(),
 });

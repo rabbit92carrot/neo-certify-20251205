@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logger';
 import type {
   ApiResponse,
   InventorySummary,
+  HospitalInventorySummary,
   ProductInventoryDetail,
   InventoryByLot,
   Product,
@@ -17,6 +18,7 @@ import type {
 import { createErrorResponse, createSuccessResponse, parseRpcArray } from './common.service';
 import {
   InventorySummaryRowSchema,
+  HospitalInventorySummaryRowSchema,
   InventoryByLotRowSchema,
   InventoryByLotsBulkRowSchema,
 } from '@/lib/validations/rpc-schemas';
@@ -55,9 +57,54 @@ export async function getInventorySummary(
   const summaries: InventorySummary[] = parsed.data.map((row) => ({
     productId: row.product_id,
     productName: row.product_name,
-    modelName: row.model_name ?? '',
-    udiDi: row.udi_di ?? '',
+    modelName: row.model_name,
+    udiDi: row.udi_di,
     totalQuantity: Number(row.quantity),
+  }));
+
+  return createSuccessResponse(summaries);
+}
+
+/**
+ * 병원 전용 재고 요약 조회
+ * 제품 활성화 상태, HKP 상태, 별칭을 포함하여 단일 RPC로 조회
+ *
+ * @param hospitalId 병원 조직 ID
+ * @returns 병원 재고 요약 목록 (활성화 상태 + 별칭 포함)
+ */
+export async function getHospitalInventorySummary(
+  hospitalId: string
+): Promise<ApiResponse<HospitalInventorySummary[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('get_hospital_inventory_summary', {
+    p_hospital_id: hospitalId,
+  });
+
+  if (error) {
+    logger.error('병원 재고 요약 조회 실패', error);
+    return createErrorResponse('QUERY_ERROR', '재고 조회에 실패했습니다.');
+  }
+
+  const parsed = parseRpcArray(
+    HospitalInventorySummaryRowSchema,
+    data,
+    'get_hospital_inventory_summary'
+  );
+  if (!parsed.success) {
+    logger.error('get_hospital_inventory_summary 검증 실패', { error: parsed.error });
+    return createErrorResponse('VALIDATION_ERROR', parsed.error);
+  }
+
+  const summaries: HospitalInventorySummary[] = parsed.data.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    modelName: row.model_name,
+    udiDi: row.udi_di,
+    totalQuantity: Number(row.quantity),
+    productIsActive: row.product_is_active,
+    hkpIsActive: row.hkp_is_active,
+    alias: row.alias,
   }));
 
   return createSuccessResponse(summaries);
