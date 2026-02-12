@@ -23,11 +23,14 @@ vi.mock('@upstash/ratelimit', () => {
   return { Ratelimit: MockRatelimit };
 });
 
-vi.mock('@upstash/redis', () => ({
-  Redis: {
-    fromEnv: () => ({}),
-  },
-}));
+vi.mock('@upstash/redis', () => {
+  class MockRedis {
+    static fromEnv() {
+      return new MockRedis();
+    }
+  }
+  return { Redis: MockRedis };
+});
 
 // 모킹 후 임포트
 import {
