@@ -223,6 +223,27 @@ type CustomFunctions = {
       total_count: number;
     }[];
   };
+
+  /**
+   * Hospital-specific inventory summary with product status and alias
+   * RPC: get_hospital_inventory_summary
+   * Migration: 20260212000002_get_hospital_inventory_summary.sql
+   */
+  get_hospital_inventory_summary: {
+    Args: {
+      p_hospital_id: string;
+    };
+    Returns: {
+      product_id: string;
+      product_name: string;
+      model_name: string;
+      udi_di: string;
+      quantity: number;
+      product_is_active: boolean;
+      hkp_is_active: boolean | null;
+      alias: string | null;
+    }[];
+  };
 };
 
 /**

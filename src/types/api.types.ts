@@ -251,6 +251,15 @@ export interface InventorySummaryWithAlias extends InventorySummary {
 }
 
 /**
+ * 병원 전용 재고 요약 (활성화 상태 + 별칭 포함)
+ */
+export interface HospitalInventorySummary extends InventorySummary {
+  productIsActive: boolean;
+  hkpIsActive: boolean | null;
+  alias: string | null;
+}
+
+/**
  * Lot별 재고 상세
  */
 export interface InventoryByLot {

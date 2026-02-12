@@ -98,8 +98,8 @@ export async function getHospitalKnownProducts(
     id: row.id,
     productId: row.product_id,
     productName: row.product_name,
-    modelName: row.model_name ?? '',
-    udiDi: row.udi_di ?? '',
+    modelName: row.model_name,
+    udiDi: row.udi_di,
     alias: row.alias,
     isActive: row.is_active,
     firstReceivedAt: row.first_received_at,
@@ -247,8 +247,8 @@ export async function getActiveProductsForTreatment(
   const products: ProductForTreatment[] = parsed.data.map((row) => ({
     productId: row.product_id,
     productName: row.product_name,
-    modelName: row.model_name ?? '',
-    udiDi: row.udi_di ?? '',
+    modelName: row.model_name,
+    udiDi: row.udi_di,
     alias: row.alias,
     availableQuantity: row.available_quantity,
   }));
@@ -453,8 +453,8 @@ export async function getActiveProductsForTreatmentCacheable(
   const products: ProductForTreatment[] = parsed.data.map((row) => ({
     productId: row.product_id,
     productName: row.product_name,
-    modelName: row.model_name ?? '',
-    udiDi: row.udi_di ?? '',
+    modelName: row.model_name,
+    udiDi: row.udi_di,
     alias: row.alias,
     availableQuantity: row.available_quantity,
   }));

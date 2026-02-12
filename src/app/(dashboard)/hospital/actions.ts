@@ -382,6 +382,8 @@ export async function updateHospitalProductSettingsAction(
     after(() => {
       revalidatePath('/hospital/settings');
       revalidatePath('/hospital/treatment');
+      revalidatePath('/hospital/inventory');
+      revalidatePath('/hospital/dashboard');
     });
   }
 
